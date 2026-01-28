@@ -447,6 +447,34 @@ export function getSkillsByCategory(categoryId) {
 }
 
 /**
+ * Get skill info from skill path (reverse lookup)
+ * @param {string} skillPath - The skill path (e.g., 'bidding_conventions/stayman')
+ * @returns {Object} Skill information with name, category, description
+ */
+export function getSkillFromPath(skillPath) {
+  for (const [subfolder, skill] of Object.entries(BAKER_BRIDGE_TAXONOMY)) {
+    if (skill.path === skillPath) {
+      return { subfolder, ...skill }
+    }
+  }
+
+  // Return generic info for unknown paths
+  const parts = skillPath.split('/')
+  const name = parts[parts.length - 1]
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
+  return {
+    subfolder: null,
+    path: skillPath,
+    name: name,
+    category: parts[0] ? parts[0].split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') : 'Unknown',
+    description: ''
+  }
+}
+
+/**
  * Get category from skill path
  * @param {string} skillPath - The skill path (e.g., 'bidding_conventions/stayman')
  * @returns {string} The category ID

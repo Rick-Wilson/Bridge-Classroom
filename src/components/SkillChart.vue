@@ -32,6 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { getSkillFromPath } from '../utils/bakerBridgeTaxonomy.js'
 
 const props = defineProps({
   stats: {
@@ -48,20 +49,14 @@ const sortedStats = computed(() => {
 })
 
 function formatSkillName(skill) {
-  // Convert 'bidding/stayman' to 'Stayman'
-  // or 'unknown/unknown' to 'General Practice'
+  // Handle unknown/unknown or unknown
   if (skill === 'unknown/unknown' || skill === 'unknown') {
     return 'General Practice'
   }
 
-  const parts = skill.split('/')
-  const name = parts[parts.length - 1]
-
-  // Convert snake_case to Title Case
-  return name
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  // Use taxonomy for proper skill names
+  const skillInfo = getSkillFromPath(skill)
+  return skillInfo.name
 }
 
 function getAccuracyClass(accuracy) {

@@ -290,9 +290,16 @@ async function onFileSelect(event) {
     const content = await file.text()
     const parsed = parsePbn(content)
     if (parsed.length > 0) {
-      deals.value = parsed
+      // Extract category from filename (e.g., 'Cue-bid.pbn' -> 'Cue-bid')
+      const category = file.name.replace(/\.pbn$/i, '')
+      const dealsWithCategory = parsed.map(deal => ({
+        ...deal,
+        subfolder: deal.subfolder || category,
+        category: deal.category || category
+      }))
+      deals.value = dealsWithCategory
       currentDealIndex.value = 0
-      practice.loadDeal(parsed[0])
+      practice.loadDeal(dealsWithCategory[0])
       practice.resetStats()
     } else {
       alert('No deals found in the PBN file')
@@ -310,9 +317,15 @@ async function loadBundledFile(file) {
     const content = await response.text()
     const parsed = parsePbn(content)
     if (parsed.length > 0) {
-      deals.value = parsed
+      // Set the subfolder/category on each deal for skill tracking
+      const dealsWithCategory = parsed.map(deal => ({
+        ...deal,
+        subfolder: file.name,
+        category: file.name
+      }))
+      deals.value = dealsWithCategory
       currentDealIndex.value = 0
-      practice.loadDeal(parsed[0])
+      practice.loadDeal(dealsWithCategory[0])
       practice.resetStats()
     }
   } catch (err) {

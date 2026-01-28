@@ -50,6 +50,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { getSkillFromPath } from '../utils/bakerBridgeTaxonomy.js'
 
 const props = defineProps({
   sessions: {
@@ -109,13 +110,9 @@ function formatSkillName(skill) {
     return ''
   }
 
-  const parts = skill.split('/')
-  const name = parts[parts.length - 1]
-
-  return name
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  // Use taxonomy for proper skill names
+  const skillInfo = getSkillFromPath(skill)
+  return skillInfo.name
 }
 </script>
 
