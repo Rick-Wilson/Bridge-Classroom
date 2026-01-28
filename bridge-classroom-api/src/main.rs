@@ -1,0 +1,114 @@
+use axum::{
+    http::{header, Method},
+    routing::{get, post},
+    Router,
+};
+use sqlx::{Pool, Sqlite};
+use std::sync::Arc;
+use tower_http::{
+    cors::{Any, CorsLayer},
+    trace::TraceLayer,
+};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+
+mod config;
+mod db;
+mod models;
+mod routes;
+
+use config::Config;
+
+/// Application state shared across handlers
+#[derive(Clone)]
+pub struct AppState {
+    pub db: Pool<Sqlite>,
+    pub config: Arc<Config>,
+}
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // Initialize tracing
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "bridge_classroom_api=debug,tower_http=debug".into()),
+        )
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
+    // Load configuration
+    let config = Config::from_env()?;
+    tracing::info!("Loaded configuration");
+
+    // Initialize database
+    let db = db::init_db(&config.database_url).await?;
+    tracing::info!("Database initialized");
+
+    // Build CORS layer
+    let cors = build_cors_layer(&config);
+
+    // Create application state
+    let state = AppState {
+        db,
+        config: Arc::new(config.clone()),
+    };
+
+    // Build router
+    let app = Router::new()
+        // Health check
+        .route("/health", get(health_check))
+        // API routes
+        .route("/api/keys/teacher", get(routes::get_teacher_key))
+        .route("/api/users", post(routes::create_user))
+        .route(
+            "/api/users/:user_id/public-key",
+            get(routes::get_user_public_key),
+        )
+        .route("/api/observations", post(routes::submit_observations))
+        .route("/api/observations", get(routes::get_observations))
+        .route(
+            "/api/observations/metadata",
+            get(routes::get_observations_metadata),
+        )
+        .layer(cors)
+        .layer(TraceLayer::new_for_http())
+        .with_state(state);
+
+    // Start server
+    let addr = config.server_addr();
+    tracing::info!("Starting server on {}", addr);
+
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    axum::serve(listener, app).await?;
+
+    Ok(())
+}
+
+/// Build CORS layer from configuration
+fn build_cors_layer(config: &Config) -> CorsLayer {
+    let origins = config.allowed_origins.clone();
+
+    if origins.is_empty() || origins.iter().any(|o| o == "*") {
+        // Allow any origin (for development)
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
+    } else {
+        // Specific origins
+        let allowed: Vec<_> = origins
+            .iter()
+            .filter_map(|o| o.parse().ok())
+            .collect();
+
+        CorsLayer::new()
+            .allow_origin(allowed)
+            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
+    }
+}
+
+/// Health check endpoint
+async fn health_check() -> &'static str {
+    "OK"
+}

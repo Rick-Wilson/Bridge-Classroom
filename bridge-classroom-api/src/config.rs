@@ -1,0 +1,77 @@
+use std::env;
+
+/// Application configuration loaded from environment variables
+#[derive(Debug, Clone)]
+pub struct Config {
+    /// Database URL (SQLite path)
+    pub database_url: String,
+
+    /// API key for authenticating requests
+    pub api_key: String,
+
+    /// Teacher's public key (base64-encoded SPKI)
+    pub teacher_public_key: String,
+
+    /// Comma-separated list of allowed CORS origins
+    pub allowed_origins: Vec<String>,
+
+    /// Server host
+    pub host: String,
+
+    /// Server port
+    pub port: u16,
+}
+
+impl Config {
+    /// Load configuration from environment variables
+    pub fn from_env() -> Result<Self, ConfigError> {
+        // Load .env file if it exists (for development)
+        let _ = dotenvy::dotenv();
+
+        let database_url = env::var("DATABASE_URL")
+            .unwrap_or_else(|_| "sqlite:./data/bridge_classroom.db".to_string());
+
+        let api_key = env::var("API_KEY")
+            .map_err(|_| ConfigError::MissingEnvVar("API_KEY"))?;
+
+        let teacher_public_key = env::var("TEACHER_PUBLIC_KEY")
+            .unwrap_or_default(); // Optional - can be empty initially
+
+        let allowed_origins = env::var("ALLOWED_ORIGINS")
+            .unwrap_or_else(|_| "http://localhost:5173,http://localhost:4173".to_string())
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+
+        let port = env::var("PORT")
+            .unwrap_or_else(|_| "3000".to_string())
+            .parse()
+            .map_err(|_| ConfigError::InvalidPort)?;
+
+        Ok(Config {
+            database_url,
+            api_key,
+            teacher_public_key,
+            allowed_origins,
+            host,
+            port,
+        })
+    }
+
+    /// Get the server address as a string
+    pub fn server_addr(&self) -> String {
+        format!("{}:{}", self.host, self.port)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+    #[error("Missing required environment variable: {0}")]
+    MissingEnvVar(&'static str),
+
+    #[error("Invalid port number")]
+    InvalidPort,
+}
