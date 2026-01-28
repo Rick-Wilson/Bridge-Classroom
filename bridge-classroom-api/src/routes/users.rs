@@ -1,13 +1,21 @@
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     Json,
 };
 
 use crate::{
-    models::{CreateUserRequest, CreateUserResponse, PublicUserInfo, User},
+    models::{CreateUserRequest, CreateUserResponse, PublicUserInfo, User, UsersListResponse, UserInfo},
     AppState,
 };
+
+/// Validate API key from request headers
+fn validate_api_key(headers: &HeaderMap, expected_key: &str) -> bool {
+    if let Some(header_key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
+        return header_key == expected_key;
+    }
+    false
+}
 
 /// POST /api/users
 /// Register a new user
@@ -84,6 +92,36 @@ pub async fn create_user(
             .map(|u| u.id)
             .unwrap_or_else(|| "created".to_string()),
     }))
+}
+
+/// GET /api/users
+/// Get all users (for teacher dashboard)
+pub async fn get_users(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Json<UsersListResponse>, (StatusCode, String)> {
+    // Validate API key
+    if !validate_api_key(&headers, &state.config.api_key) {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
+    }
+
+    let users = sqlx::query_as::<_, User>("SELECT * FROM users ORDER BY created_at DESC")
+        .fetch_all(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let user_infos: Vec<UserInfo> = users
+        .into_iter()
+        .map(|u| UserInfo {
+            id: u.id,
+            first_name: u.first_name_encrypted, // Note: these are stored encrypted/plaintext based on implementation
+            last_name: u.last_name_encrypted,
+            classroom: u.classroom,
+            created_at: u.created_at,
+        })
+        .collect();
+
+    Ok(Json(UsersListResponse { users: user_infos }))
 }
 
 /// GET /api/users/:user_id/public-key

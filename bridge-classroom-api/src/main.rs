@@ -58,8 +58,10 @@ async fn main() -> anyhow::Result<()> {
         // Health check
         .route("/health", get(health_check))
         // API routes
+        .route("/api/auth/teacher", post(routes::authenticate_teacher))
         .route("/api/keys/teacher", get(routes::get_teacher_key))
         .route("/api/users", post(routes::create_user))
+        .route("/api/users", get(routes::get_users))
         .route(
             "/api/users/:user_id/public-key",
             get(routes::get_user_public_key),

@@ -12,6 +12,9 @@ pub struct Config {
     /// Teacher's public key (base64-encoded SPKI)
     pub teacher_public_key: String,
 
+    /// Teacher's password for dashboard access
+    pub teacher_password: String,
+
     /// Comma-separated list of allowed CORS origins
     pub allowed_origins: Vec<String>,
 
@@ -37,6 +40,9 @@ impl Config {
         let teacher_public_key = env::var("TEACHER_PUBLIC_KEY")
             .unwrap_or_default(); // Optional - can be empty initially
 
+        let teacher_password = env::var("TEACHER_PASSWORD")
+            .unwrap_or_else(|_| "changeme".to_string()); // Default for development
+
         let allowed_origins = env::var("ALLOWED_ORIGINS")
             .unwrap_or_else(|_| "http://localhost:5173,http://localhost:4173".to_string())
             .split(',')
@@ -55,6 +61,7 @@ impl Config {
             database_url,
             api_key,
             teacher_public_key,
+            teacher_password,
             allowed_origins,
             host,
             port,

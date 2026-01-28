@@ -40,6 +40,22 @@ pub struct PublicUserInfo {
     pub public_key: String,
 }
 
+/// User info for teacher dashboard
+#[derive(Debug, Serialize)]
+pub struct UserInfo {
+    pub id: String,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub classroom: Option<String>,
+    pub created_at: String,
+}
+
+/// Response containing list of users
+#[derive(Debug, Serialize)]
+pub struct UsersListResponse {
+    pub users: Vec<UserInfo>,
+}
+
 impl User {
     /// Create a new user from a request
     pub fn from_request(req: CreateUserRequest) -> Self {
