@@ -120,6 +120,9 @@ function updateUser(userId, updates) {
   if (updates.dataConsent !== undefined) {
     user.dataConsent = updates.dataConsent
   }
+  if (updates.serverRegistered !== undefined) {
+    user.serverRegistered = updates.serverRegistered
+  }
 
   user.updatedAt = new Date().toISOString()
   saveToStorage()

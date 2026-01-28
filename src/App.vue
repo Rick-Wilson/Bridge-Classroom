@@ -10,6 +10,7 @@
     <header class="app-header">
       <h1>{{ appTitle }}</h1>
       <div class="header-right">
+        <SyncStatus />
         <div class="stats" v-if="practice.state.correctCount + practice.state.wrongCount > 0">
           <span class="correct">{{ practice.state.correctCount }}</span>
           <span class="wrong">{{ practice.state.wrongCount }}</span>
@@ -159,6 +160,8 @@ import { useBiddingPractice } from './composables/useBiddingPractice.js'
 import { useAppConfig } from './composables/useAppConfig.js'
 import { useUserStore } from './composables/useUserStore.js'
 import { useAssignmentStore } from './composables/useAssignmentStore.js'
+import { useDataSync } from './composables/useDataSync.js'
+import { useObservationStore } from './composables/useObservationStore.js'
 
 import BridgeTable from './components/BridgeTable.vue'
 import BiddingBox from './components/BiddingBox.vue'
@@ -170,11 +173,14 @@ import WelcomeScreen from './components/WelcomeScreen.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import AssignmentBanner from './components/AssignmentBanner.vue'
 import KeyBackupModal from './components/KeyBackupModal.vue'
+import SyncStatus from './components/SyncStatus.vue'
 
 // Composables
 const appConfig = useAppConfig()
 const userStore = useUserStore()
 const assignmentStore = useAssignmentStore()
+const dataSync = useDataSync()
+const observationStore = useObservationStore()
 
 // Practice state
 const practice = useBiddingPractice()
@@ -204,16 +210,25 @@ const appTitle = computed(() => {
 })
 
 // Initialize on mount
-onMounted(() => {
+onMounted(async () => {
   appConfig.initializeFromUrl()
   userStore.initialize()
   assignmentStore.initializeFromUrl()
+  observationStore.initialize()
+
+  // Initialize data sync (fetches teacher key, registers user, syncs pending data)
+  if (userStore.isAuthenticated.value) {
+    await dataSync.initialize()
+  }
 })
 
 // User flow handlers
-function handleUserReady(user) {
+async function handleUserReady(user) {
   // User is now authenticated, app will show main content
   console.log('User ready:', user.firstName, user.lastName)
+
+  // Initialize data sync for the new user (register with server, fetch teacher key)
+  await dataSync.initialize()
 }
 
 function handleSwitchUser() {
@@ -245,6 +260,14 @@ const dealTitle = computed(() => {
 watch(currentDealIndex, () => {
   if (currentDeal.value) {
     practice.loadDeal(currentDeal.value)
+  }
+})
+
+// Trigger sync when new observations are recorded
+watch(() => observationStore.pendingCount.value, (newCount, oldCount) => {
+  if (newCount > oldCount) {
+    // New observation was recorded, trigger debounced sync
+    dataSync.triggerSync()
   }
 })
 

@@ -5,6 +5,10 @@ Cargo.lock
 # Environment files (contain secrets)
 .env
 
+# Private keys (NEVER commit these!)
+*.pem
+teacher-private-key.pem
+
 # Database files
 /data/
 *.db

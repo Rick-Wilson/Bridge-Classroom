@@ -3,6 +3,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     Json,
 };
+use serde::Deserialize;
 
 use crate::{
     models::{
@@ -12,13 +13,29 @@ use crate::{
     AppState,
 };
 
-/// Validate API key from request headers
-fn validate_api_key(headers: &HeaderMap, expected_key: &str) -> bool {
-    headers
-        .get("x-api-key")
-        .and_then(|v| v.to_str().ok())
-        .map(|key| key == expected_key)
-        .unwrap_or(false)
+/// Query parameters for submit endpoint (for sendBeacon support)
+#[derive(Debug, Deserialize)]
+pub struct SubmitQuery {
+    pub api_key: Option<String>,
+}
+
+/// Validate API key from request headers or query params
+fn validate_api_key(headers: &HeaderMap, query_key: Option<&str>, expected_key: &str) -> bool {
+    // Check header first
+    if let Some(header_key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
+        if header_key == expected_key {
+            return true;
+        }
+    }
+
+    // Fall back to query parameter (for sendBeacon)
+    if let Some(qk) = query_key {
+        if qk == expected_key {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// POST /api/observations
@@ -26,10 +43,11 @@ fn validate_api_key(headers: &HeaderMap, expected_key: &str) -> bool {
 pub async fn submit_observations(
     State(state): State<AppState>,
     headers: HeaderMap,
+    Query(query): Query<SubmitQuery>,
     Json(req): Json<SubmitObservationsRequest>,
 ) -> Result<Json<SubmitObservationsResponse>, (StatusCode, String)> {
-    // Validate API key
-    if !validate_api_key(&headers, &state.config.api_key) {
+    // Validate API key (from header or query param for sendBeacon support)
+    if !validate_api_key(&headers, query.api_key.as_deref(), &state.config.api_key) {
         return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
     }
 
@@ -98,7 +116,7 @@ pub async fn get_observations(
     Query(query): Query<ObservationQuery>,
 ) -> Result<Json<ObservationsResponse>, (StatusCode, String)> {
     // Validate API key
-    if !validate_api_key(&headers, &state.config.api_key) {
+    if !validate_api_key(&headers, None, &state.config.api_key) {
         return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
     }
 
@@ -195,7 +213,7 @@ pub async fn get_observations_metadata(
     Query(query): Query<ObservationQuery>,
 ) -> Result<Json<ObservationsMetadataResponse>, (StatusCode, String)> {
     // Validate API key
-    if !validate_api_key(&headers, &state.config.api_key) {
+    if !validate_api_key(&headers, None, &state.config.api_key) {
         return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
     }
 

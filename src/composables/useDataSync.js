@@ -1,0 +1,402 @@
+import { ref, computed, watch } from 'vue'
+import { useUserStore } from './useUserStore.js'
+import { useObservationStore } from './useObservationStore.js'
+
+// API configuration
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+
+// Singleton state
+const syncState = ref('idle') // 'idle', 'syncing', 'error', 'offline'
+const lastSyncAt = ref(null)
+const lastError = ref(null)
+const retryCount = ref(0)
+const isOnline = ref(navigator.onLine)
+
+// Sync configuration
+const MAX_RETRIES = 5
+const BASE_DELAY_MS = 1000
+const MAX_DELAY_MS = 60000
+const DEBOUNCE_MS = 5000
+
+// Debounce timer
+let syncDebounceTimer = null
+
+/**
+ * Calculate exponential backoff delay
+ * @param {number} attempt - Current retry attempt (0-indexed)
+ * @returns {number} Delay in milliseconds
+ */
+function getBackoffDelay(attempt) {
+  const delay = Math.min(BASE_DELAY_MS * Math.pow(2, attempt), MAX_DELAY_MS)
+  // Add jitter (0-25% of delay)
+  return delay + Math.random() * delay * 0.25
+}
+
+/**
+ * Register a user with the server
+ * @param {Object} user - User object
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+async function registerUserWithServer(user) {
+  try {
+    const response = await fetch(`${API_URL}/users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        first_name: user.firstName,
+        last_name: user.lastName,
+        classroom: user.classrooms?.[0] || null,
+        public_key: user.publicKey,
+        data_consent: user.dataConsent
+      })
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return { success: false, error: `Server error: ${response.status} - ${errorText}` }
+    }
+
+    const result = await response.json()
+    return { success: result.success, userId: result.user_id }
+  } catch (err) {
+    console.error('Failed to register user with server:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+/**
+ * Fetch teacher public key from server
+ * @returns {Promise<{success: boolean, publicKey?: string, error?: string}>}
+ */
+async function fetchTeacherPublicKey() {
+  try {
+    const response = await fetch(`${API_URL}/keys/teacher`)
+
+    if (!response.ok) {
+      return { success: false, error: `Server error: ${response.status}` }
+    }
+
+    const result = await response.json()
+    return { success: true, publicKey: result.public_key }
+  } catch (err) {
+    console.error('Failed to fetch teacher public key:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+/**
+ * Sync observations to server
+ * @param {Array} observations - Array of observations to sync
+ * @returns {Promise<{success: boolean, synced?: number, errors?: string[]}>}
+ */
+async function syncObservationsToServer(observations) {
+  if (observations.length === 0) {
+    return { success: true, synced: 0, errors: [] }
+  }
+
+  // Filter to only encrypted observations ready to send
+  const readyToSync = observations.filter(obs => obs.encrypted && !obs.needsTeacherKey)
+
+  if (readyToSync.length === 0) {
+    return { success: true, synced: 0, errors: [] }
+  }
+
+  try {
+    const payload = {
+      observations: readyToSync.map(obs => ({
+        encrypted_data: obs.encrypted_data,
+        iv: obs.iv,
+        student_key_blob: obs.student_key_blob,
+        teacher_key_blob: obs.teacher_key_blob,
+        metadata: obs.metadata
+      }))
+    }
+
+    const response = await fetch(`${API_URL}/observations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_KEY
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      return { success: false, errors: [`Server error: ${response.status} - ${errorText}`] }
+    }
+
+    const result = await response.json()
+    return {
+      success: true,
+      synced: result.stored,
+      errors: result.errors || []
+    }
+  } catch (err) {
+    console.error('Failed to sync observations:', err)
+    return { success: false, errors: [err.message] }
+  }
+}
+
+/**
+ * Main sync function - syncs all pending data
+ * @returns {Promise<{success: boolean, userRegistered?: boolean, teacherKeyFetched?: boolean, observationsSynced?: number}>}
+ */
+async function performSync() {
+  const userStore = useUserStore()
+  const observationStore = useObservationStore()
+
+  // Check if online
+  if (!navigator.onLine) {
+    syncState.value = 'offline'
+    return { success: false, offline: true }
+  }
+
+  syncState.value = 'syncing'
+  lastError.value = null
+
+  const result = {
+    success: true,
+    userRegistered: false,
+    teacherKeyFetched: false,
+    observationsSynced: 0
+  }
+
+  try {
+    const user = userStore.currentUser.value
+
+    // 1. Register user if not already registered
+    if (user && !user.serverRegistered) {
+      const regResult = await registerUserWithServer(user)
+      if (regResult.success) {
+        userStore.updateUser(user.id, { serverRegistered: true })
+        result.userRegistered = true
+        console.log('User registered with server')
+      } else {
+        console.warn('User registration failed:', regResult.error)
+        // Continue anyway - user can be registered later
+      }
+    }
+
+    // 2. Fetch teacher public key if we don't have it
+    if (!userStore.getTeacherPublicKey()) {
+      const keyResult = await fetchTeacherPublicKey()
+      if (keyResult.success && keyResult.publicKey) {
+        userStore.setTeacherPublicKey(keyResult.publicKey)
+        result.teacherKeyFetched = true
+        console.log('Teacher public key fetched')
+
+        // Re-encrypt any observations that were waiting for teacher key
+        const reencrypted = await observationStore.reencryptWithTeacherKey()
+        if (reencrypted > 0) {
+          console.log(`Re-encrypted ${reencrypted} observations with teacher key`)
+        }
+      } else {
+        console.warn('Failed to fetch teacher key:', keyResult.error)
+        // Continue anyway - we can encrypt with student key only
+      }
+    }
+
+    // 3. Sync pending observations
+    if (user?.dataConsent) {
+      const pending = observationStore.getPendingObservations()
+      if (pending.length > 0) {
+        const syncResult = await syncObservationsToServer(pending)
+        if (syncResult.success && syncResult.synced > 0) {
+          // Remove synced observations
+          const syncedIds = pending
+            .filter(obs => obs.encrypted && !obs.needsTeacherKey)
+            .slice(0, syncResult.synced)
+            .map(obs => obs.metadata?.observation_id)
+
+          observationStore.removeSyncedObservations(syncedIds)
+          result.observationsSynced = syncResult.synced
+          console.log(`Synced ${syncResult.synced} observations`)
+        }
+
+        if (syncResult.errors?.length > 0) {
+          console.warn('Sync errors:', syncResult.errors)
+        }
+      }
+    }
+
+    syncState.value = 'idle'
+    lastSyncAt.value = new Date().toISOString()
+    retryCount.value = 0
+    return result
+  } catch (err) {
+    console.error('Sync failed:', err)
+    lastError.value = err.message
+    syncState.value = 'error'
+    result.success = false
+    return result
+  }
+}
+
+/**
+ * Trigger sync with debouncing
+ */
+function triggerSync() {
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer)
+  }
+
+  syncDebounceTimer = setTimeout(async () => {
+    await performSync()
+  }, DEBOUNCE_MS)
+}
+
+/**
+ * Force immediate sync (skip debounce)
+ */
+async function forceSync() {
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer)
+    syncDebounceTimer = null
+  }
+  return await performSync()
+}
+
+/**
+ * Retry sync with exponential backoff
+ */
+async function retrySync() {
+  if (retryCount.value >= MAX_RETRIES) {
+    console.log('Max retries reached, giving up')
+    syncState.value = 'error'
+    return
+  }
+
+  const delay = getBackoffDelay(retryCount.value)
+  retryCount.value++
+  console.log(`Retrying sync in ${Math.round(delay / 1000)}s (attempt ${retryCount.value}/${MAX_RETRIES})`)
+
+  setTimeout(async () => {
+    const result = await performSync()
+    if (!result.success && result.offline !== true) {
+      // Retry again if failed (but not if offline)
+      retrySync()
+    }
+  }, delay)
+}
+
+/**
+ * Use sendBeacon for final sync on page unload
+ */
+function syncBeforeUnload() {
+  const userStore = useUserStore()
+  const observationStore = useObservationStore()
+
+  const user = userStore.currentUser?.value
+  if (!user?.dataConsent) return
+
+  const pending = observationStore.getPendingObservations()
+  const readyToSync = pending.filter(obs => obs.encrypted && !obs.needsTeacherKey)
+
+  if (readyToSync.length === 0) return
+
+  const payload = {
+    observations: readyToSync.map(obs => ({
+      encrypted_data: obs.encrypted_data,
+      iv: obs.iv,
+      student_key_blob: obs.student_key_blob,
+      teacher_key_blob: obs.teacher_key_blob,
+      metadata: obs.metadata
+    }))
+  }
+
+  // sendBeacon is fire-and-forget, works during page unload
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
+  navigator.sendBeacon(`${API_URL}/observations?api_key=${API_KEY}`, blob)
+  console.log('Sent beacon with', readyToSync.length, 'observations')
+}
+
+/**
+ * Setup event listeners for sync triggers
+ */
+function setupSyncTriggers() {
+  // Online/offline detection
+  window.addEventListener('online', () => {
+    isOnline.value = true
+    console.log('Back online, triggering sync')
+    forceSync()
+  })
+
+  window.addEventListener('offline', () => {
+    isOnline.value = false
+    syncState.value = 'offline'
+    console.log('Gone offline')
+  })
+
+  // Visibility change (tab focus)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isOnline.value) {
+      console.log('Tab visible, triggering sync')
+      triggerSync()
+    }
+  })
+
+  // Before unload - use sendBeacon
+  window.addEventListener('beforeunload', syncBeforeUnload)
+
+  // Periodic sync (every 5 minutes when active)
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && isOnline.value) {
+      triggerSync()
+    }
+  }, 5 * 60 * 1000)
+}
+
+/**
+ * Initialize the data sync system
+ */
+async function initialize() {
+  setupSyncTriggers()
+
+  // Initial sync
+  if (navigator.onLine) {
+    await performSync()
+  } else {
+    syncState.value = 'offline'
+  }
+}
+
+export function useDataSync() {
+  // Computed properties
+  const isSyncing = computed(() => syncState.value === 'syncing')
+  const isOffline = computed(() => syncState.value === 'offline' || !isOnline.value)
+  const hasError = computed(() => syncState.value === 'error')
+  const needsSync = computed(() => {
+    const observationStore = useObservationStore()
+    return observationStore.pendingCount.value > 0
+  })
+
+  return {
+    // State
+    syncState,
+    lastSyncAt,
+    lastError,
+    retryCount,
+    isOnline,
+
+    // Computed
+    isSyncing,
+    isOffline,
+    hasError,
+    needsSync,
+
+    // Methods
+    initialize,
+    performSync,
+    triggerSync,
+    forceSync,
+    retrySync,
+    registerUserWithServer,
+    fetchTeacherPublicKey,
+    syncObservationsToServer
+  }
+}
