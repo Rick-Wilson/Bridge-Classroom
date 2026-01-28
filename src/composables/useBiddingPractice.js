@@ -1,10 +1,14 @@
 import { ref, computed, reactive } from 'vue'
 import { getSeatForBid } from '../utils/pbnParser.js'
+import { useObservationStore } from './useObservationStore.js'
 
 /**
  * Composable for managing bidding practice state
  */
 export function useBiddingPractice() {
+  // Observation store for recording practice data
+  const observationStore = useObservationStore()
+
   // Current deal data
   const currentDeal = ref(null)
 
@@ -30,6 +34,10 @@ export function useBiddingPractice() {
     correctCount: 0,
     wrongCount: 0
   })
+
+  // Timing and attempt tracking for observations
+  const promptStartTime = ref(null)
+  const currentAttemptNumber = ref(1)
 
   // Computed: which seat is the student
   const studentSeat = computed(() => currentDeal.value?.studentSeat || 'S')
@@ -178,6 +186,10 @@ export function useBiddingPractice() {
     state.correctBidIndex = -1
     state.auctionComplete = false
 
+    // Reset timing state
+    promptStartTime.value = null
+    currentAttemptNumber.value = 1
+
     // Advance to first student turn, showing opponent/partner bids
     advanceToStudentTurn()
   }
@@ -204,6 +216,9 @@ export function useBiddingPractice() {
 
           if (promptBid === auctionBid) {
             // This bid has a prompt - stop and wait for user input
+            // Start timing for observation
+            promptStartTime.value = Date.now()
+            currentAttemptNumber.value = 1
             break
           }
         }
@@ -222,6 +237,7 @@ export function useBiddingPractice() {
     // Check if auction is complete
     if (state.currentBidIndex >= auction.length) {
       state.auctionComplete = true
+      promptStartTime.value = null
     }
   }
 
@@ -237,7 +253,17 @@ export function useBiddingPractice() {
     const normalizedBid = normalizeBidForComparison(bid)
     const normalizedExpected = normalizeBidForComparison(expectedBid)
 
-    if (normalizedBid === normalizedExpected) {
+    // Calculate time taken
+    const timeTakenMs = promptStartTime.value
+      ? Date.now() - promptStartTime.value
+      : 0
+
+    const isCorrect = normalizedBid === normalizedExpected
+
+    // Record the observation
+    recordBidObservation(bid, expectedBid, isCorrect, timeTakenMs)
+
+    if (isCorrect) {
       // Correct!
       state.displayedBids.push(bid)
       state.currentBidIndex++
@@ -247,6 +273,10 @@ export function useBiddingPractice() {
       state.correctBid = null
       state.wrongBidIndex = -1
       state.correctBidIndex = -1
+
+      // Reset timing for next prompt
+      promptStartTime.value = null
+      currentAttemptNumber.value = 1
 
       // Advance to next student turn
       advanceToStudentTurn()
@@ -260,7 +290,36 @@ export function useBiddingPractice() {
       state.correctBidIndex = state.currentBidIndex
       state.wrongCount++
 
+      // Increment attempt number for retry
+      currentAttemptNumber.value++
+
       return false
+    }
+  }
+
+  /**
+   * Record a bid observation
+   * @param {string} studentBid - What the student bid
+   * @param {string} expectedBid - The correct bid
+   * @param {boolean} correct - Whether the bid was correct
+   * @param {number} timeTakenMs - Time in milliseconds
+   */
+  async function recordBidObservation(studentBid, expectedBid, correct, timeTakenMs) {
+    if (!currentDeal.value) return
+
+    try {
+      await observationStore.recordObservation({
+        deal: currentDeal.value,
+        promptIndex: state.currentPromptIndex,
+        auctionSoFar: [...state.displayedBids],
+        expectedBid,
+        studentBid,
+        correct,
+        attemptNumber: currentAttemptNumber.value,
+        timeTakenMs
+      })
+    } catch (err) {
+      console.error('Failed to record observation:', err)
     }
   }
 
@@ -326,6 +385,8 @@ export function useBiddingPractice() {
     currentPrompt,
     currentBidHasPrompt,
     currentExplanation,
+    // Observation tracking
+    observationStore,
     // Methods
     loadDeal,
     makeBid,

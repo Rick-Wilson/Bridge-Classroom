@@ -328,7 +328,7 @@ export function useUserStore() {
   })
 
   const isAuthenticated = computed(() => {
-    return currentUserId.value !== null && users.value[currentUserId.value]
+    return currentUserId.value !== null && !!users.value[currentUserId.value]
   })
 
   return {

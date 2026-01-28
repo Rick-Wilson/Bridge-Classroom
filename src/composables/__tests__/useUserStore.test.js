@@ -9,10 +9,10 @@ describe('useUserStore', () => {
   })
 
   describe('createUser', () => {
-    it('creates a new user with required fields', () => {
+    it('creates a new user with required fields', async () => {
       const store = useUserStore()
 
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Margaret',
         lastName: 'Thompson',
         classrooms: ['tuesday-am'],
@@ -27,10 +27,24 @@ describe('useUserStore', () => {
       expect(user.createdAt).toBeDefined()
     })
 
-    it('trims whitespace from names', () => {
+    it('generates cryptographic keys', async () => {
       const store = useUserStore()
 
-      const user = store.createUser({
+      const user = await store.createUser({
+        firstName: 'Margaret',
+        lastName: 'Thompson'
+      })
+
+      expect(user.publicKey).toBeDefined()
+      expect(user.privateKey).toBeDefined()
+      expect(typeof user.publicKey).toBe('string')
+      expect(typeof user.privateKey).toBe('string')
+    })
+
+    it('trims whitespace from names', async () => {
+      const store = useUserStore()
+
+      const user = await store.createUser({
         firstName: '  Margaret  ',
         lastName: '  Thompson  ',
         classrooms: []
@@ -40,10 +54,10 @@ describe('useUserStore', () => {
       expect(user.lastName).toBe('Thompson')
     })
 
-    it('sets created user as current user', () => {
+    it('sets created user as current user', async () => {
       const store = useUserStore()
 
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Margaret',
         lastName: 'Thompson'
       })
@@ -52,10 +66,10 @@ describe('useUserStore', () => {
       expect(store.currentUser.value).toEqual(user)
     })
 
-    it('defaults dataConsent to true', () => {
+    it('defaults dataConsent to true', async () => {
       const store = useUserStore()
 
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Test',
         lastName: 'User'
       })
@@ -63,10 +77,10 @@ describe('useUserStore', () => {
       expect(user.dataConsent).toBe(true)
     })
 
-    it('defaults classrooms to empty array', () => {
+    it('defaults classrooms to empty array', async () => {
       const store = useUserStore()
 
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Test',
         lastName: 'User'
       })
@@ -76,9 +90,9 @@ describe('useUserStore', () => {
   })
 
   describe('updateUser', () => {
-    it('updates user fields', () => {
+    it('updates user fields', async () => {
       const store = useUserStore()
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Margaret',
         lastName: 'Thompson'
       })
@@ -93,9 +107,9 @@ describe('useUserStore', () => {
       expect(store.currentUser.value.dataConsent).toBe(false)
     })
 
-    it('updates updatedAt timestamp', () => {
+    it('updates updatedAt timestamp', async () => {
       const store = useUserStore()
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Test',
         lastName: 'User'
       })
@@ -117,9 +131,9 @@ describe('useUserStore', () => {
   })
 
   describe('deleteUser', () => {
-    it('deletes user by id', () => {
+    it('deletes user by id', async () => {
       const store = useUserStore()
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Test',
         lastName: 'User'
       })
@@ -130,13 +144,13 @@ describe('useUserStore', () => {
       expect(store.hasUsers.value).toBe(false)
     })
 
-    it('switches to another user when current is deleted', () => {
+    it('switches to another user when current is deleted', async () => {
       const store = useUserStore()
-      const user1 = store.createUser({
+      const user1 = await store.createUser({
         firstName: 'User',
         lastName: 'One'
       })
-      const user2 = store.createUser({
+      const user2 = await store.createUser({
         firstName: 'User',
         lastName: 'Two'
       })
@@ -160,13 +174,13 @@ describe('useUserStore', () => {
   })
 
   describe('switchUser', () => {
-    it('switches to specified user', () => {
+    it('switches to specified user', async () => {
       const store = useUserStore()
-      const user1 = store.createUser({
+      const user1 = await store.createUser({
         firstName: 'User',
         lastName: 'One'
       })
-      const user2 = store.createUser({
+      const user2 = await store.createUser({
         firstName: 'User',
         lastName: 'Two'
       })
@@ -187,9 +201,9 @@ describe('useUserStore', () => {
   })
 
   describe('findUserByName', () => {
-    it('finds user by name (case insensitive)', () => {
+    it('finds user by name (case insensitive)', async () => {
       const store = useUserStore()
-      const user = store.createUser({
+      const user = await store.createUser({
         firstName: 'Margaret',
         lastName: 'Thompson'
       })
@@ -199,9 +213,9 @@ describe('useUserStore', () => {
       expect(found).toEqual(user)
     })
 
-    it('returns null when not found', () => {
+    it('returns null when not found', async () => {
       const store = useUserStore()
-      store.createUser({
+      await store.createUser({
         firstName: 'Margaret',
         lastName: 'Thompson'
       })
@@ -213,50 +227,50 @@ describe('useUserStore', () => {
   })
 
   describe('computed properties', () => {
-    it('allUsers returns array of all users', () => {
+    it('allUsers returns array of all users', async () => {
       const store = useUserStore()
-      store.createUser({ firstName: 'User', lastName: 'One' })
-      store.createUser({ firstName: 'User', lastName: 'Two' })
+      await store.createUser({ firstName: 'User', lastName: 'One' })
+      await store.createUser({ firstName: 'User', lastName: 'Two' })
 
       expect(store.allUsers.value).toHaveLength(2)
     })
 
-    it('hasUsers is true when users exist', () => {
+    it('hasUsers is true when users exist', async () => {
       const store = useUserStore()
 
       expect(store.hasUsers.value).toBe(false)
 
-      store.createUser({ firstName: 'Test', lastName: 'User' })
+      await store.createUser({ firstName: 'Test', lastName: 'User' })
 
       expect(store.hasUsers.value).toBe(true)
     })
 
-    it('userCount returns number of users', () => {
+    it('userCount returns number of users', async () => {
       const store = useUserStore()
 
       expect(store.userCount.value).toBe(0)
 
-      store.createUser({ firstName: 'User', lastName: 'One' })
-      store.createUser({ firstName: 'User', lastName: 'Two' })
+      await store.createUser({ firstName: 'User', lastName: 'One' })
+      await store.createUser({ firstName: 'User', lastName: 'Two' })
 
       expect(store.userCount.value).toBe(2)
     })
 
-    it('isAuthenticated is true when current user exists', () => {
+    it('isAuthenticated is true when current user exists', async () => {
       const store = useUserStore()
 
       expect(store.isAuthenticated.value).toBe(false)
 
-      store.createUser({ firstName: 'Test', lastName: 'User' })
+      await store.createUser({ firstName: 'Test', lastName: 'User' })
 
       expect(store.isAuthenticated.value).toBe(true)
     })
   })
 
   describe('persistence', () => {
-    it('persists users to localStorage', () => {
+    it('persists users to localStorage', async () => {
       const store1 = useUserStore()
-      store1.createUser({
+      await store1.createUser({
         firstName: 'Margaret',
         lastName: 'Thompson',
         classrooms: ['tuesday-am']
