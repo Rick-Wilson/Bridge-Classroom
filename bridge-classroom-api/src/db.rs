@@ -5,18 +5,39 @@ use std::path::Path;
 pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>, DbError> {
     // Ensure data directory exists for SQLite file
     if database_url.starts_with("sqlite:") {
-        let path = database_url.trim_start_matches("sqlite:");
-        if let Some(parent) = Path::new(path).parent() {
-            if !parent.exists() {
+        // Extract the path, handling query parameters
+        let path_part = database_url
+            .trim_start_matches("sqlite:")
+            .split('?')
+            .next()
+            .unwrap_or("");
+
+        let path = Path::new(path_part);
+        if let Some(parent) = path.parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                tracing::info!("Creating database directory: {:?}", parent);
                 std::fs::create_dir_all(parent).map_err(|e| DbError::Init(e.to_string()))?;
             }
         }
     }
 
+    // Add create mode if not already present
+    let url = if database_url.contains("?") {
+        if !database_url.contains("mode=") {
+            format!("{}&mode=rwc", database_url)
+        } else {
+            database_url.to_string()
+        }
+    } else {
+        format!("{}?mode=rwc", database_url)
+    };
+
+    tracing::info!("Connecting to database: {}", database_url);
+
     // Create connection pool
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
-        .connect(database_url)
+        .connect(&url)
         .await
         .map_err(|e| DbError::Connection(e.to_string()))?;
 
