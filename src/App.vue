@@ -142,6 +142,12 @@
       @close="showSettings = false"
       @switchUser="handleSwitchUser"
     />
+
+    <!-- Key Backup Modal (shown after new user registration) -->
+    <KeyBackupModal
+      :visible="userStore.showKeyBackupModal.value"
+      @close="userStore.dismissKeyBackupModal()"
+    />
   </div>
 </template>
 
@@ -163,6 +169,7 @@ import FeedbackPanel from './components/FeedbackPanel.vue'
 import WelcomeScreen from './components/WelcomeScreen.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import AssignmentBanner from './components/AssignmentBanner.vue'
+import KeyBackupModal from './components/KeyBackupModal.vue'
 
 // Composables
 const appConfig = useAppConfig()

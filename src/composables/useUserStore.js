@@ -1,11 +1,21 @@
 import { ref, computed } from 'vue'
+import {
+  generateExportedKeyPair,
+  createKeyBackup,
+  validateKeyBackup,
+  validateKeyPair
+} from '../utils/crypto.js'
 
 const STORAGE_KEY = 'bridgePractice'
 
 // Singleton state (shared across all component instances)
 const users = ref({})
 const currentUserId = ref(null)
+const teacherPublicKey = ref(null)
 const initialized = ref(false)
+
+// Flag to track if user just registered (for showing key backup modal)
+const showKeyBackupModal = ref(false)
 
 /**
  * Load user data from localStorage
@@ -17,6 +27,7 @@ function loadFromStorage() {
       const data = JSON.parse(stored)
       users.value = data.users || {}
       currentUserId.value = data.currentUserId || null
+      teacherPublicKey.value = data.teacherPublicKey || null
     }
     initialized.value = true
   } catch (err) {
@@ -34,6 +45,9 @@ function saveToStorage() {
     const data = stored ? JSON.parse(stored) : {}
     data.users = users.value
     data.currentUserId = currentUserId.value
+    if (teacherPublicKey.value) {
+      data.teacherPublicKey = teacherPublicKey.value
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch (err) {
     console.error('Failed to save user store to storage:', err)
@@ -41,17 +55,20 @@ function saveToStorage() {
 }
 
 /**
- * Create a new user
+ * Create a new user with cryptographic keys
  * @param {Object} userData - User data
  * @param {string} userData.firstName - First name (required)
  * @param {string} userData.lastName - Last name (required)
  * @param {string[]} userData.classrooms - Array of classroom IDs
  * @param {boolean} userData.dataConsent - Data sharing consent
- * @returns {Object} The created user
+ * @returns {Promise<Object>} The created user
  */
-function createUser({ firstName, lastName, classrooms = [], dataConsent = true }) {
+async function createUser({ firstName, lastName, classrooms = [], dataConsent = true }) {
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
+
+  // Generate cryptographic keypair
+  const { publicKey, privateKey } = await generateExportedKeyPair()
 
   const user = {
     id,
@@ -59,6 +76,9 @@ function createUser({ firstName, lastName, classrooms = [], dataConsent = true }
     lastName: lastName.trim(),
     classrooms,
     dataConsent,
+    publicKey,
+    privateKey,
+    serverRegistered: false, // Will be set true after server registration in Stage 4
     createdAt: now,
     updatedAt: now
   }
@@ -66,6 +86,9 @@ function createUser({ firstName, lastName, classrooms = [], dataConsent = true }
   users.value[id] = user
   currentUserId.value = id
   saveToStorage()
+
+  // Trigger key backup modal for new users
+  showKeyBackupModal.value = true
 
   return user
 }
@@ -178,6 +201,8 @@ function getUser(userId) {
 function clearUsers() {
   users.value = {}
   currentUserId.value = null
+  teacherPublicKey.value = null
+  showKeyBackupModal.value = false
   saveToStorage()
   initialized.value = false
 }
@@ -189,6 +214,98 @@ function initialize() {
   if (!initialized.value) {
     loadFromStorage()
   }
+}
+
+/**
+ * Restore a user from a backup file
+ * @param {Object} backup - Parsed backup file data
+ * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
+ */
+async function restoreFromBackup(backup) {
+  // Validate backup format
+  const validation = validateKeyBackup(backup)
+  if (!validation.valid) {
+    return { success: false, error: validation.error }
+  }
+
+  // Validate the keypair actually works
+  const keysValid = await validateKeyPair(backup.public_key, backup.private_key)
+  if (!keysValid) {
+    return { success: false, error: 'The keys in this backup file are invalid or corrupted' }
+  }
+
+  // Check if user already exists
+  const existingUser = users.value[backup.user_id]
+  if (existingUser) {
+    // Update existing user's keys (in case they were lost)
+    existingUser.publicKey = backup.public_key
+    existingUser.privateKey = backup.private_key
+    existingUser.updatedAt = new Date().toISOString()
+    currentUserId.value = backup.user_id
+    saveToStorage()
+    return { success: true, user: existingUser }
+  }
+
+  // Create new user from backup
+  const nameParts = (backup.name || 'Restored User').split(' ')
+  const firstName = nameParts[0] || 'Restored'
+  const lastName = nameParts.slice(1).join(' ') || 'User'
+
+  const user = {
+    id: backup.user_id,
+    firstName,
+    lastName,
+    classrooms: [],
+    dataConsent: true,
+    publicKey: backup.public_key,
+    privateKey: backup.private_key,
+    serverRegistered: false,
+    restoredFromBackup: true,
+    createdAt: backup.created || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+
+  users.value[user.id] = user
+  currentUserId.value = user.id
+  saveToStorage()
+
+  return { success: true, user }
+}
+
+/**
+ * Get key backup data for current user
+ * @returns {Object|null} Backup data or null if no current user
+ */
+function getKeyBackup() {
+  const user = users.value[currentUserId.value]
+  if (!user || !user.publicKey || !user.privateKey) {
+    return null
+  }
+  return createKeyBackup(user)
+}
+
+/**
+ * Dismiss the key backup modal
+ */
+function dismissKeyBackupModal() {
+  showKeyBackupModal.value = false
+}
+
+/**
+ * Set the teacher's public key
+ * @param {string} publicKey - Base64-encoded public key
+ */
+function setTeacherPublicKey(publicKey) {
+  teacherPublicKey.value = publicKey
+  saveToStorage()
+}
+
+/**
+ * Get the teacher's public key
+ * @returns {string|null}
+ */
+function getTeacherPublicKey() {
+  return teacherPublicKey.value
 }
 
 export function useUserStore() {
@@ -218,7 +335,9 @@ export function useUserStore() {
     // State
     users,
     currentUserId,
+    teacherPublicKey,
     initialized,
+    showKeyBackupModal,
 
     // Computed
     currentUser,
@@ -237,6 +356,13 @@ export function useUserStore() {
     switchUser,
     findUserByName,
     getUser,
-    clearUsers
+    clearUsers,
+
+    // Key management
+    restoreFromBackup,
+    getKeyBackup,
+    dismissKeyBackupModal,
+    setTeacherPublicKey,
+    getTeacherPublicKey
   }
 }

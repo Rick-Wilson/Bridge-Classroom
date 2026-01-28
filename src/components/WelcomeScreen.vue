@@ -26,6 +26,13 @@ const errors = ref({
 
 // UI state
 const showConsentDetails = ref(false)
+const isLoading = ref(false)
+const loadingMessage = ref('')
+
+// Restore from backup state
+const showRestoreOption = ref(false)
+const restoreError = ref('')
+const fileInput = ref(null)
 
 // Initialize
 onMounted(() => {
@@ -85,7 +92,7 @@ function validateForm() {
   return valid
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!validateForm()) return
 
   // Determine classrooms
@@ -97,15 +104,27 @@ function handleSubmit() {
   }
   // If ad-hoc, classrooms stays empty
 
-  // Create user
-  const user = userStore.createUser({
-    firstName: firstName.value,
-    lastName: lastName.value,
-    classrooms,
-    dataConsent: dataConsent.value
-  })
+  // Show loading state while generating keys
+  isLoading.value = true
+  loadingMessage.value = 'Creating your secure encryption keys...'
 
-  emit('userReady', user)
+  try {
+    // Create user (now async - generates cryptographic keys)
+    const user = await userStore.createUser({
+      firstName: firstName.value,
+      lastName: lastName.value,
+      classrooms,
+      dataConsent: dataConsent.value
+    })
+
+    emit('userReady', user)
+  } catch (err) {
+    console.error('Failed to create user:', err)
+    errors.value.firstName = 'Failed to create account. Please try again.'
+  } finally {
+    isLoading.value = false
+    loadingMessage.value = ''
+  }
 }
 
 function handleContinue() {
@@ -146,6 +165,48 @@ function toggleClassroom(classroomId) {
     selectedClassrooms.value.push(classroomId)
   } else {
     selectedClassrooms.value.splice(index, 1)
+  }
+}
+
+// Restore from backup
+function toggleRestoreOption() {
+  showRestoreOption.value = !showRestoreOption.value
+  restoreError.value = ''
+}
+
+function triggerFileInput() {
+  fileInput.value?.click()
+}
+
+async function handleRestoreFile(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  restoreError.value = ''
+  isLoading.value = true
+  loadingMessage.value = 'Restoring from backup...'
+
+  try {
+    const content = await file.text()
+    const backup = JSON.parse(content)
+
+    const result = await userStore.restoreFromBackup(backup)
+
+    if (result.success) {
+      emit('userReady', result.user)
+    } else {
+      restoreError.value = result.error || 'Failed to restore backup'
+    }
+  } catch (err) {
+    console.error('Failed to parse backup file:', err)
+    restoreError.value = 'Invalid backup file format'
+  } finally {
+    isLoading.value = false
+    loadingMessage.value = ''
+    // Reset file input
+    if (fileInput.value) {
+      fileInput.value.value = ''
+    }
   }
 }
 </script>
@@ -267,11 +328,43 @@ function toggleClassroom(classroomId) {
             <button
               type="submit"
               class="submit-btn"
-              :disabled="!isFormValid"
+              :disabled="!isFormValid || isLoading"
             >
-              Start Practicing
+              <span v-if="isLoading">{{ loadingMessage }}</span>
+              <span v-else>Start Practicing</span>
             </button>
           </form>
+
+          <!-- Restore from backup option -->
+          <div class="restore-section">
+            <button
+              type="button"
+              class="restore-toggle"
+              @click="toggleRestoreOption"
+            >
+              {{ showRestoreOption ? 'Hide restore option' : 'Restore from backup' }}
+            </button>
+
+            <div v-if="showRestoreOption" class="restore-panel">
+              <p>Have a backup file from a previous device?</p>
+              <input
+                ref="fileInput"
+                type="file"
+                accept=".json"
+                @change="handleRestoreFile"
+                style="display: none"
+              />
+              <button
+                type="button"
+                class="restore-btn"
+                @click="triggerFileInput"
+                :disabled="isLoading"
+              >
+                Select Backup File
+              </button>
+              <p v-if="restoreError" class="restore-error">{{ restoreError }}</p>
+            </div>
+          </div>
 
           <!-- Back to returning user (if switching from switcher) -->
           <button
@@ -620,6 +713,67 @@ function toggleClassroom(classroomId) {
 .add-user-btn:hover {
   border-color: #667eea;
   color: #667eea;
+}
+
+/* Restore section styles */
+.restore-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+  text-align: center;
+}
+
+.restore-toggle {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.restore-toggle:hover {
+  color: #667eea;
+}
+
+.restore-panel {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.restore-panel p {
+  font-size: 14px;
+  color: #555;
+  margin: 0 0 12px 0;
+}
+
+.restore-btn {
+  padding: 10px 20px;
+  background: white;
+  border: 1px solid #667eea;
+  color: #667eea;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.restore-btn:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+}
+
+.restore-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.restore-error {
+  color: #d32f2f;
+  font-size: 13px;
+  margin-top: 12px;
 }
 
 @media (max-width: 480px) {
