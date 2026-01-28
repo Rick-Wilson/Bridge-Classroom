@@ -11,6 +11,9 @@
       <h1>{{ appTitle }}</h1>
       <div class="header-right">
         <SyncStatus />
+        <button class="progress-btn" @click="showProgress = true" title="View Progress">
+          Progress
+        </button>
         <div class="stats" v-if="practice.state.correctCount + practice.state.wrongCount > 0">
           <span class="correct">{{ practice.state.correctCount }}</span>
           <span class="wrong">{{ practice.state.wrongCount }}</span>
@@ -149,6 +152,11 @@
       :visible="userStore.showKeyBackupModal.value"
       @close="userStore.dismissKeyBackupModal()"
     />
+
+    <!-- Progress Dashboard Modal -->
+    <div v-if="showProgress" class="modal-overlay" @click.self="showProgress = false">
+      <ProgressDashboard @close="showProgress = false" />
+    </div>
   </div>
 </template>
 
@@ -174,6 +182,7 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import AssignmentBanner from './components/AssignmentBanner.vue'
 import KeyBackupModal from './components/KeyBackupModal.vue'
 import SyncStatus from './components/SyncStatus.vue'
+import ProgressDashboard from './components/ProgressDashboard.vue'
 
 // Composables
 const appConfig = useAppConfig()
@@ -187,6 +196,7 @@ const practice = useBiddingPractice()
 
 // UI state
 const showSettings = ref(false)
+const showProgress = ref(false)
 
 // User state
 const isAuthenticated = computed(() => userStore.isAuthenticated.value)
@@ -422,6 +432,37 @@ body {
 .user-btn:hover {
   transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.progress-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #f0f0f0;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.progress-btn:hover {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
 }
 
 .app-main {
