@@ -23,9 +23,9 @@
         <button v-if="deals.length" class="lobby-btn" @click="returnToLobby" title="Return to lesson selection">
           Lobby
         </button>
-        <div class="stats" v-if="practice.state.correctCount + practice.state.wrongCount > 0">
-          <span class="correct">{{ practice.state.correctCount }}</span>
-          <span class="wrong">{{ practice.state.wrongCount }}</span>
+        <div class="stats" v-if="practice.biddingState.correctCount + practice.biddingState.wrongCount > 0">
+          <span class="correct">{{ practice.biddingState.correctCount }}</span>
+          <span class="wrong">{{ practice.biddingState.wrongCount }}</span>
         </div>
         <button class="user-btn" @click="showSettings = true" :title="userName">
           {{ userInitials }}
@@ -66,7 +66,7 @@
               :vulnerable="currentDeal?.vulnerable"
               :contract="currentDeal?.contract"
               :declarer="currentDeal?.declarer"
-              :showContract="practice.state.auctionComplete"
+              :showContract="practice.biddingState.auctionComplete"
               :title="dealTitle"
               :totalDeals="deals.length"
               :currentIndex="currentDealIndex"
@@ -75,129 +75,88 @@
             />
 
             <BridgeTable
-              :hands="getHands()"
-              :hiddenSeats="getHiddenSeats()"
-              :showHcp="shouldShowHcp()"
+              :hands="practice.hands.value"
+              :hiddenSeats="practice.hiddenSeats.value"
+              :showHcp="practice.showHcp.value"
               :compact="true"
             />
           </div>
 
-          <!-- Right column: Mode-specific content -->
+          <!-- Right column: Tag-driven content -->
           <div class="practice-right">
-            <!-- BIDDING MODE -->
-            <template v-if="currentMode === 'bidding'">
-              <AuctionTable
-                :bids="practice.state.displayedBids"
-                :dealer="currentDeal?.dealer || 'N'"
-                :currentBidIndex="practice.state.currentBidIndex"
-                :wrongBidIndex="practice.state.wrongBidIndex"
-                :correctBidIndex="practice.state.correctBidIndex"
-                :showTurnIndicator="practice.currentBidHasPrompt.value"
-              />
+            <!-- Auction table - shown if deal has auction or bidding prompts -->
+            <AuctionTable
+              :bids="practice.hasPrompts.value ? practice.biddingState.displayedBids : (currentDeal?.auction || [])"
+              :dealer="currentDeal?.dealer || 'N'"
+              :currentBidIndex="practice.hasPrompts.value ? practice.biddingState.currentBidIndex : -1"
+              :wrongBidIndex="practice.biddingState.wrongBidIndex"
+              :correctBidIndex="practice.biddingState.correctBidIndex"
+              :showTurnIndicator="practice.hasBidPrompt.value"
+            />
 
-              <!-- Bidding box (only show when there's a prompt requiring user input) -->
-              <div v-if="!practice.state.auctionComplete && !practice.state.wrongBid && practice.currentBidHasPrompt.value" class="bidding-box-container">
-                <!-- Prompt text from PBN commentary -->
-                <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text">
-                  {{ practice.currentPrompt.value.promptText }}
-                </div>
-                <BiddingBox
-                  :lastBid="practice.lastContractBid.value"
-                  :canDouble="practice.canDouble.value"
-                  :canRedouble="practice.canRedouble.value"
-                  @bid="onBid"
-                />
+            <!-- Bidding box - shown when there's a [BID] prompt requiring input -->
+            <div v-if="practice.hasBidPrompt.value" class="bidding-box-container">
+              <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text">
+                {{ practice.currentPrompt.value.promptText }}
               </div>
-
-              <!-- Feedback panel for wrong bids -->
-              <FeedbackPanel
-                :visible="!!practice.state.wrongBid"
-                type="wrong"
-                :wrongBid="practice.state.wrongBid"
-                :correctBid="practice.state.correctBid"
-                :commentary="practice.currentExplanation.value"
-                @continue="onContinue"
+              <BiddingBox
+                :lastBid="practice.lastContractBid.value"
+                :canDouble="practice.canDouble.value"
+                :canRedouble="practice.canRedouble.value"
+                @bid="onBid"
               />
+            </div>
 
-              <!-- Auction complete panel -->
-              <div v-if="practice.state.auctionComplete" class="auction-complete">
-                <h3>Auction Complete</h3>
-                <div v-if="currentDeal?.commentary" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
-                </div>
-                <button class="next-deal-btn" @click="nextDeal">
-                  Next Deal →
+            <!-- Feedback panel - shown after wrong bid -->
+            <FeedbackPanel
+              :visible="!!practice.biddingState.wrongBid"
+              type="wrong"
+              :wrongBid="practice.biddingState.wrongBid"
+              :correctBid="practice.biddingState.correctBid"
+              :commentary="practice.currentExplanation.value"
+              @continue="onContinue"
+            />
+
+            <!-- Instruction panel - shown if deal has [NEXT]/[ROTATE] steps -->
+            <div v-if="practice.hasSteps.value" class="instruction-panel">
+              <div class="instruction-progress">
+                Step {{ practice.stepState.currentStepIndex + 1 }} of {{ practice.totalSteps.value }}
+              </div>
+              <div class="instruction-text-container" ref="instructionContainer">
+                <!-- Previous steps (greyed out) -->
+                <template v-for="(step, idx) in practice.steps.value.slice(0, practice.stepState.currentStepIndex)" :key="idx">
+                  <div class="instruction-text previous" v-html="colorizeSuits(step.text)"></div>
+                </template>
+                <!-- Current step (active) -->
+                <div class="instruction-text current" v-html="colorizeSuits(practice.currentStepText.value)"></div>
+              </div>
+              <div class="instruction-controls">
+                <button
+                  v-if="practice.stepState.currentStepIndex > 0"
+                  class="instruction-btn secondary"
+                  @click="practice.prevStep()"
+                >
+                  ← Back
+                </button>
+                <button
+                  v-if="practice.hasNextStep.value"
+                  class="instruction-btn primary"
+                  @click="practice.nextStep()"
+                >
+                  {{ practice.currentStepAction.value === 'rotate' ? 'Rotate' : 'Next' }} →
                 </button>
               </div>
-            </template>
+            </div>
 
-            <!-- INSTRUCTION MODE -->
-            <template v-else-if="currentMode === 'instruction'">
-              <AuctionTable
-                :bids="currentDeal?.auction || []"
-                :dealer="currentDeal?.dealer || 'N'"
-                :currentBidIndex="-1"
-                :wrongBidIndex="-1"
-                :correctBidIndex="-1"
-                :showTurnIndicator="false"
-              />
-
-              <!-- Instruction step content -->
-              <div class="instruction-panel">
-                <div class="instruction-progress">
-                  Step {{ instruction.state.currentStepIndex + 1 }} of {{ instruction.totalSteps.value }}
-                </div>
-                <div class="instruction-text-container" ref="instructionContainer">
-                  <!-- Previous steps (greyed out) -->
-                  <template v-for="(step, idx) in instruction.steps.value.slice(0, instruction.state.currentStepIndex)" :key="idx">
-                    <div class="instruction-text previous" v-html="colorizeSuits(step.text)"></div>
-                  </template>
-                  <!-- Current step (active) -->
-                  <div class="instruction-text current" v-html="colorizeSuits(instruction.currentText.value)"></div>
-                </div>
-                <div class="instruction-controls">
-                  <button
-                    v-if="instruction.state.currentStepIndex > 0"
-                    class="instruction-btn secondary"
-                    @click="instruction.prevStep()"
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    v-if="instruction.hasNextStep.value"
-                    class="instruction-btn primary"
-                    @click="instruction.nextStep()"
-                  >
-                    {{ instruction.currentAction.value === 'rotate' ? 'Rotate' : 'Next' }} →
-                  </button>
-                  <button
-                    v-else
-                    class="instruction-btn primary"
-                    @click="nextDeal"
-                  >
-                    Next Deal →
-                  </button>
-                </div>
+            <!-- Completion panel - shown when deal is complete -->
+            <div v-if="practice.isComplete.value" class="auction-complete">
+              <h3 v-if="practice.hasPrompts.value">Auction Complete</h3>
+              <div v-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
               </div>
-            </template>
-
-            <!-- DISPLAY MODE (no interactive elements) -->
-            <template v-else>
-              <AuctionTable
-                :bids="currentDeal?.auction || []"
-                :dealer="currentDeal?.dealer || 'N'"
-                :currentBidIndex="-1"
-                :wrongBidIndex="-1"
-                :correctBidIndex="-1"
-                :showTurnIndicator="false"
-              />
-
-              <div v-if="currentDeal?.commentary" class="display-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
-              </div>
-
               <button class="next-deal-btn" @click="nextDeal">
                 Next Deal →
               </button>
-            </template>
+            </div>
 
           </div>
         </div>
@@ -235,13 +194,11 @@
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { parsePbn, getDealTitle } from './utils/pbnParser.js'
 import { stripControlDirectives, colorizeSuits } from './utils/cardFormatting.js'
-import { useBiddingPractice } from './composables/useBiddingPractice.js'
-import { usePlayInstruction } from './composables/usePlayInstruction.js'
+import { useDealPractice } from './composables/useDealPractice.js'
 import { useAppConfig } from './composables/useAppConfig.js'
 import { useUserStore } from './composables/useUserStore.js'
 import { useAssignmentStore } from './composables/useAssignmentStore.js'
 import { useDataSync } from './composables/useDataSync.js'
-import { useObservationStore } from './composables/useObservationStore.js'
 
 import BridgeTable from './components/BridgeTable.vue'
 import BiddingBox from './components/BiddingBox.vue'
@@ -263,14 +220,9 @@ const appConfig = useAppConfig()
 const userStore = useUserStore()
 const assignmentStore = useAssignmentStore()
 const dataSync = useDataSync()
-const observationStore = useObservationStore()
 
-// Practice state
-const practice = useBiddingPractice()
-const instruction = usePlayInstruction()
-
-// Current deal mode
-const currentMode = computed(() => currentDeal.value?.mode || 'display')
+// Unified practice state - tag-driven, no modes
+const practice = useDealPractice()
 
 // UI state
 const showSettings = ref(false)
@@ -280,7 +232,7 @@ const isTeacherMode = ref(false)
 const instructionContainer = ref(null)
 
 // Auto-scroll instruction text when step changes
-watch(() => instruction.state.currentStepIndex, () => {
+watch(() => practice.stepState.currentStepIndex, () => {
   nextTick(() => {
     if (instructionContainer.value) {
       instructionContainer.value.scrollTop = instructionContainer.value.scrollHeight
@@ -336,7 +288,7 @@ onMounted(async () => {
   appConfig.initializeFromUrl()
   userStore.initialize()
   assignmentStore.initializeFromUrl()
-  observationStore.initialize()
+  practice.observationStore.initialize()
 
   // Initialize data sync (fetches teacher key, registers user, syncs pending data)
   if (userStore.isAuthenticated.value) {
@@ -383,17 +335,12 @@ const dealTitle = computed(() => {
 // Load deal when index changes
 watch(currentDealIndex, () => {
   if (currentDeal.value) {
-    // Load into appropriate composable based on mode
-    if (currentDeal.value.mode === 'instruction') {
-      instruction.loadDeal(currentDeal.value)
-    } else {
-      practice.loadDeal(currentDeal.value)
-    }
+    practice.loadDeal(currentDeal.value)
   }
 })
 
 // Trigger sync when new observations are recorded
-watch(() => observationStore.pendingCount.value, (newCount, oldCount) => {
+watch(() => practice.observationStore.pendingCount.value, (newCount, oldCount) => {
   if (newCount > oldCount) {
     // New observation was recorded, trigger debounced sync
     dataSync.triggerSync()
@@ -418,7 +365,7 @@ async function onFileSelect(event) {
       }))
       deals.value = dealsWithCategory
       currentDealIndex.value = 0
-      loadDealIntoMode(dealsWithCategory[0])
+      practice.loadDeal(dealsWithCategory[0])
       practice.resetStats()
     } else {
       alert('No deals found in the PBN file')
@@ -444,7 +391,7 @@ async function loadBundledFile(file) {
       }))
       deals.value = dealsWithCategory
       currentDealIndex.value = 0
-      loadDealIntoMode(dealsWithCategory[0])
+      practice.loadDeal(dealsWithCategory[0])
       practice.resetStats()
     }
   } catch (err) {
@@ -464,45 +411,11 @@ function handleLessonLoad({ subfolder, name, category, content }) {
     }))
     deals.value = dealsWithCategory
     currentDealIndex.value = 0
-    loadDealIntoMode(dealsWithCategory[0])
+    practice.loadDeal(dealsWithCategory[0])
     practice.resetStats()
   } else {
     alert('No deals found in the lesson file')
   }
-}
-
-// Load deal into the appropriate composable based on mode
-function loadDealIntoMode(deal) {
-  if (deal.mode === 'instruction') {
-    instruction.loadDeal(deal)
-  } else {
-    practice.loadDeal(deal)
-  }
-}
-
-// Helper functions for mode-specific behavior
-function getHiddenSeats() {
-  if (currentMode.value === 'bidding') {
-    return practice.state.auctionComplete ? [] : practice.hiddenSeats.value
-  } else if (currentMode.value === 'instruction') {
-    return instruction.hiddenSeats.value
-  }
-  return [] // display mode shows all hands
-}
-
-function getHands() {
-  if (currentMode.value === 'instruction') {
-    // Use hands with played cards removed
-    return instruction.handsWithPlaysRemoved.value
-  }
-  return currentDeal.value?.hands || {}
-}
-
-function shouldShowHcp() {
-  if (currentMode.value === 'bidding') {
-    return practice.state.auctionComplete
-  }
-  return true // instruction and display modes show HCP
 }
 
 // Bidding

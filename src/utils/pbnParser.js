@@ -157,6 +157,10 @@ function parsePromptsInternal(commentaryParts) {
     // The explanation is the text after this [BID] until the next [BID] or end
     let explanationText = textAfter.split(/\[BID|\[NEXT/i)[0].trim()
 
+    // Strip [SHOW ...] tags from display text
+    promptText = promptText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
+    explanationText = explanationText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
+
     prompts.push({
       bid: cleanBid,
       promptText: replaceSuitSymbols(promptText),
@@ -280,10 +284,14 @@ function parseStepContent(text, action) {
     plays.push(playMatch[1])
   }
 
+  // Check for [RESET] tag - resets played cards to show original deal
+  const reset = /\[RESET\]/i.test(text)
+
   // Strip control tags from display text
   let displayText = text
     .replace(/\[SHOW\s+[^\]]*\]/gi, '')
     .replace(/\[PLAY\s+[^\]]*\]/gi, '')
+    .replace(/\[RESET\]/gi, '')
     // Strip Baker title lines (e.g., "Baker Entries 1", "Baker Establishment 2")
     .replace(/^Baker\s+\w+\s+\d+\s*/gim, '')
     .trim()
@@ -292,7 +300,8 @@ function parseStepContent(text, action) {
     text: replaceSuitSymbols(displayText),
     action,
     showSeats,  // null means no change, array means show these seats
-    plays       // Array of play sequences
+    plays,      // Array of play sequences
+    reset       // true if [RESET] tag present - show original hands
   }
 }
 
