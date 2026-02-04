@@ -308,6 +308,121 @@ export async function validateKeyPair(publicKeyBase64, privateKeyBase64) {
   }
 }
 
+// ============ Passphrase-Based Key Encryption ============
+// Used for cross-device sync via browser password managers
+
+const PBKDF2_ITERATIONS = 100000
+
+/**
+ * Derive an AES key from a passphrase using PBKDF2
+ * @param {string} passphrase - The passphrase
+ * @param {Uint8Array} salt - Salt for key derivation
+ * @returns {Promise<CryptoKey>}
+ */
+async function deriveKeyFromPassphrase(passphrase, salt) {
+  const encoder = new TextEncoder()
+  const passphraseKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(passphrase),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  )
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: 'SHA-256'
+    },
+    passphraseKey,
+    AES_ALGORITHM,
+    false,
+    ['encrypt', 'decrypt']
+  )
+}
+
+/**
+ * Encrypt a private key with a passphrase
+ * Used for storing encrypted keys on the server for cross-device sync
+ *
+ * @param {string} privateKeyBase64 - Base64-encoded private key (PKCS8)
+ * @param {string} passphrase - The passphrase to encrypt with
+ * @returns {Promise<string>} Base64-encoded encrypted package (salt + iv + ciphertext)
+ */
+export async function encryptPrivateKeyWithPassphrase(privateKeyBase64, passphrase) {
+  // Generate random salt and IV
+  const salt = crypto.getRandomValues(new Uint8Array(16))
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+
+  // Derive encryption key from passphrase
+  const derivedKey = await deriveKeyFromPassphrase(passphrase, salt)
+
+  // Encrypt the private key
+  const encoder = new TextEncoder()
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    derivedKey,
+    encoder.encode(privateKeyBase64)
+  )
+
+  // Combine salt + iv + ciphertext into one package
+  const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength)
+  combined.set(salt, 0)
+  combined.set(iv, salt.length)
+  combined.set(new Uint8Array(ciphertext), salt.length + iv.length)
+
+  return arrayBufferToBase64(combined.buffer)
+}
+
+/**
+ * Decrypt a private key with a passphrase
+ *
+ * @param {string} encryptedPackage - Base64-encoded encrypted package
+ * @param {string} passphrase - The passphrase to decrypt with
+ * @returns {Promise<string>} Base64-encoded private key (PKCS8)
+ */
+export async function decryptPrivateKeyWithPassphrase(encryptedPackage, passphrase) {
+  // Decode the combined package
+  const combined = new Uint8Array(base64ToArrayBuffer(encryptedPackage))
+
+  // Extract salt, iv, and ciphertext
+  const salt = combined.slice(0, 16)
+  const iv = combined.slice(16, 28)
+  const ciphertext = combined.slice(28)
+
+  // Derive decryption key from passphrase
+  const derivedKey = await deriveKeyFromPassphrase(passphrase, salt)
+
+  // Decrypt the private key
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    derivedKey,
+    ciphertext
+  )
+
+  const decoder = new TextDecoder()
+  return decoder.decode(decrypted)
+}
+
+/**
+ * Test if a passphrase can decrypt an encrypted key package
+ * @param {string} encryptedPackage - Base64-encoded encrypted package
+ * @param {string} passphrase - The passphrase to test
+ * @returns {Promise<boolean>}
+ */
+export async function testPassphraseDecryption(encryptedPackage, passphrase) {
+  try {
+    const decrypted = await decryptPrivateKeyWithPassphrase(encryptedPackage, passphrase)
+    // Try to import the decrypted key to verify it's valid
+    await importKey(decrypted, false)
+    return true
+  } catch {
+    return false
+  }
+}
+
 // ============ Utility Functions ============
 
 /**

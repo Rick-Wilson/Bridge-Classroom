@@ -2,11 +2,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useUserStore } from '../composables/useUserStore.js'
+import { isCredentialSyncSupported, getCredential } from '../utils/credentialSync.js'
 
 const emit = defineEmits(['userReady'])
 
 const appConfig = useAppConfig()
 const userStore = useUserStore()
+
+// API URL for key recovery
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 // View state: 'form' | 'returning' | 'switcher'
 const viewState = ref('form')
@@ -34,8 +38,13 @@ const showRestoreOption = ref(false)
 const restoreError = ref('')
 const fileInput = ref(null)
 
+// Credential recovery state
+const credentialRecoveryAvailable = ref(false)
+const credentialRecoveryInProgress = ref(false)
+const credentialRecoveryError = ref('')
+
 // Initialize
-onMounted(() => {
+onMounted(async () => {
   userStore.initialize()
   appConfig.initializeFromUrl()
 
@@ -44,6 +53,21 @@ onMounted(() => {
     viewState.value = 'returning'
   } else {
     viewState.value = 'form'
+
+    // Check for saved credentials in browser password manager
+    // This enables cross-device sync via iCloud Keychain, Google Password Manager, etc.
+    if (isCredentialSyncSupported()) {
+      try {
+        const credential = await getCredential()
+        if (credential && credential.userId) {
+          // We found saved credentials - show recovery option
+          credentialRecoveryAvailable.value = true
+        }
+      } catch (err) {
+        // Silently fail - credential access may be denied or not available
+        console.debug('Credential check:', err.message)
+      }
+    }
   }
 
   // If single classroom, auto-select it
@@ -209,6 +233,41 @@ async function handleRestoreFile(event) {
     }
   }
 }
+
+// Recover from browser password manager (cross-device sync)
+async function handleCredentialRecovery() {
+  credentialRecoveryError.value = ''
+  credentialRecoveryInProgress.value = true
+  isLoading.value = true
+  loadingMessage.value = 'Recovering your account...'
+
+  try {
+    const result = await userStore.tryKeyRecovery(API_URL)
+
+    if (result.success) {
+      if (result.alreadyLocal) {
+        // User was already in local storage
+        emit('userReady', result.user)
+      } else if (result.recovered) {
+        // Successfully recovered from server
+        emit('userReady', result.user)
+      }
+    } else {
+      credentialRecoveryError.value = result.error || 'Failed to recover account'
+    }
+  } catch (err) {
+    console.error('Credential recovery failed:', err)
+    credentialRecoveryError.value = 'Failed to recover account. Please try again.'
+  } finally {
+    credentialRecoveryInProgress.value = false
+    isLoading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+function dismissCredentialRecovery() {
+  credentialRecoveryAvailable.value = false
+}
 </script>
 
 <template>
@@ -222,6 +281,29 @@ async function handleRestoreFile(event) {
       <!-- First-time user form -->
       <template v-if="viewState === 'form'">
         <div class="welcome-body">
+          <!-- Credential recovery banner -->
+          <div v-if="credentialRecoveryAvailable && !credentialRecoveryInProgress" class="recovery-banner">
+            <p>Account found in your browser's saved passwords.</p>
+            <button
+              type="button"
+              class="recovery-btn"
+              @click="handleCredentialRecovery"
+              :disabled="isLoading"
+            >
+              Restore My Account
+            </button>
+            <button
+              type="button"
+              class="recovery-dismiss"
+              @click="dismissCredentialRecovery"
+            >
+              Start fresh instead
+            </button>
+            <p v-if="credentialRecoveryError" class="recovery-error">
+              {{ credentialRecoveryError }}
+            </p>
+          </div>
+
           <h2>Welcome!</h2>
           <p class="subtitle">Please enter your name to get started.</p>
 
@@ -774,6 +856,68 @@ async function handleRestoreFile(event) {
   color: #d32f2f;
   font-size: 13px;
   margin-top: 12px;
+}
+
+/* Credential recovery banner */
+.recovery-banner {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid #a5d6a7;
+}
+
+.recovery-banner p {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.recovery-btn {
+  padding: 12px 24px;
+  background: #43a047;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recovery-btn:hover:not(:disabled) {
+  background: #388e3c;
+  transform: translateY(-1px);
+}
+
+.recovery-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.recovery-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px;
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.recovery-dismiss:hover {
+  color: #333;
+  text-decoration: underline;
+}
+
+.recovery-error {
+  color: #c62828;
+  font-size: 13px;
+  margin: 12px 0 0 0;
 }
 
 @media (max-width: 480px) {

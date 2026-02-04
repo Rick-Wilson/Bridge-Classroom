@@ -8,7 +8,13 @@
       &larr; Previous
     </button>
 
-    <div class="deal-selector">
+    <!-- Assignment mode: simple deal counter without dropdown -->
+    <div v-if="assignmentMode" class="deal-counter">
+      <span class="deal-number">Deal {{ currentIndex + 1 }} of {{ deals.length }}</span>
+    </div>
+
+    <!-- Normal mode: full dropdown with deal info -->
+    <div v-else class="deal-selector">
       <select v-model="selectedIndex" @change="onSelectDeal">
         <option
           v-for="(deal, idx) in deals"
@@ -43,6 +49,10 @@ const props = defineProps({
   currentIndex: {
     type: Number,
     default: 0
+  },
+  assignmentMode: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -97,6 +107,22 @@ function getDealLabel(deal, idx) {
 .nav-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+.deal-counter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.deal-number {
+  font-size: 15px;
+  font-weight: 500;
+  color: #333;
 }
 
 .deal-selector {

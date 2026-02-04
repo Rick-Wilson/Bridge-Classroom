@@ -51,6 +51,7 @@ async function registerUserWithServer(user) {
         last_name: user.lastName,
         classroom: user.classrooms?.[0] || null,
         public_key: user.publicKey,
+        encrypted_private_key: user.encryptedPrivateKey || null, // For cross-device sync
         data_consent: user.dataConsent
       })
     })

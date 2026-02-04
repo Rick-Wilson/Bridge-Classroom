@@ -93,6 +93,18 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
     // Create indexes for common queries
+    // Add encrypted_private_key column if it doesn't exist (migration for existing databases)
+    // This column stores the user's private key encrypted with their recovery passphrase
+    // The passphrase is stored in the browser's password manager for cross-device sync
+    let _ = sqlx::query(
+        r#"
+        ALTER TABLE users ADD COLUMN encrypted_private_key TEXT
+        "#,
+    )
+    .execute(pool)
+    .await;
+    // Ignore error - column may already exist
+
     sqlx::query(
         r#"
         CREATE INDEX IF NOT EXISTS idx_observations_user_id ON observations(user_id)

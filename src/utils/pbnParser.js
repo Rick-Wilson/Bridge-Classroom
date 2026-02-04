@@ -60,6 +60,8 @@ export function parsePbn(pbnContent) {
         if (currentDeal) {
           currentDeal.commentary = formatCommentary(currentCommentary)
           currentDeal.prompts = parsePromptsInternal(currentCommentary)
+          currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
+          currentDeal.mode = detectDealMode(currentCommentary)
           deals.push(currentDeal)
         }
         // Start new deal
@@ -110,6 +112,8 @@ export function parsePbn(pbnContent) {
   if (currentDeal) {
     currentDeal.commentary = formatCommentary(currentCommentary)
     currentDeal.prompts = parsePromptsInternal(currentCommentary)
+    currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
+    currentDeal.mode = detectDealMode(currentCommentary)
     deals.push(currentDeal)
   }
 
@@ -164,6 +168,135 @@ function parsePromptsInternal(commentaryParts) {
 }
 
 /**
+ * Detect the deal mode based on control tags in commentary
+ * @param {Array} commentaryParts Array of commentary strings
+ * @returns {string} 'bidding' | 'instruction' | 'display'
+ */
+function detectDealMode(commentaryParts) {
+  if (!commentaryParts.length) return 'display'
+
+  const fullText = commentaryParts.join('\n\n')
+
+  // Check for [BID xxx] tags - bidding practice mode
+  if (/\[BID\s+[^\]]+\]/i.test(fullText)) {
+    return 'bidding'
+  }
+
+  // Check for [NEXT] or [ROTATE] tags - play instruction mode
+  if (/\[NEXT\]|\[ROTATE\]/i.test(fullText)) {
+    return 'instruction'
+  }
+
+  return 'display'
+}
+
+/**
+ * Parse instruction steps from commentary for play instruction mode
+ * Splits on [NEXT] and [ROTATE] tags, extracts [SHOW ...] and [PLAY ...] tags
+ *
+ * NOTE: [SHOW ...] and [PLAY ...] tags should be placed AFTER the [NEXT] tag
+ * in the PBN file, so they appear in the step where they take effect.
+ *
+ * @param {Array} commentaryParts Array of commentary strings
+ * @returns {Array} Array of {text, action, showSeats, plays} objects
+ */
+function parseInstructionSteps(commentaryParts) {
+  if (!commentaryParts.length) return []
+
+  const fullText = commentaryParts.join('\n\n')
+
+  // Check if this is instruction mode (has [NEXT] or [ROTATE])
+  if (!/\[NEXT\]|\[ROTATE\]/i.test(fullText)) {
+    return []
+  }
+
+  const steps = []
+
+  // Split by control tags, keeping the tags
+  const pattern = /(\[NEXT\]|\[ROTATE\])/gi
+  const parts = fullText.split(pattern)
+
+  let currentText = ''
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i]
+
+    if (/^\[NEXT\]$/i.test(part)) {
+      // Found [NEXT] - save current text as a step
+      if (currentText.trim()) {
+        steps.push(parseStepContent(currentText.trim(), 'next'))
+      }
+      currentText = ''
+    } else if (/^\[ROTATE\]$/i.test(part)) {
+      // Found [ROTATE] - save current text as a step with rotate action
+      if (currentText.trim()) {
+        steps.push(parseStepContent(currentText.trim(), 'rotate'))
+      }
+      currentText = ''
+    } else {
+      currentText += part
+    }
+  }
+
+  // Don't forget remaining text after last control tag
+  if (currentText.trim()) {
+    steps.push(parseStepContent(currentText.trim(), 'end'))
+  }
+
+  return steps
+}
+
+/**
+ * Parse content of a single instruction step
+ * Extracts [SHOW ...] and [PLAY ...] tags
+ * @param {string} text Raw step text
+ * @param {string} action Step action (next, rotate, end)
+ * @returns {Object} Step object with text, action, showSeats, plays
+ */
+function parseStepContent(text, action) {
+  // Extract [SHOW ...] tags
+  let showSeats = null
+  const showMatch = text.match(/\[SHOW\s+([^\]]+)\]/i)
+  if (showMatch) {
+    const showValue = showMatch[1].toUpperCase().trim()
+    if (showValue === 'ALL') {
+      showSeats = ['N', 'E', 'S', 'W']
+    } else {
+      // Parse any combination of seat letters: W, NS, EW, NES, NESW, etc.
+      const seats = []
+      if (showValue.includes('N')) seats.push('N')
+      if (showValue.includes('E')) seats.push('E')
+      if (showValue.includes('S')) seats.push('S')
+      if (showValue.includes('W')) seats.push('W')
+      if (seats.length > 0) showSeats = seats
+    }
+  }
+
+  // Extract [PLAY ...] tags
+  const plays = []
+  const playPattern = /\[PLAY\s+([^\]]+)\]/gi
+  let playMatch
+  while ((playMatch = playPattern.exec(text)) !== null) {
+    plays.push(playMatch[1])
+  }
+
+  // Strip control tags from display text
+  let displayText = text
+    .replace(/\[SHOW\s+[^\]]*\]/gi, '')
+    .replace(/\[PLAY\s+[^\]]*\]/gi, '')
+    // Strip Baker title lines (e.g., "Baker Entries 1", "Baker Establishment 2")
+    .replace(/^Baker\s+\w+\s+\d+\s*/gim, '')
+    .trim()
+
+  return {
+    text: replaceSuitSymbols(displayText),
+    action,
+    showSeats,  // null means no change, array means show these seats
+    plays       // Array of play sequences
+  }
+}
+
+/**
  * Create an empty deal object with default values
  */
 function createEmptyDeal() {
@@ -179,7 +312,9 @@ function createEmptyDeal() {
     auctionDealer: '',
     result: '',
     commentary: '',
-    prompts: []  // Array of {bid, text} for each student bid prompt
+    prompts: [],  // Array of {bid, promptText, explanationText} for bidding practice
+    instructionSteps: [],  // Array of {text, action} for play instruction mode
+    mode: 'display'  // 'bidding' | 'instruction' | 'display'
   }
 }
 

@@ -170,7 +170,7 @@ export function getDistribution(hand) {
 
 /**
  * Strip PBN control directives from text for display
- * Removes [BID xxx], [NEXT], and similar markers
+ * Removes [BID xxx], [NEXT], [ROTATE], [PLAY ...], [SHOW ...] and similar markers
  * @param {string} text
  * @returns {string} Cleaned text
  */
@@ -179,6 +179,24 @@ export function stripControlDirectives(text) {
   return text
     .replace(/\[BID\s+[^\]]*\]/gi, '')
     .replace(/\[NEXT\]/gi, '')
+    .replace(/\[ROTATE\]/gi, '')
+    .replace(/\[PLAY\s+[^\]]*\]/gi, '')
+    .replace(/\[SHOW\s+[^\]]*\]/gi, '')
     .replace(/\n{3,}/g, '\n\n')  // Collapse multiple newlines
     .trim()
+}
+
+/**
+ * Convert suit symbols to colored HTML spans
+ * ♠♣ = black, ♥♦ = red
+ * @param {string} text Plain text with suit symbols
+ * @returns {string} HTML with colored suit symbols
+ */
+export function colorizeSuits(text) {
+  if (!text) return ''
+  return text
+    .replace(/♠/g, '<span class="suit-black">♠</span>')
+    .replace(/♣/g, '<span class="suit-black">♣</span>')
+    .replace(/♥/g, '<span class="suit-red">♥</span>')
+    .replace(/♦/g, '<span class="suit-red">♦</span>')
 }

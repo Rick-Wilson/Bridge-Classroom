@@ -5,7 +5,10 @@ use axum::{
 };
 
 use crate::{
-    models::{CreateUserRequest, CreateUserResponse, PublicUserInfo, User, UsersListResponse, UserInfo},
+    models::{
+        CreateUserRequest, CreateUserResponse, EncryptedKeyResponse, PublicUserInfo,
+        UpdateEncryptedKeyRequest, User, UserInfo, UsersListResponse,
+    },
     AppState,
 };
 
@@ -44,7 +47,8 @@ pub async fn create_user(
             r#"
             UPDATE users
             SET first_name_encrypted = ?, last_name_encrypted = ?, classroom = ?,
-                public_key = ?, data_consent = ?, updated_at = ?
+                public_key = ?, encrypted_private_key = COALESCE(?, encrypted_private_key),
+                data_consent = ?, updated_at = ?
             WHERE id = ?
             "#,
         )
@@ -52,6 +56,7 @@ pub async fn create_user(
         .bind(&req.last_name)
         .bind(&req.classroom)
         .bind(&req.public_key)
+        .bind(&req.encrypted_private_key)
         .bind(req.data_consent.unwrap_or(true))
         .bind(chrono::Utc::now().to_rfc3339())
         .bind(&req.user_id)
@@ -67,8 +72,8 @@ pub async fn create_user(
         sqlx::query(
             r#"
             INSERT INTO users (id, first_name_encrypted, last_name_encrypted, classroom,
-                               public_key, data_consent, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                               public_key, encrypted_private_key, data_consent, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&user.id)
@@ -76,6 +81,7 @@ pub async fn create_user(
         .bind(&user.last_name_encrypted)
         .bind(&user.classroom)
         .bind(&user.public_key)
+        .bind(&user.encrypted_private_key)
         .bind(user.data_consent)
         .bind(&user.created_at)
         .bind(&user.updated_at)
@@ -145,5 +151,64 @@ pub async fn get_user_public_key(
             public_key: u.public_key,
         })),
         None => Err(StatusCode::NOT_FOUND),
+    }
+}
+
+/// PUT /api/users/:user_id/encrypted-key
+/// Update a user's encrypted private key (for cross-device sync)
+pub async fn update_encrypted_key(
+    State(state): State<AppState>,
+    Path(user_id): Path<String>,
+    Json(req): Json<UpdateEncryptedKeyRequest>,
+) -> Result<StatusCode, (StatusCode, String)> {
+    // Verify user exists
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
+        .bind(&user_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    if user.is_none() {
+        return Err((StatusCode::NOT_FOUND, "User not found".to_string()));
+    }
+
+    // Update encrypted key
+    sqlx::query(
+        r#"
+        UPDATE users
+        SET encrypted_private_key = ?, updated_at = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(&req.encrypted_private_key)
+    .bind(chrono::Utc::now().to_rfc3339())
+    .bind(&user_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    tracing::info!("Updated encrypted key for user: {}", user_id);
+    Ok(StatusCode::OK)
+}
+
+/// GET /api/users/:user_id/encrypted-key
+/// Get a user's encrypted private key (for key recovery on new device)
+pub async fn get_encrypted_key(
+    State(state): State<AppState>,
+    Path(user_id): Path<String>,
+) -> Result<Json<EncryptedKeyResponse>, (StatusCode, String)> {
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
+        .bind(&user_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    match user {
+        Some(u) => Ok(Json(EncryptedKeyResponse {
+            user_id: u.id,
+            encrypted_private_key: u.encrypted_private_key,
+            public_key: u.public_key,
+        })),
+        None => Err((StatusCode::NOT_FOUND, "User not found".to_string())),
     }
 }

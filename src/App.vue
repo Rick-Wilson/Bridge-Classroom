@@ -20,6 +20,9 @@
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
           Progress
         </button>
+        <button v-if="deals.length" class="lobby-btn" @click="returnToLobby" title="Return to lesson selection">
+          Lobby
+        </button>
         <div class="stats" v-if="practice.state.correctCount + practice.state.wrongCount > 0">
           <span class="correct">{{ practice.state.correctCount }}</span>
           <span class="wrong">{{ practice.state.wrongCount }}</span>
@@ -35,113 +38,168 @@
       <AssignmentBanner />
       <!-- File loader when no deals -->
       <div v-if="!deals.length" class="no-deals">
-        <h2>Load Practice Deals</h2>
-        <p>Select a PBN file to start practicing:</p>
-        <input
-          type="file"
-          accept=".pbn"
-          @change="onFileSelect"
-          ref="fileInput"
-        />
-        <div v-if="bundledFiles.length" class="bundled-files">
-          <p>Or choose a bundled set:</p>
-          <button
-            v-for="file in bundledFiles"
-            :key="file.name"
-            class="bundled-btn"
-            @click="loadBundledFile(file)"
-          >
-            {{ file.name }}
-          </button>
+        <h2>Start Practicing</h2>
+        <p>Browse available lessons to begin:</p>
+        <button class="browse-lessons-btn" @click="showLessonBrowser = true">
+          Browse Lessons
+        </button>
+        <div class="load-file-section">
+          <p>Or load your own PBN file:</p>
+          <input
+            type="file"
+            accept=".pbn"
+            @change="onFileSelect"
+            ref="fileInput"
+          />
         </div>
       </div>
 
       <!-- Practice interface -->
       <template v-else>
-        <!-- Deal info -->
-        <DealInfo
-          :boardNumber="currentDeal?.boardNumber"
-          :dealer="currentDeal?.dealer"
-          :vulnerable="currentDeal?.vulnerable"
-          :contract="currentDeal?.contract"
-          :declarer="currentDeal?.declarer"
-          :showContract="practice.state.auctionComplete"
-          :title="dealTitle"
-        />
+        <!-- Two-column layout for desktop -->
+        <div class="practice-layout">
+          <!-- Left column: Deal info + Bridge table -->
+          <div class="practice-left">
+            <DealInfo
+              :boardNumber="currentDeal?.boardNumber"
+              :dealer="currentDeal?.dealer"
+              :vulnerable="currentDeal?.vulnerable"
+              :contract="currentDeal?.contract"
+              :declarer="currentDeal?.declarer"
+              :showContract="practice.state.auctionComplete"
+              :title="dealTitle"
+              :totalDeals="deals.length"
+              :currentIndex="currentDealIndex"
+              :dealBoardNumbers="deals.map(d => d.boardNumber)"
+              @goto="gotoDeal"
+            />
 
-        <!-- Bridge table with hands -->
-        <BridgeTable
-          :hands="currentDeal?.hands || {}"
-          :hiddenSeats="practice.state.auctionComplete ? [] : practice.hiddenSeats.value"
-          :showHcp="practice.state.auctionComplete"
-        />
-
-        <!-- Auction and bidding area -->
-        <div class="bidding-area">
-          <AuctionTable
-            :bids="practice.state.displayedBids"
-            :dealer="currentDeal?.dealer || 'N'"
-            :currentBidIndex="practice.state.currentBidIndex"
-            :wrongBidIndex="practice.state.wrongBidIndex"
-            :correctBidIndex="practice.state.correctBidIndex"
-            :showTurnIndicator="practice.currentBidHasPrompt.value"
-          />
-
-          <!-- Bidding box (only show when there's a prompt requiring user input) -->
-          <div v-if="!practice.state.auctionComplete && !practice.state.wrongBid && practice.currentBidHasPrompt.value" class="bidding-box-container">
-            <!-- Prompt text from PBN commentary -->
-            <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text">
-              {{ practice.currentPrompt.value.promptText }}
-            </div>
-            <BiddingBox
-              :lastBid="practice.lastContractBid.value"
-              :canDouble="practice.canDouble.value"
-              :canRedouble="practice.canRedouble.value"
-              @bid="onBid"
+            <BridgeTable
+              :hands="getHands()"
+              :hiddenSeats="getHiddenSeats()"
+              :showHcp="shouldShowHcp()"
+              :compact="true"
             />
           </div>
 
-          <!-- Feedback panel for wrong bids -->
-          <FeedbackPanel
-            :visible="!!practice.state.wrongBid"
-            type="wrong"
-            :wrongBid="practice.state.wrongBid"
-            :correctBid="practice.state.correctBid"
-            :commentary="practice.currentExplanation.value"
-            @continue="onContinue"
-          />
+          <!-- Right column: Mode-specific content -->
+          <div class="practice-right">
+            <!-- BIDDING MODE -->
+            <template v-if="currentMode === 'bidding'">
+              <AuctionTable
+                :bids="practice.state.displayedBids"
+                :dealer="currentDeal?.dealer || 'N'"
+                :currentBidIndex="practice.state.currentBidIndex"
+                :wrongBidIndex="practice.state.wrongBidIndex"
+                :correctBidIndex="practice.state.correctBidIndex"
+                :showTurnIndicator="practice.currentBidHasPrompt.value"
+              />
 
-          <!-- Auction complete panel -->
-          <div v-if="practice.state.auctionComplete" class="auction-complete">
-            <h3>Auction Complete</h3>
-            <div v-if="currentDeal?.commentary" class="full-commentary">
-              {{ stripControlDirectives(currentDeal.commentary) }}
-            </div>
-            <button class="next-deal-btn" @click="nextDeal">
-              Next Deal →
-            </button>
+              <!-- Bidding box (only show when there's a prompt requiring user input) -->
+              <div v-if="!practice.state.auctionComplete && !practice.state.wrongBid && practice.currentBidHasPrompt.value" class="bidding-box-container">
+                <!-- Prompt text from PBN commentary -->
+                <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text">
+                  {{ practice.currentPrompt.value.promptText }}
+                </div>
+                <BiddingBox
+                  :lastBid="practice.lastContractBid.value"
+                  :canDouble="practice.canDouble.value"
+                  :canRedouble="practice.canRedouble.value"
+                  @bid="onBid"
+                />
+              </div>
+
+              <!-- Feedback panel for wrong bids -->
+              <FeedbackPanel
+                :visible="!!practice.state.wrongBid"
+                type="wrong"
+                :wrongBid="practice.state.wrongBid"
+                :correctBid="practice.state.correctBid"
+                :commentary="practice.currentExplanation.value"
+                @continue="onContinue"
+              />
+
+              <!-- Auction complete panel -->
+              <div v-if="practice.state.auctionComplete" class="auction-complete">
+                <h3>Auction Complete</h3>
+                <div v-if="currentDeal?.commentary" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
+                </div>
+                <button class="next-deal-btn" @click="nextDeal">
+                  Next Deal →
+                </button>
+              </div>
+            </template>
+
+            <!-- INSTRUCTION MODE -->
+            <template v-else-if="currentMode === 'instruction'">
+              <AuctionTable
+                :bids="currentDeal?.auction || []"
+                :dealer="currentDeal?.dealer || 'N'"
+                :currentBidIndex="-1"
+                :wrongBidIndex="-1"
+                :correctBidIndex="-1"
+                :showTurnIndicator="false"
+              />
+
+              <!-- Instruction step content -->
+              <div class="instruction-panel">
+                <div class="instruction-progress">
+                  Step {{ instruction.state.currentStepIndex + 1 }} of {{ instruction.totalSteps.value }}
+                </div>
+                <div class="instruction-text-container" ref="instructionContainer">
+                  <!-- Previous steps (greyed out) -->
+                  <template v-for="(step, idx) in instruction.steps.value.slice(0, instruction.state.currentStepIndex)" :key="idx">
+                    <div class="instruction-text previous" v-html="colorizeSuits(step.text)"></div>
+                  </template>
+                  <!-- Current step (active) -->
+                  <div class="instruction-text current" v-html="colorizeSuits(instruction.currentText.value)"></div>
+                </div>
+                <div class="instruction-controls">
+                  <button
+                    v-if="instruction.state.currentStepIndex > 0"
+                    class="instruction-btn secondary"
+                    @click="instruction.prevStep()"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    v-if="instruction.hasNextStep.value"
+                    class="instruction-btn primary"
+                    @click="instruction.nextStep()"
+                  >
+                    {{ instruction.currentAction.value === 'rotate' ? 'Rotate' : 'Next' }} →
+                  </button>
+                  <button
+                    v-else
+                    class="instruction-btn primary"
+                    @click="nextDeal"
+                  >
+                    Next Deal →
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- DISPLAY MODE (no interactive elements) -->
+            <template v-else>
+              <AuctionTable
+                :bids="currentDeal?.auction || []"
+                :dealer="currentDeal?.dealer || 'N'"
+                :currentBidIndex="-1"
+                :wrongBidIndex="-1"
+                :correctBidIndex="-1"
+                :showTurnIndicator="false"
+              />
+
+              <div v-if="currentDeal?.commentary" class="display-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
+              </div>
+
+              <button class="next-deal-btn" @click="nextDeal">
+                Next Deal →
+              </button>
+            </template>
+
           </div>
-        </div>
-
-        <!-- Navigation -->
-        <DealNavigator
-          :deals="deals"
-          :currentIndex="currentDealIndex"
-          @prev="prevDeal"
-          @next="nextDeal"
-          @goto="gotoDeal"
-        />
-
-        <!-- Load different file -->
-        <div class="load-another">
-          <input
-            type="file"
-            accept=".pbn"
-            @change="onFileSelect"
-            id="loadAnother"
-            style="display: none"
-          />
-          <label for="loadAnother" class="load-link">Load different PBN file</label>
         </div>
       </template>
     </main>
@@ -163,14 +221,22 @@
     <div v-if="showProgress" class="modal-overlay" @click.self="showProgress = false">
       <ProgressDashboard @close="showProgress = false" />
     </div>
+
+    <!-- Lesson Browser Modal -->
+    <LessonBrowser
+      :visible="showLessonBrowser"
+      @close="showLessonBrowser = false"
+      @load="handleLessonLoad"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { parsePbn, getDealTitle } from './utils/pbnParser.js'
-import { stripControlDirectives } from './utils/cardFormatting.js'
+import { stripControlDirectives, colorizeSuits } from './utils/cardFormatting.js'
 import { useBiddingPractice } from './composables/useBiddingPractice.js'
+import { usePlayInstruction } from './composables/usePlayInstruction.js'
 import { useAppConfig } from './composables/useAppConfig.js'
 import { useUserStore } from './composables/useUserStore.js'
 import { useAssignmentStore } from './composables/useAssignmentStore.js'
@@ -190,6 +256,7 @@ import KeyBackupModal from './components/KeyBackupModal.vue'
 import SyncStatus from './components/SyncStatus.vue'
 import ProgressDashboard from './components/ProgressDashboard.vue'
 import TeacherDashboard from './components/teacher/TeacherDashboard.vue'
+import LessonBrowser from './components/LessonBrowser.vue'
 
 // Composables
 const appConfig = useAppConfig()
@@ -200,11 +267,26 @@ const observationStore = useObservationStore()
 
 // Practice state
 const practice = useBiddingPractice()
+const instruction = usePlayInstruction()
+
+// Current deal mode
+const currentMode = computed(() => currentDeal.value?.mode || 'display')
 
 // UI state
 const showSettings = ref(false)
 const showProgress = ref(false)
+const showLessonBrowser = ref(false)
 const isTeacherMode = ref(false)
+const instructionContainer = ref(null)
+
+// Auto-scroll instruction text when step changes
+watch(() => instruction.state.currentStepIndex, () => {
+  nextTick(() => {
+    if (instructionContainer.value) {
+      instructionContainer.value.scrollTop = instructionContainer.value.scrollHeight
+    }
+  })
+})
 
 // Check for teacher mode from URL
 function checkTeacherMode() {
@@ -293,13 +375,20 @@ const currentDeal = computed(() => deals.value[currentDealIndex.value] || null)
 
 const dealTitle = computed(() => {
   if (!currentDeal.value) return ''
-  return getDealTitle(currentDeal.value)
+  // Show lesson name with "Baker " prefix
+  const name = currentDeal.value.subfolder || currentDeal.value.category || ''
+  return name ? `Baker ${name}` : ''
 })
 
 // Load deal when index changes
 watch(currentDealIndex, () => {
   if (currentDeal.value) {
-    practice.loadDeal(currentDeal.value)
+    // Load into appropriate composable based on mode
+    if (currentDeal.value.mode === 'instruction') {
+      instruction.loadDeal(currentDeal.value)
+    } else {
+      practice.loadDeal(currentDeal.value)
+    }
   }
 })
 
@@ -329,7 +418,7 @@ async function onFileSelect(event) {
       }))
       deals.value = dealsWithCategory
       currentDealIndex.value = 0
-      practice.loadDeal(dealsWithCategory[0])
+      loadDealIntoMode(dealsWithCategory[0])
       practice.resetStats()
     } else {
       alert('No deals found in the PBN file')
@@ -355,13 +444,65 @@ async function loadBundledFile(file) {
       }))
       deals.value = dealsWithCategory
       currentDealIndex.value = 0
-      practice.loadDeal(dealsWithCategory[0])
+      loadDealIntoMode(dealsWithCategory[0])
       practice.resetStats()
     }
   } catch (err) {
     console.error('Error loading bundled file:', err)
     alert('Error loading file: ' + err.message)
   }
+}
+
+// Handle lesson loaded from LessonBrowser
+function handleLessonLoad({ subfolder, name, category, content }) {
+  const parsed = parsePbn(content)
+  if (parsed.length > 0) {
+    const dealsWithCategory = parsed.map(deal => ({
+      ...deal,
+      subfolder: deal.subfolder || subfolder,
+      category: deal.category || category
+    }))
+    deals.value = dealsWithCategory
+    currentDealIndex.value = 0
+    loadDealIntoMode(dealsWithCategory[0])
+    practice.resetStats()
+  } else {
+    alert('No deals found in the lesson file')
+  }
+}
+
+// Load deal into the appropriate composable based on mode
+function loadDealIntoMode(deal) {
+  if (deal.mode === 'instruction') {
+    instruction.loadDeal(deal)
+  } else {
+    practice.loadDeal(deal)
+  }
+}
+
+// Helper functions for mode-specific behavior
+function getHiddenSeats() {
+  if (currentMode.value === 'bidding') {
+    return practice.state.auctionComplete ? [] : practice.hiddenSeats.value
+  } else if (currentMode.value === 'instruction') {
+    return instruction.hiddenSeats.value
+  }
+  return [] // display mode shows all hands
+}
+
+function getHands() {
+  if (currentMode.value === 'instruction') {
+    // Use hands with played cards removed
+    return instruction.handsWithPlaysRemoved.value
+  }
+  return currentDeal.value?.hands || {}
+}
+
+function shouldShowHcp() {
+  if (currentMode.value === 'bidding') {
+    return practice.state.auctionComplete
+  }
+  return true // instruction and display modes show HCP
 }
 
 // Bidding
@@ -392,6 +533,13 @@ function gotoDeal(index) {
     currentDealIndex.value = index
   }
 }
+
+// Return to lobby (lesson selection)
+function returnToLobby() {
+  deals.value = []
+  currentDealIndex.value = 0
+  practice.resetStats()
+}
 </script>
 
 <style>
@@ -408,7 +556,7 @@ body {
 }
 
 .app {
-  max-width: 800px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -494,6 +642,23 @@ body {
   color: #333;
 }
 
+.lobby-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #fff3e0;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e65100;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lobby-btn:hover {
+  background: #ffe0b2;
+  color: #bf360c;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -514,6 +679,28 @@ body {
   gap: 16px;
 }
 
+/* Two-column practice layout for desktop */
+.practice-layout {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 32px;
+  align-items: start;
+  justify-content: center;
+}
+
+.practice-left {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.practice-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
 .no-deals {
   text-align: center;
   padding: 40px;
@@ -530,38 +717,37 @@ body {
   color: #666;
 }
 
-.no-deals input[type="file"] {
-  margin-bottom: 20px;
+.browse-lessons-btn {
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  margin-bottom: 24px;
 }
 
-.bundled-files {
+.browse-lessons-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.load-file-section {
   margin-top: 20px;
   padding-top: 20px;
   border-top: 1px solid #eee;
 }
 
-.bundled-btn {
-  margin: 4px;
-  padding: 10px 20px;
-  border: 1px solid #007bff;
-  background: #fff;
-  color: #007bff;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
+.load-file-section p {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #888;
 }
 
-.bundled-btn:hover {
-  background: #007bff;
-  color: #fff;
-}
-
-.bidding-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
+/* Legacy bidding-area - now integrated into practice-right */
 
 .bidding-box-container {
   display: flex;
@@ -629,9 +815,108 @@ body {
   background: #388e3c;
 }
 
+/* Instruction mode styles */
+.instruction-panel {
+  max-width: 500px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.instruction-progress {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.instruction-text-container {
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  padding-right: 8px;
+}
+
+.instruction-text {
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-bottom: 12px;
+}
+
+.instruction-text.previous {
+  color: #999;
+  border-left: 2px solid #ddd;
+  padding-left: 12px;
+  margin-left: 4px;
+}
+
+.instruction-text.current {
+  color: #333;
+}
+
+/* Suit symbol colors */
+.suit-red {
+  color: #d32f2f;
+}
+
+.suit-black {
+  color: #000;
+}
+
+.instruction-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.instruction-btn {
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.instruction-btn.primary {
+  background: #2196f3;
+  color: white;
+}
+
+.instruction-btn.primary:hover {
+  background: #1976d2;
+}
+
+.instruction-btn.secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.instruction-btn.secondary:hover {
+  background: #d0d0d0;
+}
+
+/* Display mode styles */
+.display-commentary {
+  max-width: 500px;
+  padding: 16px;
+  background: #fff;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #333;
+  white-space: pre-wrap;
+}
+
 .load-another {
   text-align: center;
   margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
 
 .load-link {
@@ -639,10 +924,30 @@ body {
   font-size: 13px;
   cursor: pointer;
   text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 .load-link:hover {
   color: #007bff;
+}
+
+.separator {
+  color: #ccc;
+  font-size: 13px;
+}
+
+/* Tablet breakpoint - stack layout vertically */
+@media (max-width: 900px) {
+  .practice-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .practice-right {
+    align-items: stretch;
+  }
 }
 
 @media (max-width: 600px) {

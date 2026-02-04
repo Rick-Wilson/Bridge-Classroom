@@ -1,18 +1,29 @@
 <template>
-  <div class="hand" :class="{ hidden: hidden }">
-    <div class="seat-label">{{ seatName }}</div>
-    <div v-if="!hidden && hand" class="suits">
-      <div v-for="suit in suits" :key="suit" class="suit-row">
-        <span class="suit-symbol" :class="suitClass(suit)">{{ suitSymbol(suit) }}</span>
-        <span class="cards">{{ formatSuitCards(suit) }}</span>
+  <div class="hand" :class="{ hidden: hidden, compact: compact, minimal: minimal }">
+    <!-- Minimal mode: just suit symbols in a row (for hidden E/W on desktop) -->
+    <template v-if="minimal && hidden">
+      <div class="minimal-hand">
+        <span class="seat-label-inline">{{ seat }}</span>
+        <span v-for="suit in suits" :key="suit" class="suit-symbol-inline" :class="suitClass(suit)">{{ suitSymbol(suit) }}</span>
       </div>
-    </div>
-    <div v-else-if="hidden" class="hidden-hand">
-      <div class="card-back"></div>
-    </div>
-    <div v-if="showHcp && hand && !hidden" class="hcp">
-      {{ hcp }} HCP
-    </div>
+    </template>
+
+    <!-- Normal/compact mode -->
+    <template v-else>
+      <div class="seat-label">{{ seatName }}</div>
+      <div v-if="!hidden && hand" class="suits">
+        <div v-for="suit in suits" :key="suit" class="suit-row">
+          <span class="suit-symbol" :class="suitClass(suit)">{{ suitSymbol(suit) }}</span>
+          <span class="cards">{{ formatSuitCards(suit) }}</span>
+        </div>
+      </div>
+      <div v-else-if="hidden" class="hidden-hand">
+        <div class="card-back"></div>
+      </div>
+      <div v-if="showHcp && hand && !hidden" class="hcp">
+        {{ hcp }} HCP
+      </div>
+    </template>
   </div>
 </template>
 
@@ -42,6 +53,14 @@ const props = defineProps({
     default: false
   },
   showHcp: {
+    type: Boolean,
+    default: false
+  },
+  compact: {
+    type: Boolean,
+    default: false
+  },
+  minimal: {
     type: Boolean,
     default: false
   }
@@ -143,5 +162,50 @@ function formatSuitCards(suit) {
 
 .hand.hidden {
   opacity: 0.7;
+}
+
+/* Compact mode - smaller padding and fonts */
+.hand.compact {
+  padding: 8px;
+  min-width: 100px;
+}
+
+.hand.compact .seat-label {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.hand.compact .suit-row {
+  font-size: 14px;
+  gap: 6px;
+}
+
+.hand.compact .suit-symbol {
+  font-size: 16px;
+  width: 18px;
+}
+
+/* Minimal mode - just suit symbols in a row (for hidden E/W) */
+.hand.minimal {
+  background: transparent;
+  padding: 4px 8px;
+  min-width: auto;
+}
+
+.minimal-hand {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 16px;
+}
+
+.seat-label-inline {
+  font-weight: bold;
+  color: #666;
+  margin-right: 4px;
+}
+
+.suit-symbol-inline {
+  font-size: 18px;
 }
 </style>

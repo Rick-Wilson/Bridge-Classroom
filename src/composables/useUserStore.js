@@ -3,8 +3,16 @@ import {
   generateExportedKeyPair,
   createKeyBackup,
   validateKeyBackup,
-  validateKeyPair
+  validateKeyPair,
+  encryptPrivateKeyWithPassphrase,
+  decryptPrivateKeyWithPassphrase
 } from '../utils/crypto.js'
+import {
+  isCredentialSyncSupported,
+  generatePassphrase,
+  saveCredential,
+  getCredential
+} from '../utils/credentialSync.js'
 
 const STORAGE_KEY = 'bridgePractice'
 
@@ -70,6 +78,24 @@ async function createUser({ firstName, lastName, classrooms = [], dataConsent = 
   // Generate cryptographic keypair
   const { publicKey, privateKey } = await generateExportedKeyPair()
 
+  // Try to set up cross-device sync via browser credential manager
+  let encryptedPrivateKey = null
+  let credentialSaved = false
+
+  if (isCredentialSyncSupported()) {
+    try {
+      const passphrase = generatePassphrase()
+      encryptedPrivateKey = await encryptPrivateKeyWithPassphrase(privateKey, passphrase)
+      credentialSaved = await saveCredential(id, passphrase)
+      if (credentialSaved) {
+        console.log('Credential saved to browser password manager for cross-device sync')
+      }
+    } catch (err) {
+      console.warn('Failed to set up credential sync:', err)
+      // Continue without credential sync - user can still use file backup
+    }
+  }
+
   const user = {
     id,
     firstName: firstName.trim(),
@@ -78,6 +104,8 @@ async function createUser({ firstName, lastName, classrooms = [], dataConsent = 
     dataConsent,
     publicKey,
     privateKey,
+    encryptedPrivateKey, // For server-side storage and cross-device sync
+    credentialSaved, // Track if browser credential was saved
     serverRegistered: false, // Will be set true after server registration in Stage 4
     createdAt: now,
     updatedAt: now
@@ -87,7 +115,7 @@ async function createUser({ firstName, lastName, classrooms = [], dataConsent = 
   currentUserId.value = id
   saveToStorage()
 
-  // Trigger key backup modal for new users
+  // Trigger key backup modal for new users (file backup is still recommended)
   showKeyBackupModal.value = true
 
   return user
@@ -288,6 +316,90 @@ function getKeyBackup() {
 }
 
 /**
+ * Try to recover keys from browser credential manager + server
+ * This enables cross-device sync via browser password managers (iCloud Keychain, Google, etc.)
+ * @param {string} apiUrl - API base URL
+ * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
+ */
+async function tryKeyRecovery(apiUrl) {
+  if (!isCredentialSyncSupported()) {
+    return { success: false, error: 'Credential sync not supported in this browser' }
+  }
+
+  try {
+    // Get stored credential from browser password manager
+    const credential = await getCredential()
+    if (!credential) {
+      return { success: false, error: 'No saved credentials found' }
+    }
+
+    const { userId, passphrase } = credential
+
+    // Check if we already have this user locally
+    if (users.value[userId]) {
+      // User exists locally - just switch to them
+      currentUserId.value = userId
+      saveToStorage()
+      return { success: true, user: users.value[userId], alreadyLocal: true }
+    }
+
+    // Fetch encrypted key from server
+    const response = await fetch(`${apiUrl}/users/${userId}/encrypted-key`)
+    if (!response.ok) {
+      if (response.status === 404) {
+        return { success: false, error: 'User not found on server' }
+      }
+      return { success: false, error: `Server error: ${response.status}` }
+    }
+
+    const data = await response.json()
+    if (!data.encrypted_private_key) {
+      return { success: false, error: 'No encrypted key stored on server' }
+    }
+
+    // Decrypt the private key with the passphrase
+    let privateKey
+    try {
+      privateKey = await decryptPrivateKeyWithPassphrase(data.encrypted_private_key, passphrase)
+    } catch (err) {
+      return { success: false, error: 'Failed to decrypt key - passphrase may be incorrect' }
+    }
+
+    // Validate the keypair
+    const keysValid = await validateKeyPair(data.public_key, privateKey)
+    if (!keysValid) {
+      return { success: false, error: 'Recovered keys are invalid' }
+    }
+
+    // Create user locally from recovered data
+    const user = {
+      id: userId,
+      firstName: 'Recovered',
+      lastName: 'User',
+      classrooms: [],
+      dataConsent: true,
+      publicKey: data.public_key,
+      privateKey,
+      encryptedPrivateKey: data.encrypted_private_key,
+      credentialSaved: true,
+      serverRegistered: true, // Already on server
+      recoveredFromCredentials: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    users.value[userId] = user
+    currentUserId.value = userId
+    saveToStorage()
+
+    return { success: true, user, recovered: true }
+  } catch (err) {
+    console.error('Key recovery failed:', err)
+    return { success: false, error: err.message }
+  }
+}
+
+/**
  * Dismiss the key backup modal
  */
 function dismissKeyBackupModal() {
@@ -366,6 +478,7 @@ export function useUserStore() {
     getKeyBackup,
     dismissKeyBackupModal,
     setTeacherPublicKey,
-    getTeacherPublicKey
+    getTeacherPublicKey,
+    tryKeyRecovery
   }
 }

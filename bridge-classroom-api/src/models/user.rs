@@ -10,6 +10,7 @@ pub struct User {
     pub last_name_encrypted: Option<String>,
     pub classroom: Option<String>,
     pub public_key: String,
+    pub encrypted_private_key: Option<String>,
     pub data_consent: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -23,6 +24,7 @@ pub struct CreateUserRequest {
     pub last_name: String,
     pub classroom: Option<String>,
     pub public_key: String,
+    pub encrypted_private_key: Option<String>,
     pub data_consent: Option<bool>,
 }
 
@@ -56,6 +58,20 @@ pub struct UsersListResponse {
     pub users: Vec<UserInfo>,
 }
 
+/// Request to update encrypted private key
+#[derive(Debug, Deserialize)]
+pub struct UpdateEncryptedKeyRequest {
+    pub encrypted_private_key: String,
+}
+
+/// Response containing encrypted private key for recovery
+#[derive(Debug, Serialize)]
+pub struct EncryptedKeyResponse {
+    pub user_id: String,
+    pub encrypted_private_key: Option<String>,
+    pub public_key: String,
+}
+
 impl User {
     /// Create a new user from a request
     pub fn from_request(req: CreateUserRequest) -> Self {
@@ -72,6 +88,7 @@ impl User {
             last_name_encrypted: Some(req.last_name),
             classroom: req.classroom,
             public_key: req.public_key,
+            encrypted_private_key: req.encrypted_private_key,
             data_consent: req.data_consent.unwrap_or(true),
             created_at: now.clone(),
             updated_at: now,

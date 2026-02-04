@@ -66,6 +66,10 @@ async fn main() -> anyhow::Result<()> {
             "/api/users/:user_id/public-key",
             get(routes::get_user_public_key),
         )
+        .route(
+            "/api/users/:user_id/encrypted-key",
+            get(routes::get_encrypted_key).put(routes::update_encrypted_key),
+        )
         .route("/api/observations", post(routes::submit_observations))
         .route("/api/observations", get(routes::get_observations))
         .route(
@@ -94,7 +98,7 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
         // Allow any origin (for development)
         CorsLayer::new()
             .allow_origin(Any)
-            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
             .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
     } else {
         // Specific origins
@@ -105,7 +109,7 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
 
         CorsLayer::new()
             .allow_origin(allowed)
-            .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
             .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
     }
 }
