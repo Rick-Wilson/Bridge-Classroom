@@ -96,6 +96,15 @@
               :showTurnIndicator="practice.hasBidPrompt.value"
             />
 
+            <!-- Feedback panel - shown after wrong bid (between auction and narrative) -->
+            <FeedbackPanel
+              :visible="!!practice.biddingState.wrongBid"
+              type="wrong"
+              :wrongBid="practice.biddingState.wrongBid"
+              :correctBid="practice.biddingState.correctBid"
+              :showContinue="false"
+            />
+
             <!-- Bidding box - shown when there's a [BID] prompt requiring input -->
             <div v-if="practice.hasBidPrompt.value" class="bidding-box-container">
               <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text" v-html="colorizeSuits(practice.currentPrompt.value.promptText)">
@@ -107,15 +116,6 @@
                 @bid="onBid"
               />
             </div>
-
-            <!-- Feedback panel - shown after wrong bid (just shows wrong vs correct, no explanation) -->
-            <FeedbackPanel
-              :visible="!!practice.biddingState.wrongBid"
-              type="wrong"
-              :wrongBid="practice.biddingState.wrongBid"
-              :correctBid="practice.biddingState.correctBid"
-              :showContinue="false"
-            />
 
             <!-- Instruction panel - shown if deal has [NEXT]/[ROTATE] steps -->
             <div v-if="practice.hasSteps.value" class="instruction-panel">
