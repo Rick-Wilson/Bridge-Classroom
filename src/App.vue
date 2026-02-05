@@ -63,7 +63,7 @@
         </div>
       </div>
 
-      <!-- Collection selected but no lesson loaded yet -->
+      <!-- Collection selected but no lesson loaded yet - show lesson browser inline -->
       <div v-else-if="!deals.length && currentCollection" class="collection-view">
         <div class="collection-header">
           <button class="back-to-lobby-btn" @click="exitCollection">
@@ -71,10 +71,12 @@
           </button>
           <h2>{{ getCollection(currentCollection)?.name || currentCollection }}</h2>
         </div>
-        <p>Select a lesson to begin practicing:</p>
-        <button class="browse-lessons-btn" @click="showLessonBrowser = true">
-          Browse Lessons
-        </button>
+        <p class="collection-subtitle">Select a lesson to begin practicing:</p>
+        <LessonBrowser
+          :visible="true"
+          :inline="true"
+          @load="handleLessonLoad"
+        />
       </div>
 
       <!-- Practice interface -->
@@ -211,12 +213,6 @@
       <ProgressDashboard @close="showProgress = false" />
     </div>
 
-    <!-- Lesson Browser Modal -->
-    <LessonBrowser
-      :visible="showLessonBrowser"
-      @close="showLessonBrowser = false"
-      @load="handleLessonLoad"
-    />
   </div>
 </template>
 
@@ -257,7 +253,6 @@ const practice = useDealPractice()
 // UI state
 const showSettings = ref(false)
 const showProgress = ref(false)
-const showLessonBrowser = ref(false)
 const isTeacherMode = ref(false)
 const instructionContainer = ref(null)
 const currentCollection = ref(null)
@@ -325,7 +320,6 @@ onMounted(async () => {
   const collectionFromUrl = appConfig.getCollectionFromUrl()
   if (collectionFromUrl) {
     currentCollection.value = collectionFromUrl
-    showLessonBrowser.value = true
   }
 
   // Initialize data sync (fetches teacher key, registers user, syncs pending data)
@@ -488,18 +482,16 @@ function returnToLobby() {
   practice.resetStats()
 }
 
-// Select a lesson collection (updates URL and shows lesson browser)
+// Select a lesson collection (updates URL and shows inline lesson browser)
 function selectCollection(collectionId) {
   currentCollection.value = collectionId
   appConfig.setCollectionInUrl(collectionId)
-  showLessonBrowser.value = true
 }
 
 // Exit collection and return to main lobby
 function exitCollection() {
   currentCollection.value = null
   appConfig.setCollectionInUrl(null)
-  showLessonBrowser.value = false
   deals.value = []
   currentDealIndex.value = 0
   practice.resetStats()
@@ -756,22 +748,9 @@ body {
   color: #333;
 }
 
-.browse-lessons-btn {
-  padding: 14px 32px;
-  font-size: 16px;
-  font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  margin-bottom: 24px;
-}
-
-.browse-lessons-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+.collection-subtitle {
+  margin-bottom: 16px;
+  color: #666;
 }
 
 .load-file-section {

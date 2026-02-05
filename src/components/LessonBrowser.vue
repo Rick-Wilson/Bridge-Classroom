@@ -1,5 +1,6 @@
 <template>
-  <div v-if="visible" class="modal-overlay" @click.self="$emit('close')">
+  <!-- Modal mode (when not inline) -->
+  <div v-if="visible && !inline" class="modal-overlay" @click.self="$emit('close')">
     <div class="lesson-browser">
       <div class="browser-header">
         <h2>Browse Lessons</h2>
@@ -7,7 +8,6 @@
       </div>
 
       <div class="browser-content">
-        <!-- Category accordion -->
         <div
           v-for="category in categories"
           :key="category.id"
@@ -43,6 +43,44 @@
       </div>
     </div>
   </div>
+
+  <!-- Inline mode (embedded in page) -->
+  <div v-else-if="visible && inline" class="lesson-browser-inline">
+    <div class="browser-content-inline">
+      <div
+        v-for="category in categories"
+        :key="category.id"
+        class="category-section"
+      >
+        <button
+          class="category-header"
+          :class="{ expanded: expandedCategories.includes(category.id) }"
+          @click="toggleCategory(category.id)"
+        >
+          <span class="expand-icon">{{ expandedCategories.includes(category.id) ? '▼' : '▶' }}</span>
+          <span class="category-name">{{ category.name }}</span>
+          <span class="category-count">{{ category.count }} lessons</span>
+        </button>
+
+        <div v-if="expandedCategories.includes(category.id)" class="lesson-list">
+          <button
+            v-for="subfolder in category.subfolders"
+            :key="subfolder"
+            class="lesson-item"
+            :class="{ loading: loadingLesson === subfolder }"
+            @click="selectLesson(subfolder)"
+          >
+            <span class="lesson-name">{{ getLessonName(subfolder) }}</span>
+            <span class="lesson-description">{{ getLessonDescription(subfolder) }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="error" class="error-message-inline">
+      {{ error }}
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -56,6 +94,10 @@ import {
 
 const props = defineProps({
   visible: {
+    type: Boolean,
+    default: false
+  },
+  inline: {
     type: Boolean,
     default: false
   }
@@ -117,7 +159,10 @@ async function selectLesson(subfolder) {
       content
     })
 
-    emit('close')
+    // Only emit close for modal mode
+    if (!props.inline) {
+      emit('close')
+    }
   } catch (err) {
     console.error('Error loading lesson:', err)
     error.value = `Could not load "${getLessonName(subfolder)}". The lesson may not be available yet.`
@@ -128,6 +173,7 @@ async function selectLesson(subfolder) {
 </script>
 
 <style scoped>
+/* Modal overlay styles */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -194,6 +240,20 @@ async function selectLesson(subfolder) {
   padding: 8px 0;
 }
 
+/* Inline mode styles */
+.lesson-browser-inline {
+  background: white;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.browser-content-inline {
+  padding: 8px 0;
+}
+
+/* Shared styles for both modes */
 .category-section {
   border-bottom: 1px solid #f0f0f0;
 }
@@ -280,12 +340,17 @@ async function selectLesson(subfolder) {
   color: #666;
 }
 
-.error-message {
+.error-message,
+.error-message-inline {
   padding: 12px 20px;
   background: #fff3f3;
   color: #d32f2f;
   font-size: 13px;
   border-top: 1px solid #ffcdd2;
+}
+
+.error-message-inline {
+  border-radius: 0 0 8px 8px;
 }
 
 @media (max-width: 600px) {
