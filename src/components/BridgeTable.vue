@@ -1,7 +1,7 @@
 <template>
   <div class="bridge-table" :class="{ compact: compact }">
     <!-- North - spans all columns, centered -->
-    <div v-if="!hiddenSeats.includes('N')" class="position north">
+    <div v-if="!hiddenSeats.includes('N') && hands.N" class="position north">
       <HandDisplay
         :hand="hands.N"
         seat="N"
@@ -10,7 +10,7 @@
     </div>
 
     <!-- West -->
-    <div v-if="!hiddenSeats.includes('W')" class="position west">
+    <div v-if="!hiddenSeats.includes('W') && hands.W" class="position west">
       <HandDisplay
         :hand="hands.W"
         seat="W"
@@ -24,7 +24,7 @@
     </div>
 
     <!-- East -->
-    <div v-if="!hiddenSeats.includes('E')" class="position east">
+    <div v-if="!hiddenSeats.includes('E') && hands.E" class="position east">
       <HandDisplay
         :hand="hands.E"
         seat="E"
@@ -33,7 +33,7 @@
     </div>
 
     <!-- South - spans all columns, centered -->
-    <div v-if="!hiddenSeats.includes('S')" class="position south">
+    <div v-if="!hiddenSeats.includes('S') && hands.S" class="position south">
       <HandDisplay
         :hand="hands.S"
         seat="S"

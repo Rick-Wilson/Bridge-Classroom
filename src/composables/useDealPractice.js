@@ -164,12 +164,10 @@ export function useDealPractice() {
       return allSeats.filter(seat => !revealedSeats.value.includes(seat))
     }
 
-    // For non-step lessons, use initial [SHOW] directive from PBN
+    // For non-step lessons, use [SHOW] directive from PBN
     // PBN should always provide this; if missing, show all as fallback
     const showSeats = currentDeal.value.initialShowSeats
     if (showSeats && showSeats.length > 0) {
-      // When auction complete in bidding practice, reveal all
-      if (hasPrompts.value && biddingState.auctionComplete) return []
       return allSeats.filter(seat => !showSeats.includes(seat))
     }
 
