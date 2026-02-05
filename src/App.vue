@@ -20,7 +20,10 @@
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
           Progress
         </button>
-        <button v-if="deals.length || currentCollection" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
+        <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" title="Back to lesson list">
+          Lessons
+        </button>
+        <button v-if="currentCollection" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
           Lobby
         </button>
         <div class="stats" v-if="practice.biddingState.correctCount + practice.biddingState.wrongCount > 0">
@@ -531,6 +534,15 @@ function gotoDeal(index) {
   }
 }
 
+// Return to lesson browser (keep collection, clear deals)
+function returnToLessons() {
+  currentLesson.value = null
+  appConfig.setLessonInUrl(null)
+  deals.value = []
+  currentDealIndex.value = 0
+  practice.resetStats()
+}
+
 // Return to lobby (exit collection and clear deals)
 function returnToLobby() {
   currentCollection.value = null
@@ -727,6 +739,23 @@ body {
 .progress-btn:hover {
   background: #e0e0e0;
   color: #333;
+}
+
+.lessons-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #e3f2fd;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1976d2;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.lessons-btn:hover {
+  background: #bbdefb;
+  color: #1565c0;
 }
 
 .lobby-btn {
