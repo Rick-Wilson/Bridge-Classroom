@@ -509,7 +509,6 @@ export function useDealPractice() {
     isStudentTurn,
     currentPrompt,
     hasBidPrompt,
-    currentExplanation,
     lastContractBid,
     canDouble,
     canRedouble,
