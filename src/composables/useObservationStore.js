@@ -114,9 +114,13 @@ async function recordObservation({
     return { success: false, error: 'No authenticated user' }
   }
 
-  // Get skill path from deal's subfolder/category
-  const subfolder = deal.subfolder || deal.category || 'Unknown'
-  const skillPath = getSkillPath(subfolder)
+  // Get skill path: prefer embedded PBN metadata, fallback to taxonomy lookup
+  let skillPath = deal.skillPath  // Embedded in PBN by lesson builder
+  if (!skillPath) {
+    // Fallback for older PBN files without embedded metadata
+    const subfolder = deal.subfolder || deal.category || 'Unknown'
+    skillPath = getSkillPath(subfolder)
+  }
 
   // Get assignment tag if in assignment mode
   const assignment = assignmentStore.getAssignmentTag()

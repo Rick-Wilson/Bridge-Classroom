@@ -47,7 +47,12 @@
 
 <script setup>
 import { ref } from 'vue'
-import { CATEGORIES, BAKER_BRIDGE_TAXONOMY } from '../utils/bakerBridgeTaxonomy.js'
+import {
+  CATEGORIES,
+  LESSON_CATALOG,
+  getLessonName,
+  getLessonDescription
+} from '../utils/lessonIndex.js'
 
 const props = defineProps({
   visible: {
@@ -72,21 +77,11 @@ function toggleCategory(categoryId) {
   }
 }
 
-function getLessonName(subfolder) {
-  const info = BAKER_BRIDGE_TAXONOMY[subfolder]
-  return info ? info.name : subfolder
-}
-
-function getLessonDescription(subfolder) {
-  const info = BAKER_BRIDGE_TAXONOMY[subfolder]
-  return info ? info.description : ''
-}
-
 // GitHub raw URL for Baker Bridge PBN files
 const GITHUB_BASE_URL = 'https://raw.githubusercontent.com/Rick-Wilson/Baker-Bridge/main/Package'
 
 /**
- * Convert taxonomy subfolder to actual filename
+ * Convert lesson subfolder to actual filename
  * e.g., 'Bidpractice/Set1' -> 'Set1'
  */
 function getFilename(subfolder) {
@@ -112,7 +107,7 @@ async function selectLesson(subfolder) {
     }
 
     const content = await response.text()
-    const lessonInfo = BAKER_BRIDGE_TAXONOMY[subfolder] || { name: subfolder }
+    const lessonInfo = LESSON_CATALOG[subfolder] || { name: subfolder }
 
     // Emit the loaded content along with metadata
     emit('load', {

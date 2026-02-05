@@ -1,12 +1,26 @@
 /**
  * Baker Bridge Taxonomy
  *
- * Maps Baker Bridge subfolders to skill paths for observation classification.
+ * ARCHITECTURE NOTE (Feb 2026):
+ * Skill paths are now embedded directly in PBN files via [SkillPath "..."] tags.
+ * This provides several benefits:
+ * - Self-documenting lesson files
+ * - Support for lesson collections from other sources
+ * - Single source of truth in the content
+ *
+ * This file is retained for:
+ * 1. Backward compatibility with older PBN files lacking embedded skill paths
+ * 2. Utility functions for working with skill paths (getSkillFromPath, etc.)
+ *
+ * For lesson navigation/browsing, use lessonIndex.js instead.
+ *
  * Based on the 49 categories from Baker Bridge (1,173 deals total).
  */
 
 /**
  * Complete mapping of Baker Bridge subfolders to skill information
+ * @deprecated Prefer using [SkillPath] tag embedded in PBN files.
+ * This mapping is maintained for backward compatibility.
  */
 export const BAKER_BRIDGE_TAXONOMY = {
   // ═══════════════════════════════════════════════════════════════

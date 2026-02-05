@@ -102,6 +102,19 @@ export function parsePbn(pbnContent) {
           case 'Result':
             currentDeal.result = tagValue
             break
+          // Metadata tags (embedded by lesson builder)
+          case 'Event':
+            currentDeal.event = tagValue
+            break
+          case 'SkillPath':
+            currentDeal.skillPath = tagValue
+            break
+          case 'Category':
+            currentDeal.category = tagValue
+            break
+          case 'Difficulty':
+            currentDeal.difficulty = tagValue
+            break
         }
       }
       continue
@@ -347,7 +360,12 @@ function createEmptyDeal() {
     instructionSteps: [],  // Array of {text, action} for play instruction mode
     mode: 'display',  // 'bidding' | 'instruction' | 'display'
     openingLeader: null,  // Position of opening leader (N/E/S/W)
-    openingLead: null     // Opening lead card (e.g., "SJ" for spade jack)
+    openingLead: null,    // Opening lead card (e.g., "SJ" for spade jack)
+    // Metadata embedded in PBN by lesson builder
+    event: '',            // Event name (e.g., "Baker Bridge - Stayman")
+    skillPath: null,      // Skill path (e.g., "bidding_conventions/stayman")
+    category: null,       // Category (e.g., "Bidding Conventions")
+    difficulty: null      // Difficulty level (beginner, intermediate, advanced, mixed)
   }
 }
 
