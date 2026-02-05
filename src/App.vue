@@ -194,7 +194,7 @@
             <div v-if="practice.isComplete.value" class="auction-complete">
               <h3 v-if="practice.hasPrompts.value">Auction Complete</h3>
               <!-- Bidding lessons: show accumulated narrative with final explanation -->
-              <div v-if="practice.hasPrompts.value && !practice.hasSteps.value" class="full-narrative">
+              <div v-if="practice.hasPrompts.value && !practice.hasSteps.value" class="full-narrative" ref="completionNarrativeContainer">
                 <template v-for="(prompt, idx) in practice.prompts.value" :key="'final-' + idx">
                   <!-- Only show promptText for first prompt (subsequent prompts duplicate previous explanation) -->
                   <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
@@ -276,6 +276,7 @@ const showProgress = ref(false)
 const isTeacherMode = ref(false)
 const instructionContainer = ref(null)
 const biddingNarrativeContainer = ref(null)
+const completionNarrativeContainer = ref(null)
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 
@@ -295,6 +296,17 @@ watch(() => practice.biddingState.currentPromptIndex, () => {
       biddingNarrativeContainer.value.scrollTop = biddingNarrativeContainer.value.scrollHeight
     }
   })
+})
+
+// Auto-scroll completion narrative to bottom when auction completes
+watch(() => practice.isComplete.value, (isComplete) => {
+  if (isComplete) {
+    nextTick(() => {
+      if (completionNarrativeContainer.value) {
+        completionNarrativeContainer.value.scrollTop = completionNarrativeContainer.value.scrollHeight
+      }
+    })
+  }
 })
 
 // Check for teacher mode from URL
