@@ -96,8 +96,7 @@
 
             <!-- Bidding box - shown when there's a [BID] prompt requiring input -->
             <div v-if="practice.hasBidPrompt.value" class="bidding-box-container">
-              <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text">
-                {{ practice.currentPrompt.value.promptText }}
+              <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text" v-html="colorizeSuits(practice.currentPrompt.value.promptText)">
               </div>
               <BiddingBox
                 :lastBid="practice.lastContractBid.value"

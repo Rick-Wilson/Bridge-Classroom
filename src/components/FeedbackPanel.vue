@@ -19,8 +19,7 @@
       </div>
     </div>
 
-    <div v-if="commentary" class="commentary">
-      {{ commentary }}
+    <div v-if="commentary" class="commentary" v-html="colorizeSuits(commentary)">
     </div>
 
     <div class="actions">
@@ -33,7 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { formatBid } from '../utils/cardFormatting.js'
+import { formatBid, colorizeSuits } from '../utils/cardFormatting.js'
 
 const props = defineProps({
   visible: {
@@ -193,5 +192,14 @@ function formatBidHtml(bid) {
 
 .btn.continue:hover {
   background: #0056b3;
+}
+
+/* Suit colors for v-html content */
+.commentary :deep(.suit-red) {
+  color: #d32f2f;
+}
+
+.commentary :deep(.suit-black) {
+  color: #000;
 }
 </style>
