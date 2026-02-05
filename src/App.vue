@@ -126,23 +126,34 @@
               :showContinue="false"
             />
 
-            <!-- Bidding box - shown when there's a [BID] prompt requiring input -->
-            <div v-if="practice.hasBidPrompt.value" class="bidding-box-container">
-              <div v-if="practice.currentPrompt.value?.promptText" class="prompt-text" v-html="colorizeSuits(practice.currentPrompt.value.promptText)">
+            <!-- Bidding narrative - accumulating text with previous in grey -->
+            <div v-if="practice.hasPrompts.value && !practice.isComplete.value" class="bidding-narrative-container">
+              <div class="bidding-narrative">
+                <!-- Previous prompts (greyed out) - both promptText and explanationText -->
+                <template v-for="(prompt, idx) in practice.prompts.value.slice(0, practice.biddingState.currentPromptIndex)" :key="'prev-' + idx">
+                  <span class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
+                  <span v-if="prompt.explanationText" class="narrative-text previous" v-html="colorizeSuits(prompt.explanationText)"></span>
+                </template>
+                <!-- Current prompt text (active) -->
+                <span v-if="practice.currentPrompt.value?.promptText" class="narrative-text current" v-html="colorizeSuits(practice.currentPrompt.value.promptText)"></span>
               </div>
-              <BiddingBox
-                :lastBid="practice.lastContractBid.value"
-                :canDouble="practice.canDouble.value"
-                :canRedouble="practice.canRedouble.value"
-                @bid="onBid"
-              />
-              <button
-                v-if="practice.canGoBack.value"
-                class="back-btn"
-                @click="practice.goBack()"
-              >
-                ← Back
-              </button>
+
+              <!-- Bidding box -->
+              <div v-if="practice.hasBidPrompt.value" class="bidding-box-wrapper">
+                <BiddingBox
+                  :lastBid="practice.lastContractBid.value"
+                  :canDouble="practice.canDouble.value"
+                  :canRedouble="practice.canRedouble.value"
+                  @bid="onBid"
+                />
+                <button
+                  v-if="practice.canGoBack.value"
+                  class="back-btn"
+                  @click="practice.goBack()"
+                >
+                  ← Back
+                </button>
+              </div>
             </div>
 
             <!-- Instruction panel - shown if deal has [NEXT]/[ROTATE] steps -->
@@ -179,7 +190,15 @@
             <!-- Completion panel - shown when deal is complete -->
             <div v-if="practice.isComplete.value" class="auction-complete">
               <h3 v-if="practice.hasPrompts.value">Auction Complete</h3>
-              <div v-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
+              <!-- Bidding lessons: show accumulated narrative with final explanation -->
+              <div v-if="practice.hasPrompts.value && !practice.hasSteps.value" class="full-narrative">
+                <template v-for="(prompt, idx) in practice.prompts.value" :key="'final-' + idx">
+                  <span class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
+                  <span v-if="prompt.explanationText" :class="['narrative-text', idx === practice.prompts.value.length - 1 ? 'current' : 'previous']" v-html="colorizeSuits(prompt.explanationText)"></span>
+                </template>
+              </div>
+              <!-- Non-bidding lessons: show full commentary -->
+              <div v-else-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
               </div>
               <button class="next-deal-btn" @click="nextDeal">
                 Next Deal →
@@ -891,6 +910,18 @@ body {
   white-space: pre-wrap;
 }
 
+.full-narrative {
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.6;
+  background: #fff;
+  padding: 16px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
 .next-deal-btn {
   padding: 12px 24px;
   border: none;
@@ -904,6 +935,45 @@ body {
 
 .next-deal-btn:hover {
   background: #388e3c;
+}
+
+/* Bidding narrative styles - accumulating text */
+.bidding-narrative-container {
+  max-width: 500px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bidding-narrative {
+  max-height: 250px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  padding-right: 8px;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.narrative-text {
+  display: block;
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+}
+
+.narrative-text.previous {
+  color: #999;
+}
+
+.narrative-text.current {
+  color: #333;
+}
+
+.bidding-box-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 /* Instruction mode styles */
