@@ -23,13 +23,14 @@ function classroomIdToName(id) {
 }
 
 /**
- * Parse URL parameters for teacher and classrooms
+ * Parse URL parameters for teacher, classrooms, and collection
  */
 function parseUrlParams() {
   const params = new URLSearchParams(window.location.search)
 
   const teacher = params.get('teacher')
   const classroomsParam = params.get('classrooms')
+  const collection = params.get('collection')
 
   const classrooms = classroomsParam
     ? classroomsParam.split(',').map(id => ({
@@ -38,8 +39,42 @@ function parseUrlParams() {
       }))
     : []
 
-  return { teacher, classrooms }
+  return { teacher, classrooms, collection }
 }
+
+/**
+ * Get current collection from URL (reactive check)
+ */
+function getCollectionFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('collection')
+}
+
+/**
+ * Set collection in URL without reload
+ */
+function setCollectionInUrl(collectionId) {
+  const url = new URL(window.location.href)
+  if (collectionId) {
+    url.searchParams.set('collection', collectionId)
+  } else {
+    url.searchParams.delete('collection')
+  }
+  window.history.pushState({}, '', url.toString())
+}
+
+/**
+ * Available lesson collections
+ */
+const COLLECTIONS = [
+  {
+    id: 'baker-bridge',
+    name: 'Baker Bridge',
+    description: 'Classic bridge lessons covering bidding conventions and play',
+    icon: '♠'
+  }
+  // Future collections can be added here
+]
 
 /**
  * Load config from localStorage
@@ -194,6 +229,11 @@ export function useAppConfig() {
     saveToStorage,
     clearConfig,
     getStorageData,
+    getCollectionFromUrl,
+    setCollectionInUrl,
+
+    // Constants
+    COLLECTIONS,
 
     // Utilities (exported for testing)
     parseUrlParams,

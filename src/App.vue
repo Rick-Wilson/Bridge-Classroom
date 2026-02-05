@@ -36,13 +36,22 @@
     <main class="app-main">
       <!-- Assignment Banner -->
       <AssignmentBanner />
-      <!-- File loader when no deals -->
-      <div v-if="!deals.length" class="no-deals">
-        <h2>Start Practicing</h2>
-        <p>Browse available lessons to begin:</p>
-        <button class="browse-lessons-btn" @click="showLessonBrowser = true">
-          Browse Lessons
-        </button>
+      <!-- Lobby when no deals and no collection selected -->
+      <div v-if="!deals.length && !currentCollection" class="lobby">
+        <h2>Choose a Lesson Collection</h2>
+        <p>Select a collection to browse lessons:</p>
+        <div class="collection-cards">
+          <button
+            v-for="collection in appConfig.COLLECTIONS"
+            :key="collection.id"
+            class="collection-card"
+            @click="selectCollection(collection.id)"
+          >
+            <span class="collection-icon">{{ collection.icon }}</span>
+            <span class="collection-name">{{ collection.name }}</span>
+            <span class="collection-desc">{{ collection.description }}</span>
+          </button>
+        </div>
         <div class="load-file-section">
           <p>Or load your own PBN file:</p>
           <input
@@ -52,6 +61,20 @@
             ref="fileInput"
           />
         </div>
+      </div>
+
+      <!-- Collection selected but no lesson loaded yet -->
+      <div v-else-if="!deals.length && currentCollection" class="collection-view">
+        <div class="collection-header">
+          <button class="back-to-lobby-btn" @click="exitCollection">
+            ← Back to Collections
+          </button>
+          <h2>{{ getCollection(currentCollection)?.name || currentCollection }}</h2>
+        </div>
+        <p>Select a lesson to begin practicing:</p>
+        <button class="browse-lessons-btn" @click="showLessonBrowser = true">
+          Browse Lessons
+        </button>
       </div>
 
       <!-- Practice interface -->
@@ -237,6 +260,7 @@ const showProgress = ref(false)
 const showLessonBrowser = ref(false)
 const isTeacherMode = ref(false)
 const instructionContainer = ref(null)
+const currentCollection = ref(null)
 
 // Auto-scroll instruction text when step changes
 watch(() => practice.stepState.currentStepIndex, () => {
@@ -296,6 +320,13 @@ onMounted(async () => {
   userStore.initialize()
   assignmentStore.initializeFromUrl()
   practice.observationStore.initialize()
+
+  // Check for collection in URL
+  const collectionFromUrl = appConfig.getCollectionFromUrl()
+  if (collectionFromUrl) {
+    currentCollection.value = collectionFromUrl
+    showLessonBrowser.value = true
+  }
 
   // Initialize data sync (fetches teacher key, registers user, syncs pending data)
   if (userStore.isAuthenticated.value) {
@@ -455,6 +486,28 @@ function returnToLobby() {
   deals.value = []
   currentDealIndex.value = 0
   practice.resetStats()
+}
+
+// Select a lesson collection (updates URL and shows lesson browser)
+function selectCollection(collectionId) {
+  currentCollection.value = collectionId
+  appConfig.setCollectionInUrl(collectionId)
+  showLessonBrowser.value = true
+}
+
+// Exit collection and return to main lobby
+function exitCollection() {
+  currentCollection.value = null
+  appConfig.setCollectionInUrl(null)
+  showLessonBrowser.value = false
+  deals.value = []
+  currentDealIndex.value = 0
+  practice.resetStats()
+}
+
+// Get collection info by ID
+function getCollection(collectionId) {
+  return appConfig.COLLECTIONS.find(c => c.id === collectionId)
 }
 </script>
 
@@ -617,20 +670,90 @@ body {
   align-items: center;
 }
 
-.no-deals {
+/* Lobby and Collection views */
+.lobby, .collection-view {
   text-align: center;
   padding: 40px;
   background: #fff;
   border-radius: 8px;
 }
 
-.no-deals h2 {
-  margin-bottom: 16px;
+.lobby h2, .collection-view h2 {
+  margin-bottom: 8px;
+  color: #333;
 }
 
-.no-deals p {
-  margin-bottom: 12px;
+.lobby > p, .collection-view > p {
+  margin-bottom: 24px;
   color: #666;
+}
+
+.collection-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.collection-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 24px 32px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  min-width: 200px;
+}
+
+.collection-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+}
+
+.collection-icon {
+  font-size: 48px;
+  line-height: 1;
+}
+
+.collection-name {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.collection-desc {
+  font-size: 13px;
+  opacity: 0.9;
+  max-width: 180px;
+}
+
+.collection-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.back-to-lobby-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  background: #f0f0f0;
+  color: #666;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-to-lobby-btn:hover {
+  background: #e0e0e0;
+  color: #333;
 }
 
 .browse-lessons-btn {
