@@ -80,7 +80,7 @@ export function useDealPractice() {
   // Does current position have a [BID] prompt requiring input?
   const hasBidPrompt = computed(() => {
     if (!hasPrompts.value || !isStudentTurn.value) return false
-    if (biddingState.auctionComplete || biddingState.wrongBid) return false
+    if (biddingState.auctionComplete) return false
 
     const prompt = prompts.value[biddingState.currentPromptIndex]
     if (!prompt) return false
@@ -90,8 +90,6 @@ export function useDealPractice() {
 
     return normalizeBid(prompt.bid) === normalizeBid(expectedBid)
   })
-
-  const currentExplanation = computed(() => currentPrompt.value?.explanationText || '')
 
   // Last contract bid (for bidding box validation)
   const lastContractBid = computed(() => {

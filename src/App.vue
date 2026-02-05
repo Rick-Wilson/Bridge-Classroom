@@ -108,13 +108,12 @@
               />
             </div>
 
-            <!-- Feedback panel - shown after wrong bid (no Continue button - auction advances automatically) -->
+            <!-- Feedback panel - shown after wrong bid (just shows wrong vs correct, no explanation) -->
             <FeedbackPanel
               :visible="!!practice.biddingState.wrongBid"
               type="wrong"
               :wrongBid="practice.biddingState.wrongBid"
               :correctBid="practice.biddingState.correctBid"
-              :commentary="practice.currentExplanation.value"
               :showContinue="false"
             />
 
