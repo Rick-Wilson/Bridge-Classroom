@@ -258,7 +258,8 @@ function parseInitialShowSeats(commentaryParts) {
 
 /**
  * Parse [showcards] directive for showing specific cards from hidden hands
- * Format: [showcards E:S7,S:S5] means show ♠7 from East and ♠5 from South
+ * Format: [showcards E:S7 S:S5] means show ♠7 from East and ♠5 from South
+ * Multiple cards for same seat use comma: [showcards E:S7,H3 S:S5]
  * @param {Array} commentaryParts Array of commentary strings
  * @returns {Object|null} Object mapping seat to array of cards, e.g. { E: ['S7'], S: ['S5'] }
  */
@@ -274,8 +275,7 @@ function parseInitialShowcards(commentaryParts) {
   const showcardsValue = showcardsMatch[1].trim()
   const result = {}
 
-  // Parse format like "E:S7,S:S5" or "E:S7,H3,S:S5"
-  // Split by seat indicators (N:, E:, S:, W:)
+  // Parse format like "E:S7 S:S5" (space between seats, comma between cards for same seat)
   const seatPattern = /([NESW]):([^,\s]+(?:,[^,\s]+)*)/gi
   let match
   while ((match = seatPattern.exec(showcardsValue)) !== null) {

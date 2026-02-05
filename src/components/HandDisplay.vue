@@ -12,15 +12,18 @@
     <template v-else>
       <div class="seat-label">{{ seatName }}</div>
       <div v-if="!hidden && hand" class="suits">
-        <div v-for="suit in suits" :key="suit" class="suit-row">
-          <span class="suit-symbol" :class="suitClass(suit)">{{ suitSymbol(suit) }}</span>
-          <span class="cards">{{ formatSuitCards(suit) }}</span>
-        </div>
+        <!-- For partial hands (showcards), only show suits that have cards -->
+        <template v-for="suit in suits" :key="suit">
+          <div v-if="!isPartialHand || hasSuitCards(suit)" class="suit-row">
+            <span class="suit-symbol" :class="suitClass(suit)">{{ suitSymbol(suit) }}</span>
+            <span class="cards">{{ formatSuitCards(suit) }}</span>
+          </div>
+        </template>
       </div>
       <div v-else-if="hidden" class="hidden-hand">
         <div class="card-back"></div>
       </div>
-      <div v-if="showHcp && hand && !hidden" class="hcp">
+      <div v-if="showHcp && hand && !hidden && !isPartialHand" class="hcp">
         {{ hcp }} HCP
       </div>
     </template>
@@ -71,6 +74,20 @@ const suits = SUIT_ORDER
 const seatName = computed(() => getSeatName(props.seat))
 
 const hcp = computed(() => countHCP(props.hand))
+
+// Count total cards in hand - partial hands (showcards) have fewer than 5 cards
+const totalCards = computed(() => {
+  if (!props.hand) return 0
+  return suits.reduce((sum, suit) => sum + (props.hand[suit]?.length || 0), 0)
+})
+
+// A partial hand shows only played cards (from showcards directive)
+// Don't show empty suits for partial hands - dashes would imply voids
+const isPartialHand = computed(() => totalCards.value > 0 && totalCards.value < 5)
+
+function hasSuitCards(suit) {
+  return props.hand && props.hand[suit] && props.hand[suit].length > 0
+}
 
 function suitSymbol(suit) {
   return SUIT_SYMBOLS[suit]

@@ -20,8 +20,8 @@
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
           Progress
         </button>
-        <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" title="Back to lesson list">
-          Lessons
+        <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + currentCollection.name">
+          {{ currentCollection.name }}
         </button>
         <button v-if="currentCollection" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
           Lobby
