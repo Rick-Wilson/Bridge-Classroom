@@ -115,6 +115,13 @@
                 :canRedouble="practice.canRedouble.value"
                 @bid="onBid"
               />
+              <button
+                v-if="practice.canGoBack.value"
+                class="back-btn"
+                @click="practice.goBack()"
+              >
+                ← Back
+              </button>
             </div>
 
             <!-- Instruction panel - shown if deal has [NEXT]/[ROTATE] steps -->
@@ -682,6 +689,23 @@ body {
   color: #333;
   text-align: left;
   white-space: pre-wrap;
+}
+
+.back-btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  background: #e0e0e0;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-top: 8px;
+}
+
+.back-btn:hover {
+  background: #d0d0d0;
 }
 
 .auction-complete {

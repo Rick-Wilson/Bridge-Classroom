@@ -420,6 +420,57 @@ export function useDealPractice() {
     biddingState.correctBid = null
   }
 
+  // Can we go back? True if we've made progress (answered a bid or advanced a step)
+  const canGoBack = computed(() => {
+    // Can go back in bidding if we've answered at least one prompt
+    if (hasPrompts.value && biddingState.currentPromptIndex > 0) return true
+    // Can go back in steps if we're past the first step
+    if (hasSteps.value && stepState.currentStepIndex > 0) return true
+    return false
+  })
+
+  // Go back to the previous state (previous bid prompt or previous step)
+  function goBack() {
+    // Clear any feedback first
+    clearFeedback()
+
+    // If we have prompts and have answered at least one, go back to previous prompt
+    if (hasPrompts.value && biddingState.currentPromptIndex > 0) {
+      // Decrement prompt index
+      biddingState.currentPromptIndex--
+      biddingState.auctionComplete = false
+
+      // Find where the previous prompt was in the auction
+      const promptsList = prompts.value
+      const targetPrompt = promptsList[biddingState.currentPromptIndex]
+      const targetBid = normalizeBid(targetPrompt.bid)
+
+      // Scan auction to find the position of this prompt
+      const auction = currentDeal.value.auction || []
+      let targetBidIndex = 0
+      for (let i = 0; i < auction.length; i++) {
+        if (normalizeBid(auction[i]) === targetBid) {
+          targetBidIndex = i
+          break
+        }
+      }
+
+      // Reset state to that position
+      biddingState.currentBidIndex = targetBidIndex
+      biddingState.displayedBids = auction.slice(0, targetBidIndex)
+      promptStartTime.value = Date.now()
+      currentAttemptNumber.value = 1
+      return true
+    }
+
+    // If we have steps and are past the first, go back a step
+    if (hasSteps.value && stepState.currentStepIndex > 0) {
+      return prevStep()
+    }
+
+    return false
+  }
+
   async function recordBidObservation(studentBid, expectedBid, correct, timeTakenMs) {
     if (!currentDeal.value) return
     try {
@@ -512,6 +563,7 @@ export function useDealPractice() {
     lastContractBid,
     canDouble,
     canRedouble,
+    canGoBack,
 
     // Computed: Display
     hiddenSeats,
@@ -531,6 +583,7 @@ export function useDealPractice() {
     // Methods: Bidding
     makeBid,
     clearFeedback,
+    goBack,
 
     // Methods: General
     loadDeal,
