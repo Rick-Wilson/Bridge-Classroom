@@ -31,12 +31,12 @@
 
     <div v-if="showContract && contract" class="contract-row">
       <div class="info-item">
-        <span class="label">Contract:</span>
         <span class="value contract" v-html="contractHtml"></span>
+        <span v-if="declarer" class="label">by {{ declarerName }}</span>
       </div>
-      <div v-if="declarer" class="info-item">
-        <span class="label">By:</span>
-        <span class="value">{{ declarerName }}</span>
+      <div v-if="openingLead" class="info-item">
+        <span class="label">OL:</span>
+        <span class="value lead-card" v-html="openingLeadHtml"></span>
       </div>
     </div>
 
@@ -72,6 +72,10 @@ const props = defineProps({
   showContract: {
     type: Boolean,
     default: false
+  },
+  openingLead: {
+    type: String,
+    default: ''
   },
   title: {
     type: String,
@@ -114,6 +118,18 @@ const vulClass = computed(() => {
 const contractHtml = computed(() => {
   if (!props.contract) return ''
   return formatBid(props.contract).html
+})
+
+const openingLeadHtml = computed(() => {
+  if (!props.openingLead) return ''
+  const suit = props.openingLead[0]
+  const rank = props.openingLead.slice(1)
+  const suitSymbols = { S: '♠', H: '♥', D: '♦', C: '♣' }
+  const suitColors = { S: 'black', H: 'red', D: 'red', C: 'black' }
+  const symbol = suitSymbols[suit] || suit
+  const colorClass = suitColors[suit] || 'black'
+  const displayRank = rank === 'T' ? '10' : rank
+  return `<span class="${colorClass}">${symbol}</span>${displayRank}`
 })
 </script>
 
@@ -233,10 +249,24 @@ const contractHtml = computed(() => {
 
 .contract {
   font-size: 16px;
+  font-weight: bold;
 }
 
 .contract :deep(.red) {
   color: #d32f2f;
+}
+
+.lead-card {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.lead-card :deep(.red) {
+  color: #d32f2f;
+}
+
+.lead-card :deep(.black) {
+  color: #000;
 }
 
 .title {
