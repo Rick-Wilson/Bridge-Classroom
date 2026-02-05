@@ -220,6 +220,44 @@ export function useDealPractice() {
     return true
   })
 
+  // ==================== COMPUTED: Auction & Lead Visibility ====================
+  // Track auction visibility based on [AUCTION off/on] directives
+  // Scans through steps up to current to determine state
+  const showAuctionTable = computed(() => {
+    if (!hasSteps.value) return true  // Default: show auction for bidding/display modes
+
+    // Scan through steps to find latest [AUCTION off/on] directive
+    let visible = true  // Default: show auction
+    for (let i = 0; i <= stepState.currentStepIndex; i++) {
+      const step = currentDeal.value?.instructionSteps?.[i]
+      if (step?.showAuction !== null && step?.showAuction !== undefined) {
+        visible = step.showAuction
+      }
+    }
+    return visible
+  })
+
+  // Track whether to show opening lead based on [SHOW_LEAD] directive
+  const showOpeningLead = computed(() => {
+    if (!hasSteps.value) return false  // Only relevant for instruction mode
+
+    // Scan through steps to find if [SHOW_LEAD] has been triggered
+    for (let i = 0; i <= stepState.currentStepIndex; i++) {
+      const step = currentDeal.value?.instructionSteps?.[i]
+      if (step?.showLead) return true
+    }
+    return false
+  })
+
+  // Opening lead info from deal
+  const openingLead = computed(() => {
+    if (!currentDeal.value?.openingLead) return null
+    return {
+      leader: currentDeal.value.openingLeader,
+      card: currentDeal.value.openingLead
+    }
+  })
+
   // ==================== COMPUTED: Completion State ====================
   const isComplete = computed(() => {
     if (hasSteps.value) {
@@ -479,6 +517,11 @@ export function useDealPractice() {
     hands,
     showHcp,
     isComplete,
+
+    // Computed: Auction & Lead
+    showAuctionTable,
+    showOpeningLead,
+    openingLead,
 
     // Methods: Steps
     nextStep,

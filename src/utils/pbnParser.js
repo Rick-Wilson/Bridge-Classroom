@@ -50,6 +50,14 @@ export function parsePbn(pbnContent) {
       continue
     }
 
+    // Parse [Play "X"]card format (opening lead)
+    const playMatch = line.match(/\[Play\s+"([NESW])"\](\w+)/)
+    if (playMatch && currentDeal) {
+      currentDeal.openingLeader = playMatch[1]
+      currentDeal.openingLead = playMatch[2]
+      continue
+    }
+
     // Parse tag lines [TagName "value"]
     const tagMatch = line.match(/\[(\w+)\s+"([^"]*)"\]/)
     if (tagMatch) {
@@ -287,11 +295,23 @@ function parseStepContent(text, action) {
   // Check for [RESET] tag - resets played cards to show original deal
   const reset = /\[RESET\]/i.test(text)
 
+  // Check for [AUCTION off/on] - controls auction table visibility
+  let showAuction = null  // null = no change, true = show, false = hide
+  const auctionOffMatch = /\[AUCTION\s+off\]/i.test(text)
+  const auctionOnMatch = /\[AUCTION\s+on\]/i.test(text)
+  if (auctionOffMatch) showAuction = false
+  if (auctionOnMatch) showAuction = true
+
+  // Check for [SHOW_LEAD] - display the opening lead
+  const showLead = /\[SHOW_LEAD\]/i.test(text)
+
   // Strip control tags from display text
   let displayText = text
     .replace(/\[SHOW\s+[^\]]*\]/gi, '')
     .replace(/\[PLAY\s+[^\]]*\]/gi, '')
     .replace(/\[RESET\]/gi, '')
+    .replace(/\[AUCTION\s+(?:on|off)\]/gi, '')
+    .replace(/\[SHOW_LEAD\]/gi, '')
     // Strip Baker title lines (e.g., "Baker Entries 1", "Baker Establishment 2")
     .replace(/^Baker\s+\w+\s+\d+\s*/gim, '')
     .trim()
@@ -299,9 +319,11 @@ function parseStepContent(text, action) {
   return {
     text: replaceSuitSymbols(displayText),
     action,
-    showSeats,  // null means no change, array means show these seats
-    plays,      // Array of play sequences
-    reset       // true if [RESET] tag present - show original hands
+    showSeats,    // null means no change, array means show these seats
+    plays,        // Array of play sequences
+    reset,        // true if [RESET] tag present - show original hands
+    showAuction,  // null = no change, true = show, false = hide
+    showLead      // true if [SHOW_LEAD] tag present
   }
 }
 
@@ -323,7 +345,9 @@ function createEmptyDeal() {
     commentary: '',
     prompts: [],  // Array of {bid, promptText, explanationText} for bidding practice
     instructionSteps: [],  // Array of {text, action} for play instruction mode
-    mode: 'display'  // 'bidding' | 'instruction' | 'display'
+    mode: 'display',  // 'bidding' | 'instruction' | 'display'
+    openingLeader: null,  // Position of opening leader (N/E/S/W)
+    openingLead: null     // Opening lead card (e.g., "SJ" for spade jack)
   }
 }
 

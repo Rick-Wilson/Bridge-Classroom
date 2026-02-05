@@ -84,8 +84,16 @@
 
           <!-- Right column: Tag-driven content -->
           <div class="practice-right">
-            <!-- Auction table - shown if deal has auction or bidding prompts -->
+            <!-- Opening lead display - shown when [SHOW_LEAD] directive is triggered -->
+            <div v-if="practice.showOpeningLead.value && practice.openingLead.value" class="opening-lead-display">
+              <span class="lead-label">Opening Lead:</span>
+              <span class="lead-card" v-html="formatLeadCard(practice.openingLead.value)"></span>
+              <span class="lead-by">by {{ getSeatName(practice.openingLead.value.leader) }}</span>
+            </div>
+
+            <!-- Auction table - shown if deal has auction and [AUCTION off] not triggered -->
             <AuctionTable
+              v-if="practice.showAuctionTable.value"
               :bids="practice.hasPrompts.value ? practice.biddingState.displayedBids : (currentDeal?.auction || [])"
               :dealer="currentDeal?.dealer || 'N'"
               :currentBidIndex="practice.hasPrompts.value ? practice.biddingState.currentBidIndex : -1"
@@ -417,6 +425,24 @@ function handleLessonLoad({ subfolder, name, category, content }) {
   }
 }
 
+// Opening lead formatting
+function formatLeadCard(lead) {
+  if (!lead?.card) return ''
+  const suit = lead.card[0]
+  const rank = lead.card.slice(1)
+  const suitSymbols = { S: '♠', H: '♥', D: '♦', C: '♣' }
+  const suitColors = { S: 'suit-black', H: 'suit-red', D: 'suit-red', C: 'suit-black' }
+  const symbol = suitSymbols[suit] || suit
+  const colorClass = suitColors[suit] || 'suit-black'
+  const displayRank = rank === 'T' ? '10' : rank
+  return `<span class="${colorClass}">${symbol}</span>${displayRank}`
+}
+
+function getSeatName(seat) {
+  const names = { N: 'North', E: 'East', S: 'South', W: 'West' }
+  return names[seat] || seat
+}
+
 // Bidding
 function onBid(bid) {
   const correct = practice.makeBid(bid)
@@ -685,6 +711,33 @@ body {
   color: #333;
   text-align: left;
   white-space: pre-wrap;
+}
+
+.opening-lead-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fff3e0;
+  border-left: 4px solid #ff9800;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 16px;
+}
+
+.opening-lead-display .lead-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.opening-lead-display .lead-card {
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.opening-lead-display .lead-by {
+  color: #666;
+  font-size: 14px;
 }
 
 .auction-complete {
