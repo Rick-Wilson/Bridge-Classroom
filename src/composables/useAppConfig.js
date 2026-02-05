@@ -65,13 +65,16 @@ function setCollectionInUrl(collectionId) {
 
 /**
  * Available lesson collections
+ * Each collection specifies a tocUrl where the table of contents can be fetched
  */
 const COLLECTIONS = [
   {
     id: 'baker-bridge',
     name: 'Baker Bridge',
     description: 'Classic bridge lessons covering bidding conventions and play',
-    icon: '♠'
+    icon: '♠',
+    tocUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Baker-Bridge/main/Package/toc.json',
+    baseUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Baker-Bridge/main/Package'
   }
   // Future collections can be added here
 ]

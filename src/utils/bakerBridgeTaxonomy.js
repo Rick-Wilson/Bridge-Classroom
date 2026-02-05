@@ -2,17 +2,13 @@
  * Baker Bridge Taxonomy
  *
  * ARCHITECTURE NOTE (Feb 2026):
- * Skill paths are now embedded directly in PBN files via [SkillPath "..."] tags.
- * This provides several benefits:
- * - Self-documenting lesson files
- * - Support for lesson collections from other sources
- * - Single source of truth in the content
+ * - Skill paths are embedded in PBN files via [SkillPath "..."] tags
+ * - Lesson navigation uses toc.json fetched from the content repo
  *
  * This file is retained for:
  * 1. Backward compatibility with older PBN files lacking embedded skill paths
  * 2. Utility functions for working with skill paths (getSkillFromPath, etc.)
- *
- * For lesson navigation/browsing, use lessonIndex.js instead.
+ * 3. Mapping lesson subfolders to skill categories for progress tracking
  *
  * Based on the 49 categories from Baker Bridge (1,173 deals total).
  */

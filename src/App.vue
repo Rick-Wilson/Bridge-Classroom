@@ -70,6 +70,7 @@
         <LessonBrowser
           :visible="true"
           :inline="true"
+          :collection="getCollection(currentCollection)"
           @load="handleLessonLoad"
         />
       </div>

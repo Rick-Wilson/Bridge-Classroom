@@ -1,15 +1,27 @@
 <template>
+  <!-- Loading state -->
+  <div v-if="visible && loading" class="lesson-browser-loading">
+    <div class="loading-spinner"></div>
+    <p>Loading lessons...</p>
+  </div>
+
+  <!-- Error state (failed to load TOC) -->
+  <div v-else-if="visible && tocError" class="lesson-browser-error">
+    <p>{{ tocError }}</p>
+    <button @click="fetchToc" class="retry-btn">Retry</button>
+  </div>
+
   <!-- Modal mode (when not inline) -->
-  <div v-if="visible && !inline" class="modal-overlay" @click.self="$emit('close')">
+  <div v-else-if="visible && !inline && toc" class="modal-overlay" @click.self="$emit('close')">
     <div class="lesson-browser">
       <div class="browser-header">
-        <h2>Browse Lessons</h2>
+        <h2>{{ toc.name }}</h2>
         <button class="close-btn" @click="$emit('close')">&times;</button>
       </div>
 
       <div class="browser-content">
         <div
-          v-for="category in categories"
+          v-for="category in toc.categories"
           :key="category.id"
           class="category-section"
         >
@@ -20,19 +32,19 @@
           >
             <span class="expand-icon">{{ expandedCategories.includes(category.id) ? '▼' : '▶' }}</span>
             <span class="category-name">{{ category.name }}</span>
-            <span class="category-count">{{ category.count }} lessons</span>
+            <span class="category-count">{{ category.lessons.length }} lessons</span>
           </button>
 
           <div v-if="expandedCategories.includes(category.id)" class="lesson-list">
             <button
-              v-for="subfolder in category.subfolders"
-              :key="subfolder"
+              v-for="lesson in category.lessons"
+              :key="lesson.id"
               class="lesson-item"
-              :class="{ loading: loadingLesson === subfolder }"
-              @click="selectLesson(subfolder)"
+              :class="{ loading: loadingLesson === lesson.id }"
+              @click="selectLesson(lesson, category)"
             >
-              <span class="lesson-name">{{ getLessonName(subfolder) }}</span>
-              <span class="lesson-description">{{ getLessonDescription(subfolder) }}</span>
+              <span class="lesson-name">{{ lesson.name }}</span>
+              <span class="lesson-description">{{ lesson.description }}</span>
             </button>
           </div>
         </div>
@@ -45,10 +57,10 @@
   </div>
 
   <!-- Inline mode (embedded in page) -->
-  <div v-else-if="visible && inline" class="lesson-browser-inline">
+  <div v-else-if="visible && inline && toc" class="lesson-browser-inline">
     <div class="browser-content-inline">
       <div
-        v-for="category in categories"
+        v-for="category in toc.categories"
         :key="category.id"
         class="category-section"
       >
@@ -59,19 +71,19 @@
         >
           <span class="expand-icon">{{ expandedCategories.includes(category.id) ? '▼' : '▶' }}</span>
           <span class="category-name">{{ category.name }}</span>
-          <span class="category-count">{{ category.count }} lessons</span>
+          <span class="category-count">{{ category.lessons.length }} lessons</span>
         </button>
 
         <div v-if="expandedCategories.includes(category.id)" class="lesson-list">
           <button
-            v-for="subfolder in category.subfolders"
-            :key="subfolder"
+            v-for="lesson in category.lessons"
+            :key="lesson.id"
             class="lesson-item"
-            :class="{ loading: loadingLesson === subfolder }"
-            @click="selectLesson(subfolder)"
+            :class="{ loading: loadingLesson === lesson.id }"
+            @click="selectLesson(lesson, category)"
           >
-            <span class="lesson-name">{{ getLessonName(subfolder) }}</span>
-            <span class="lesson-description">{{ getLessonDescription(subfolder) }}</span>
+            <span class="lesson-name">{{ lesson.name }}</span>
+            <span class="lesson-description">{{ lesson.description }}</span>
           </button>
         </div>
       </div>
@@ -84,13 +96,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import {
-  CATEGORIES,
-  LESSON_CATALOG,
-  getLessonName,
-  getLessonDescription
-} from '../utils/lessonIndex.js'
+import { ref, watch, onMounted } from 'vue'
 
 const props = defineProps({
   visible: {
@@ -100,15 +106,59 @@ const props = defineProps({
   inline: {
     type: Boolean,
     default: false
+  },
+  collection: {
+    type: Object,
+    default: null
+    // Expected shape: { tocUrl, baseUrl }
   }
 })
 
 const emit = defineEmits(['close', 'load'])
 
-const categories = CATEGORIES
+// TOC data fetched from collection
+const toc = ref(null)
+const tocError = ref(null)
+const loading = ref(false)
+
+// UI state
 const expandedCategories = ref([])
 const loadingLesson = ref(null)
 const error = ref(null)
+
+// Fetch TOC when component becomes visible or collection changes
+watch(
+  () => [props.visible, props.collection],
+  ([visible, collection]) => {
+    if (visible && collection && !toc.value) {
+      fetchToc()
+    }
+  },
+  { immediate: true }
+)
+
+async function fetchToc() {
+  if (!props.collection?.tocUrl) {
+    tocError.value = 'No collection specified'
+    return
+  }
+
+  loading.value = true
+  tocError.value = null
+
+  try {
+    const response = await fetch(props.collection.tocUrl)
+    if (!response.ok) {
+      throw new Error(`Failed to load: ${response.statusText}`)
+    }
+    toc.value = await response.json()
+  } catch (err) {
+    console.error('Error fetching TOC:', err)
+    tocError.value = `Could not load lesson catalog. ${err.message}`
+  } finally {
+    loading.value = false
+  }
+}
 
 function toggleCategory(categoryId) {
   const idx = expandedCategories.value.indexOf(categoryId)
@@ -119,29 +169,25 @@ function toggleCategory(categoryId) {
   }
 }
 
-// GitHub raw URL for Baker Bridge PBN files
-const GITHUB_BASE_URL = 'https://raw.githubusercontent.com/Rick-Wilson/Baker-Bridge/main/Package'
-
 /**
- * Convert lesson subfolder to actual filename
+ * Convert lesson ID to filename
  * e.g., 'Bidpractice/Set1' -> 'Set1'
  */
-function getFilename(subfolder) {
-  // Handle Bidpractice subfolders - extract just the Set name
-  if (subfolder.includes('/')) {
-    return subfolder.split('/').pop()
+function getFilename(lessonId) {
+  if (lessonId.includes('/')) {
+    return lessonId.split('/').pop()
   }
-  return subfolder
+  return lessonId
 }
 
-async function selectLesson(subfolder) {
+async function selectLesson(lesson, category) {
   error.value = null
-  loadingLesson.value = subfolder
+  loadingLesson.value = lesson.id
 
   try {
-    // Construct the GitHub raw URL for the PBN file
-    const filename = getFilename(subfolder)
-    const url = `${GITHUB_BASE_URL}/${filename}.pbn`
+    const baseUrl = props.collection?.baseUrl || ''
+    const filename = getFilename(lesson.id)
+    const url = `${baseUrl}/${filename}.pbn`
 
     const response = await fetch(url)
     if (!response.ok) {
@@ -149,13 +195,12 @@ async function selectLesson(subfolder) {
     }
 
     const content = await response.text()
-    const lessonInfo = LESSON_CATALOG[subfolder] || { name: subfolder }
 
     // Emit the loaded content along with metadata
     emit('load', {
-      subfolder,
-      name: lessonInfo.name,
-      category: lessonInfo.category,
+      subfolder: lesson.id,
+      name: lesson.name,
+      category: category.name,
       content
     })
 
@@ -165,7 +210,7 @@ async function selectLesson(subfolder) {
     }
   } catch (err) {
     console.error('Error loading lesson:', err)
-    error.value = `Could not load "${getLessonName(subfolder)}". The lesson may not be available yet.`
+    error.value = `Could not load "${lesson.name}". The lesson may not be available yet.`
   } finally {
     loadingLesson.value = null
   }
@@ -173,6 +218,45 @@ async function selectLesson(subfolder) {
 </script>
 
 <style scoped>
+/* Loading and error states */
+.lesson-browser-loading,
+.lesson-browser-error {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f0f0f0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.retry-btn {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.retry-btn:hover {
+  background: #5a6fd6;
+}
+
 /* Modal overlay styles */
 .modal-overlay {
   position: fixed;
