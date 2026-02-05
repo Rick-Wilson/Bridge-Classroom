@@ -194,7 +194,82 @@ export function useDealPractice() {
     return []
   })
 
+  // Showcards - specific cards to show from otherwise hidden hands
+  // Format: { E: ['S7'], S: ['S5'] } means show ♠7 from East and ♠5 from South
+  const currentShowcards = computed(() => {
+    if (!currentDeal.value) return null
+
+    // For step-based lessons, track showcards through steps
+    if (hasSteps.value) {
+      const instructionSteps = currentDeal.value.instructionSteps || []
+      let showcards = { ...(currentDeal.value.initialShowcards || {}) }
+
+      // Walk through steps up to current, updating showcards
+      for (let i = 0; i <= stepState.currentStepIndex && i < instructionSteps.length; i++) {
+        const step = instructionSteps[i]
+
+        // If this step has showcards, add/update them
+        if (step?.showcards) {
+          for (const [seat, cards] of Object.entries(step.showcards)) {
+            showcards[seat] = cards
+          }
+        }
+
+        // If this step reveals a seat fully, clear its showcards
+        if (step?.showSeats) {
+          for (const seat of step.showSeats) {
+            delete showcards[seat]
+          }
+        }
+      }
+
+      return Object.keys(showcards).length > 0 ? showcards : null
+    }
+
+    // For bidding/display lessons, use initial showcards
+    // Note: showcards get cleared when [show NESW] reveals all hands
+    const showSeats = currentDeal.value.initialShowSeats || []
+
+    // If all seats are shown, no need for showcards
+    if (showSeats.length === 4 || (showSeats.includes('N') && showSeats.includes('E') && showSeats.includes('S') && showSeats.includes('W'))) {
+      return null
+    }
+
+    return currentDeal.value.initialShowcards || null
+  })
+
+  // Seats that have showcards should not be hidden (they'll show partial hands)
+  const seatsWithShowcards = computed(() => {
+    const showcards = currentShowcards.value
+    if (!showcards) return []
+    return Object.keys(showcards)
+  })
+
+  // Effective hidden seats: hidden minus any that have showcards
+  const effectiveHiddenSeats = computed(() => {
+    const hidden = hiddenSeats.value
+    const withShowcards = seatsWithShowcards.value
+    if (!withShowcards.length) return hidden
+    return hidden.filter(seat => !withShowcards.includes(seat))
+  })
+
+  // Helper to convert showcards format (e.g., ['S7', 'H3']) to hand object
+  function showcardsToHand(cards) {
+    const hand = { spades: [], hearts: [], diamonds: [], clubs: [] }
+    const suitMap = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }
+    for (const card of cards) {
+      const suit = card[0].toUpperCase()
+      const rank = card.slice(1).toUpperCase()
+      const suitName = suitMap[suit]
+      if (suitName) {
+        hand[suitName].push(rank)
+      }
+    }
+    return hand
+  }
+
   // Hands with played cards removed (unless current step has [RESET])
+  // Also handles showcards - returns partial hands for seats with showcards
   const hands = computed(() => {
     if (!currentDeal.value?.hands) return {}
 
@@ -203,17 +278,23 @@ export function useDealPractice() {
       return currentDeal.value.hands
     }
 
-    // If no played cards, return original hands
-    const hasPlays = Object.values(playedCards.value).some(arr => arr.length > 0)
-    if (!hasPlays) return currentDeal.value.hands
-
+    const showcards = currentShowcards.value
     const result = {}
+
     for (const seat of ['N', 'E', 'S', 'W']) {
+      // Check if this seat has showcards (partial hand)
+      if (showcards && showcards[seat]) {
+        result[seat] = showcardsToHand(showcards[seat])
+        continue
+      }
+
       const hand = currentDeal.value.hands[seat]
       if (!hand) {
         result[seat] = null
         continue
       }
+
+      // Copy the hand and remove played cards
       result[seat] = {
         spades: [...(hand.spades || [])],
         hearts: [...(hand.hearts || [])],
@@ -579,7 +660,7 @@ export function useDealPractice() {
     canGoBack,
 
     // Computed: Display
-    hiddenSeats,
+    hiddenSeats: effectiveHiddenSeats,
     hands,
     showHcp,
     isComplete,

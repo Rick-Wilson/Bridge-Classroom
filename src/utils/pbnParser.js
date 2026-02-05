@@ -70,6 +70,7 @@ export function parsePbn(pbnContent) {
           currentDeal.prompts = parsePromptsInternal(currentCommentary)
           currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
           currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
+          currentDeal.initialShowcards = parseInitialShowcards(currentCommentary)
           currentDeal.mode = detectDealMode(currentCommentary)
           deals.push(currentDeal)
         }
@@ -136,6 +137,7 @@ export function parsePbn(pbnContent) {
     currentDeal.prompts = parsePromptsInternal(currentCommentary)
     currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
     currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
+    currentDeal.initialShowcards = parseInitialShowcards(currentCommentary)
     currentDeal.mode = detectDealMode(currentCommentary)
     deals.push(currentDeal)
   }
@@ -255,6 +257,37 @@ function parseInitialShowSeats(commentaryParts) {
 }
 
 /**
+ * Parse [showcards] directive for showing specific cards from hidden hands
+ * Format: [showcards E:S7,S:S5] means show ♠7 from East and ♠5 from South
+ * @param {Array} commentaryParts Array of commentary strings
+ * @returns {Object|null} Object mapping seat to array of cards, e.g. { E: ['S7'], S: ['S5'] }
+ */
+function parseInitialShowcards(commentaryParts) {
+  if (!commentaryParts.length) return null
+
+  const fullText = commentaryParts.join('\n\n')
+
+  // Find first [showcards ...] tag
+  const showcardsMatch = fullText.match(/\[showcards\s+([^\]]+)\]/i)
+  if (!showcardsMatch) return null
+
+  const showcardsValue = showcardsMatch[1].trim()
+  const result = {}
+
+  // Parse format like "E:S7,S:S5" or "E:S7,H3,S:S5"
+  // Split by seat indicators (N:, E:, S:, W:)
+  const seatPattern = /([NESW]):([^,\s]+(?:,[^,\s]+)*)/gi
+  let match
+  while ((match = seatPattern.exec(showcardsValue)) !== null) {
+    const seat = match[1].toUpperCase()
+    const cards = match[2].split(',').map(c => c.trim().toUpperCase())
+    result[seat] = cards
+  }
+
+  return Object.keys(result).length > 0 ? result : null
+}
+
+/**
  * Parse instruction steps from commentary for play instruction mode
  * Splits on [NEXT] and [ROTATE] tags, extracts [SHOW ...] and [PLAY ...] tags
  *
@@ -357,6 +390,23 @@ function parseStepContent(text, action) {
   // Check for [SHOW_LEAD] - display the opening lead
   const showLead = /\[SHOW_LEAD\]/i.test(text)
 
+  // Extract [showcards ...] tags - shows specific cards from hidden hands
+  let showcards = null
+  const showcardsMatch = text.match(/\[showcards\s+([^\]]+)\]/i)
+  if (showcardsMatch) {
+    const showcardsValue = showcardsMatch[1].trim()
+    showcards = {}
+    // Parse format like "E:S7,S:S5" or "E:S7,H3,S:S5"
+    const seatPattern = /([NESW]):([^,\s]+(?:,[^,\s]+)*)/gi
+    let match
+    while ((match = seatPattern.exec(showcardsValue)) !== null) {
+      const seat = match[1].toUpperCase()
+      const cards = match[2].split(',').map(c => c.trim().toUpperCase())
+      showcards[seat] = cards
+    }
+    if (Object.keys(showcards).length === 0) showcards = null
+  }
+
   // Strip control tags from display text
   let displayText = text
     .replace(/\[SHOW\s+[^\]]*\]/gi, '')
@@ -364,6 +414,7 @@ function parseStepContent(text, action) {
     .replace(/\[RESET\]/gi, '')
     .replace(/\[AUCTION\s+(?:on|off)\]/gi, '')
     .replace(/\[SHOW_LEAD\]/gi, '')
+    .replace(/\[showcards\s+[^\]]*\]/gi, '')
     // Strip deal title lines (e.g., "Stayman 1", "Entries 2") - matches "Word(s) Number" at start of line
     .replace(/^[A-Z][a-zA-Z-]*(?:\s+[A-Z][a-zA-Z-]*)?\s+\d+\s*$/gim, '')
     .trim()
@@ -375,7 +426,8 @@ function parseStepContent(text, action) {
     plays,        // Array of play sequences
     reset,        // true if [RESET] tag present - show original hands
     showAuction,  // null = no change, true = show, false = hide
-    showLead      // true if [SHOW_LEAD] tag present
+    showLead,     // true if [SHOW_LEAD] tag present
+    showcards     // null = no change, object = { seat: [cards] } to show
   }
 }
 
