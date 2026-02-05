@@ -95,6 +95,7 @@ describe('useObservationStore', () => {
       dealer: 'N',
       vulnerable: 'None',
       studentSeat: 'S',
+      skillPath: 'bidding_conventions/stayman', // Embedded by lesson builder
       hands: {
         N: 'SAQ5 H74 DQ962 CAJT8',
         E: 'SKT HQJT982 D83 C652',

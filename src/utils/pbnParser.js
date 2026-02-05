@@ -170,7 +170,7 @@ function parsePromptsInternal(commentaryParts) {
     if (i === 0) {
       // First bid - use text before it (skip title line)
       const lines = textBefore.trim().split('\n')
-      // Skip the title line (e.g., "Baker Cue-bid 1")
+      // Skip the title line (e.g., "Stayman 1", "Cue-bid 5")
       promptText = lines.slice(1).join('\n').trim()
     } else {
       // Subsequent bids - the prompt is the explanation from previous section
@@ -358,8 +358,8 @@ function parseStepContent(text, action) {
     .replace(/\[RESET\]/gi, '')
     .replace(/\[AUCTION\s+(?:on|off)\]/gi, '')
     .replace(/\[SHOW_LEAD\]/gi, '')
-    // Strip Baker title lines (e.g., "Baker Entries 1", "Baker Establishment 2")
-    .replace(/^Baker\s+\w+\s+\d+\s*/gim, '')
+    // Strip deal title lines (e.g., "Stayman 1", "Entries 2") - matches "Word(s) Number" at start of line
+    .replace(/^[A-Z][a-zA-Z-]*(?:\s+[A-Z][a-zA-Z-]*)?\s+\d+\s*$/gim, '')
     .trim()
 
   return {
@@ -396,7 +396,7 @@ function createEmptyDeal() {
     openingLead: null,    // Opening lead card (e.g., "SJ" for spade jack)
     initialShowSeats: null,  // Initial [SHOW ...] seats from PBN (null = use defaults)
     // Metadata embedded in PBN by lesson builder
-    event: '',            // Event name (e.g., "Baker Bridge - Stayman")
+    event: '',            // Event name (e.g., "Bridge Lesson - Stayman")
     skillPath: null,      // Skill path (e.g., "bidding_conventions/stayman")
     category: null,       // Category (e.g., "Bidding Conventions")
     difficulty: null      // Difficulty level (beginner, intermediate, advanced, mixed)
@@ -551,7 +551,7 @@ export function parsePrompts(commentaryParts) {
     if (i === 0) {
       // First bid - use text before it (skip title line)
       const lines = textBefore.trim().split('\n')
-      // Skip the title line (e.g., "Baker Cue-bid 1")
+      // Skip the title line (e.g., "Stayman 1", "Cue-bid 5")
       promptText = lines.slice(1).join('\n').trim()
     } else {
       // Subsequent bids - the prompt is the explanation from previous section
@@ -573,15 +573,17 @@ export function parsePrompts(commentaryParts) {
 }
 
 /**
- * Extract the title from the first commentary block (usually "Baker Cue-bid 1")
+ * Extract the title from the first commentary block (e.g., "Stayman 1", "Cue-bid 5")
+ * Matches patterns like "Word(s) Number" at the start of commentary
  * @param {Object} deal
- * @returns {string} Title or empty string
+ * @returns {string} Title or board number
  */
 export function getDealTitle(deal) {
-  if (!deal.commentary) return ''
+  if (!deal.commentary) return `Board ${deal.boardNumber}`
   const lines = deal.commentary.split('\n')
-  if (lines.length > 0 && lines[0].startsWith('Baker ')) {
-    return lines[0]
+  // Check if first line matches "Title Number" pattern (e.g., "Stayman 1", "Baker Cue-bid 5")
+  if (lines.length > 0 && /^[A-Za-z][A-Za-z-]*(?:\s+[A-Za-z][A-Za-z-]*)?\s+\d+$/.test(lines[0].trim())) {
+    return lines[0].trim()
   }
   return `Board ${deal.boardNumber}`
 }

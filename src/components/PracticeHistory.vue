@@ -50,7 +50,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { getSkillFromPath } from '../utils/bakerBridgeTaxonomy.js'
+import { getSkillFromPath } from '../utils/skillPath.js'
 
 const props = defineProps({
   sessions: {

@@ -355,9 +355,11 @@ const currentDeal = computed(() => deals.value[currentDealIndex.value] || null)
 
 const dealTitle = computed(() => {
   if (!currentDeal.value) return ''
-  // Show lesson name with "Baker " prefix
   const name = currentDeal.value.subfolder || currentDeal.value.category || ''
-  return name ? `Baker ${name}` : ''
+  if (!name) return ''
+  // Prefix with collection name if available
+  const collection = getCollection(currentCollection.value)
+  return collection?.name ? `${collection.name} ${name}` : name
 })
 
 // Load deal when index changes

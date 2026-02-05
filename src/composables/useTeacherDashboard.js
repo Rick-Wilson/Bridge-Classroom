@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useTeacherAuth } from './useTeacherAuth.js'
 import { decryptObservation } from '../utils/crypto.js'
-import { getSkillFromPath } from '../utils/bakerBridgeTaxonomy.js'
+import { getSkillFromPath } from '../utils/skillPath.js'
 
 // API configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'

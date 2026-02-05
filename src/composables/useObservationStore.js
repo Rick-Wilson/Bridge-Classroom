@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { createObservation, extractMetadata, generateSessionId, validateObservation } from '../utils/observationSchema.js'
-import { getSkillPath } from '../utils/bakerBridgeTaxonomy.js'
+import { generateSkillPath } from '../utils/skillPath.js'
 import { encryptObservation, importKey } from '../utils/crypto.js'
 import { useUserStore } from './useUserStore.js'
 import { useAssignmentStore } from './useAssignmentStore.js'
@@ -114,12 +114,12 @@ async function recordObservation({
     return { success: false, error: 'No authenticated user' }
   }
 
-  // Get skill path: prefer embedded PBN metadata, fallback to taxonomy lookup
+  // Get skill path: prefer embedded PBN metadata, fallback to generating from subfolder
   let skillPath = deal.skillPath  // Embedded in PBN by lesson builder
   if (!skillPath) {
-    // Fallback for older PBN files without embedded metadata
+    // Fallback for PBN files without embedded metadata
     const subfolder = deal.subfolder || deal.category || 'Unknown'
-    skillPath = getSkillPath(subfolder)
+    skillPath = generateSkillPath(subfolder)
   }
 
   // Get assignment tag if in assignment mode

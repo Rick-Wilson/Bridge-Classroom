@@ -150,7 +150,7 @@ function initializeFromUrl() {
 
 /**
  * Check if a lesson/subfolder is part of the current assignment
- * @param {string} subfolder - The Baker Bridge subfolder name
+ * @param {string} subfolder - The lesson subfolder name
  * @returns {boolean}
  */
 function isLessonInAssignment(subfolder) {

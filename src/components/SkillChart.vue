@@ -32,7 +32,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { getSkillFromPath } from '../utils/bakerBridgeTaxonomy.js'
+import { getSkillFromPath } from '../utils/skillPath.js'
 
 const props = defineProps({
   stats: {

@@ -8,7 +8,7 @@
 
 /**
  * @typedef {Object} DealContext
- * @property {string} subfolder - Baker Bridge category (e.g., "Stayman")
+ * @property {string} subfolder - Lesson category (e.g., "Stayman")
  * @property {string} [filename] - Source filename
  * @property {number} [deal_number] - Deal number in the set
  * @property {string} [kind] - Deal type (e.g., "BID+NEXT")

@@ -387,18 +387,21 @@ async function selectLesson(lesson, category) {
 
 .lesson-list {
   background: #fafafa;
-  padding: 4px 0;
+  padding: 8px 20px 8px 44px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px 16px;
 }
 
 .lesson-item {
-  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding: 10px 20px 10px 44px;
+  padding: 8px 12px;
   background: none;
   border: none;
+  border-radius: 6px;
   cursor: pointer;
   text-align: left;
   transition: background 0.15s;
@@ -422,6 +425,7 @@ async function selectLesson(lesson, category) {
 .lesson-description {
   font-size: 12px;
   color: #666;
+  line-height: 1.3;
 }
 
 .error-message,
@@ -455,8 +459,13 @@ async function selectLesson(lesson, category) {
     font-size: 14px;
   }
 
+  .lesson-list {
+    grid-template-columns: 1fr;
+    padding: 4px 16px 4px 36px;
+  }
+
   .lesson-item {
-    padding: 8px 16px 8px 36px;
+    padding: 8px;
   }
 }
 </style>

@@ -217,29 +217,36 @@ Pass
   })
 
   describe('getDealTitle', () => {
-    it('should extract Baker title from commentary', () => {
+    it('should extract title from commentary', () => {
       const deal = {
         boardNumber: 1,
-        commentary: 'Baker Cue-bid 1\n\nSome other text'
+        commentary: 'Stayman 1\n\nSome other text'
       }
-      expect(getDealTitle(deal)).toBe('Baker Cue-bid 1')
+      expect(getDealTitle(deal)).toBe('Stayman 1')
     })
 
-    it('should return Board number when no Baker title', () => {
+    it('should handle multi-word titles', () => {
+      const deal = {
+        boardNumber: 1,
+        commentary: 'Cue-bid 5\n\nSome other text'
+      }
+      expect(getDealTitle(deal)).toBe('Cue-bid 5')
+    })
+
+    it('should return Board number when no title pattern', () => {
       const deal = {
         boardNumber: 5,
-        commentary: 'Some commentary without Baker title'
+        commentary: 'Some commentary without a title line'
       }
       expect(getDealTitle(deal)).toBe('Board 5')
     })
 
-    it('should return empty string for empty commentary', () => {
+    it('should return Board number for empty commentary', () => {
       const deal = {
         boardNumber: 3,
         commentary: ''
       }
-      // When commentary is empty, getDealTitle returns empty string
-      expect(getDealTitle(deal)).toBe('')
+      expect(getDealTitle(deal)).toBe('Board 3')
     })
   })
 

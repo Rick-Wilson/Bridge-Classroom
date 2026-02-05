@@ -146,7 +146,7 @@
 <script setup>
 import { computed, ref, onMounted, watch } from 'vue'
 import { useTeacherDashboard } from '../../composables/useTeacherDashboard.js'
-import { getSkillFromPath } from '../../utils/bakerBridgeTaxonomy.js'
+import { getSkillFromPath } from '../../utils/skillPath.js'
 
 const props = defineProps({
   studentId: {
