@@ -343,36 +343,47 @@ export function useDealPractice() {
   }
 
   // ==================== METHODS: Bidding ====================
-  function advanceToStudentTurn() {
+  // Simple approach: advance through auction, stop when we hit a prompt position
+  function advanceAuction() {
     if (!currentDeal.value) return
     const auction = currentDeal.value.auction || []
     const promptsList = prompts.value
 
-    while (biddingState.currentBidIndex < auction.length) {
-      const seat = getSeatForBid(biddingState.currentBidIndex, currentDeal.value.dealer)
-      const currentBid = auction[biddingState.currentBidIndex]
-
-      if (seat === studentSeat.value) {
-        const prompt = promptsList[biddingState.currentPromptIndex]
-        if (prompt && normalizeBid(prompt.bid) === normalizeBid(currentBid)) {
-          promptStartTime.value = Date.now()
-          currentAttemptNumber.value = 1
-          break
-        }
-        // No prompt - auto-play
-        biddingState.displayedBids.push(currentBid)
+    // If no more prompts, play out the rest of the auction
+    if (biddingState.currentPromptIndex >= promptsList.length) {
+      while (biddingState.currentBidIndex < auction.length) {
+        biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
         biddingState.currentBidIndex++
-        continue
+      }
+      biddingState.auctionComplete = true
+      promptStartTime.value = null
+      return
+    }
+
+    // Get the current prompt's expected bid
+    const currentPrompt = promptsList[biddingState.currentPromptIndex]
+    const expectedBid = normalizeBid(currentPrompt.bid)
+
+    // Advance through auction until we find the position with this expected bid
+    while (biddingState.currentBidIndex < auction.length) {
+      const auctionBid = normalizeBid(auction[biddingState.currentBidIndex])
+
+      // Is this the prompt position?
+      if (auctionBid === expectedBid) {
+        // Stop here - wait for user input
+        promptStartTime.value = Date.now()
+        currentAttemptNumber.value = 1
+        return
       }
 
-      biddingState.displayedBids.push(currentBid)
+      // Not the prompt position - display this bid and continue
+      biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
       biddingState.currentBidIndex++
     }
 
-    if (biddingState.currentBidIndex >= auction.length) {
-      biddingState.auctionComplete = true
-      promptStartTime.value = null
-    }
+    // Reached end of auction
+    biddingState.auctionComplete = true
+    promptStartTime.value = null
   }
 
   function makeBid(bid) {
@@ -385,23 +396,21 @@ export function useDealPractice() {
     recordBidObservation(bid, expectedBid, isCorrect, timeTakenMs)
 
     if (isCorrect) {
-      biddingState.displayedBids.push(bid)
+      // Correct bid - add to display and advance
+      biddingState.displayedBids.push(currentDeal.value.auction[biddingState.currentBidIndex])
       biddingState.currentBidIndex++
       biddingState.currentPromptIndex++
       biddingState.correctCount++
       biddingState.wrongBid = null
       biddingState.correctBid = null
-      biddingState.wrongBidIndex = -1
-      biddingState.correctBidIndex = -1
       promptStartTime.value = null
       currentAttemptNumber.value = 1
-      advanceToStudentTurn()
+      advanceAuction()
       return true
     } else {
+      // Wrong bid - show feedback
       biddingState.wrongBid = bid
       biddingState.correctBid = expectedBid
-      biddingState.wrongBidIndex = biddingState.currentBidIndex
-      biddingState.correctBidIndex = biddingState.currentBidIndex
       biddingState.wrongCount++
       currentAttemptNumber.value++
       return false
@@ -410,14 +419,17 @@ export function useDealPractice() {
 
   function acceptCorrectBid() {
     if (!biddingState.correctBid) return
-    biddingState.displayedBids.push(biddingState.correctBid)
+    const auction = currentDeal.value?.auction || []
+
+    // Add the correct bid to display and advance
+    biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
     biddingState.currentBidIndex++
     biddingState.currentPromptIndex++
     biddingState.wrongBid = null
     biddingState.correctBid = null
-    biddingState.wrongBidIndex = -1
-    biddingState.correctBidIndex = -1
-    advanceToStudentTurn()
+
+    // Continue to next prompt
+    advanceAuction()
   }
 
   async function recordBidObservation(studentBid, expectedBid, correct, timeTakenMs) {
@@ -466,7 +478,7 @@ export function useDealPractice() {
       updateStepState()
     }
     if (deal?.prompts?.length) {
-      advanceToStudentTurn()
+      advanceAuction()
     }
   }
 
