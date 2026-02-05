@@ -358,7 +358,7 @@ export function useDealPractice() {
   }
 
   // ==================== METHODS: Bidding ====================
-  // Simple approach: advance through auction, stop when we hit a prompt position
+  // Advance through auction, stop when it's the student's turn
   function advanceAuction() {
     if (!currentDeal.value) return
     const auction = currentDeal.value.auction || []
@@ -375,23 +375,19 @@ export function useDealPractice() {
       return
     }
 
-    // Get the current prompt's expected bid
-    const currentPrompt = promptsList[biddingState.currentPromptIndex]
-    const expectedBid = normalizeBid(currentPrompt.bid)
-
-    // Advance through auction until we find the position with this expected bid
+    // Advance through non-student bids until it's the student's turn
     while (biddingState.currentBidIndex < auction.length) {
-      const auctionBid = normalizeBid(auction[biddingState.currentBidIndex])
+      const currentSeat = getSeatForBid(biddingState.currentBidIndex, currentDeal.value.dealer)
 
-      // Is this the prompt position?
-      if (auctionBid === expectedBid) {
+      // Is it the student's turn?
+      if (currentSeat === studentSeat.value) {
         // Stop here - wait for user input
         promptStartTime.value = Date.now()
         currentAttemptNumber.value = 1
         return
       }
 
-      // Not the prompt position - display this bid and continue
+      // Not the student's turn - display this bid and continue
       biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
       biddingState.currentBidIndex++
     }
