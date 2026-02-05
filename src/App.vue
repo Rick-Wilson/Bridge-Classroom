@@ -20,8 +20,8 @@
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
           Progress
         </button>
-        <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + currentCollection.name">
-          {{ currentCollection.name }}
+        <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + getCollection(currentCollection)?.name">
+          {{ getCollection(currentCollection)?.name }}
         </button>
         <button v-if="currentCollection" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
           Lobby
@@ -283,31 +283,36 @@ const completionNarrativeContainer = ref(null)
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 
+// Auto-scroll to show current element (keep its first line visible)
+function scrollToCurrentElement(container, selector = '.current') {
+  if (!container) return
+  const currentEl = container.querySelector(selector)
+  if (currentEl) {
+    // Scroll so the current element's top is at the top of the visible area
+    container.scrollTop = currentEl.offsetTop - container.offsetTop
+  }
+}
+
 // Auto-scroll instruction text when step changes
 watch(() => practice.stepState.currentStepIndex, () => {
   nextTick(() => {
-    if (instructionContainer.value) {
-      instructionContainer.value.scrollTop = instructionContainer.value.scrollHeight
-    }
+    scrollToCurrentElement(instructionContainer.value, '.instruction-text.current')
   })
 })
 
 // Auto-scroll bidding narrative when prompt changes
 watch(() => practice.biddingState.currentPromptIndex, () => {
   nextTick(() => {
-    if (biddingNarrativeContainer.value) {
-      biddingNarrativeContainer.value.scrollTop = biddingNarrativeContainer.value.scrollHeight
-    }
+    scrollToCurrentElement(biddingNarrativeContainer.value, '.narrative-text.current')
   })
 })
 
-// Auto-scroll completion narrative to bottom when auction completes
+// Auto-scroll completion narrative to show final explanation
 watch(() => practice.isComplete.value, (isComplete) => {
   if (isComplete) {
     nextTick(() => {
-      if (completionNarrativeContainer.value) {
-        completionNarrativeContainer.value.scrollTop = completionNarrativeContainer.value.scrollHeight
-      }
+      // For completion, find the last .current element
+      scrollToCurrentElement(completionNarrativeContainer.value, '.narrative-text.current')
     })
   }
 })
