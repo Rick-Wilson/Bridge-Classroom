@@ -395,41 +395,31 @@ export function useDealPractice() {
 
     recordBidObservation(bid, expectedBid, isCorrect, timeTakenMs)
 
+    // Always advance the auction after any bid
+    biddingState.displayedBids.push(currentDeal.value.auction[biddingState.currentBidIndex])
+    biddingState.currentBidIndex++
+    biddingState.currentPromptIndex++
+    promptStartTime.value = null
+    currentAttemptNumber.value = 1
+
     if (isCorrect) {
-      // Correct bid - add to display and advance
-      biddingState.displayedBids.push(currentDeal.value.auction[biddingState.currentBidIndex])
-      biddingState.currentBidIndex++
-      biddingState.currentPromptIndex++
       biddingState.correctCount++
       biddingState.wrongBid = null
       biddingState.correctBid = null
-      promptStartTime.value = null
-      currentAttemptNumber.value = 1
-      advanceAuction()
-      return true
     } else {
-      // Wrong bid - show feedback
+      // Show feedback for wrong bid (but still advance)
       biddingState.wrongBid = bid
       biddingState.correctBid = expectedBid
       biddingState.wrongCount++
-      currentAttemptNumber.value++
-      return false
     }
+
+    advanceAuction()
+    return isCorrect
   }
 
-  function acceptCorrectBid() {
-    if (!biddingState.correctBid) return
-    const auction = currentDeal.value?.auction || []
-
-    // Add the correct bid to display and advance
-    biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
-    biddingState.currentBidIndex++
-    biddingState.currentPromptIndex++
+  function clearFeedback() {
     biddingState.wrongBid = null
     biddingState.correctBid = null
-
-    // Continue to next prompt
-    advanceAuction()
   }
 
   async function recordBidObservation(studentBid, expectedBid, correct, timeTakenMs) {
@@ -543,7 +533,7 @@ export function useDealPractice() {
 
     // Methods: Bidding
     makeBid,
-    acceptCorrectBid,
+    clearFeedback,
 
     // Methods: General
     loadDeal,

@@ -108,14 +108,14 @@
               />
             </div>
 
-            <!-- Feedback panel - shown after wrong bid -->
+            <!-- Feedback panel - shown after wrong bid (no Continue button - auction advances automatically) -->
             <FeedbackPanel
               :visible="!!practice.biddingState.wrongBid"
               type="wrong"
               :wrongBid="practice.biddingState.wrongBid"
               :correctBid="practice.biddingState.correctBid"
               :commentary="practice.currentExplanation.value"
-              @continue="onContinue"
+              :showContinue="false"
             />
 
             <!-- Instruction panel - shown if deal has [NEXT]/[ROTATE] steps -->
@@ -423,10 +423,6 @@ function handleLessonLoad({ subfolder, name, category, content }) {
 function onBid(bid) {
   const correct = practice.makeBid(bid)
   // Feedback is handled via reactive state
-}
-
-function onContinue() {
-  practice.acceptCorrectBid()
 }
 
 // Navigation
