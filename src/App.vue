@@ -20,7 +20,7 @@
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
           Progress
         </button>
-        <button v-if="deals.length" class="lobby-btn" @click="returnToLobby" title="Return to lesson selection">
+        <button v-if="deals.length || currentCollection" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
           Lobby
         </button>
         <div class="stats" v-if="practice.biddingState.correctCount + practice.biddingState.wrongCount > 0">
@@ -65,12 +65,7 @@
 
       <!-- Collection selected but no lesson loaded yet - show lesson browser inline -->
       <div v-else-if="!deals.length && currentCollection" class="collection-view">
-        <div class="collection-header">
-          <button class="back-to-lobby-btn" @click="exitCollection">
-            ← Back to Collections
-          </button>
-          <h2>{{ getCollection(currentCollection)?.name || currentCollection }}</h2>
-        </div>
+        <h2>{{ getCollection(currentCollection)?.name || currentCollection }}</h2>
         <p class="collection-subtitle">Select a lesson to begin practicing:</p>
         <LessonBrowser
           :visible="true"
@@ -475,8 +470,10 @@ function gotoDeal(index) {
   }
 }
 
-// Return to lobby (lesson selection)
+// Return to lobby (exit collection and clear deals)
 function returnToLobby() {
+  currentCollection.value = null
+  appConfig.setCollectionInUrl(null)
   deals.value = []
   currentDealIndex.value = 0
   practice.resetStats()
@@ -486,15 +483,6 @@ function returnToLobby() {
 function selectCollection(collectionId) {
   currentCollection.value = collectionId
   appConfig.setCollectionInUrl(collectionId)
-}
-
-// Exit collection and return to main lobby
-function exitCollection() {
-  currentCollection.value = null
-  appConfig.setCollectionInUrl(null)
-  deals.value = []
-  currentDealIndex.value = 0
-  practice.resetStats()
 }
 
 // Get collection info by ID
@@ -722,30 +710,6 @@ body {
   font-size: 13px;
   opacity: 0.9;
   max-width: 180px;
-}
-
-.collection-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  justify-content: center;
-  margin-bottom: 8px;
-}
-
-.back-to-lobby-btn {
-  padding: 8px 16px;
-  font-size: 14px;
-  background: #f0f0f0;
-  color: #666;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.back-to-lobby-btn:hover {
-  background: #e0e0e0;
-  color: #333;
 }
 
 .collection-subtitle {
