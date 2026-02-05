@@ -98,7 +98,7 @@ function formatSuitCards(suit) {
 
 .seat-label {
   font-weight: bold;
-  font-size: 14px;
+  font-size: 21px;
   color: #333;
   margin-bottom: 8px;
   text-align: center;
@@ -115,12 +115,12 @@ function formatSuitCards(suit) {
   align-items: center;
   gap: 8px;
   font-family: 'Segoe UI', system-ui, sans-serif;
-  font-size: 16px;
+  font-size: 24px;
 }
 
 .suit-symbol {
-  font-size: 18px;
-  width: 20px;
+  font-size: 27px;
+  width: 28px;
   text-align: center;
 }
 
@@ -171,18 +171,18 @@ function formatSuitCards(suit) {
 }
 
 .hand.compact .seat-label {
-  font-size: 12px;
+  font-size: 18px;
   margin-bottom: 4px;
 }
 
 .hand.compact .suit-row {
-  font-size: 14px;
+  font-size: 21px;
   gap: 6px;
 }
 
 .hand.compact .suit-symbol {
-  font-size: 16px;
-  width: 18px;
+  font-size: 24px;
+  width: 24px;
 }
 
 /* Minimal mode - just suit symbols in a row (for hidden E/W) */
@@ -196,7 +196,7 @@ function formatSuitCards(suit) {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 16px;
+  font-size: 24px;
 }
 
 .seat-label-inline {
@@ -206,6 +206,6 @@ function formatSuitCards(suit) {
 }
 
 .suit-symbol-inline {
-  font-size: 18px;
+  font-size: 27px;
 }
 </style>

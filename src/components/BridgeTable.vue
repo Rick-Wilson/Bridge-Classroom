@@ -1,21 +1,19 @@
 <template>
   <div class="bridge-table" :class="{ compact: compact }">
     <!-- North - spans all columns, centered -->
-    <div class="position north">
+    <div v-if="!hiddenSeats.includes('N')" class="position north">
       <HandDisplay
         :hand="hands.N"
         seat="N"
-        :hidden="hiddenSeats.includes('N')"
         :showHcp="showHcp"
       />
     </div>
 
     <!-- West -->
-    <div class="position west">
+    <div v-if="!hiddenSeats.includes('W')" class="position west">
       <HandDisplay
         :hand="hands.W"
         seat="W"
-        :hidden="hiddenSeats.includes('W')"
         :showHcp="showHcp"
       />
     </div>
@@ -26,21 +24,19 @@
     </div>
 
     <!-- East -->
-    <div class="position east">
+    <div v-if="!hiddenSeats.includes('E')" class="position east">
       <HandDisplay
         :hand="hands.E"
         seat="E"
-        :hidden="hiddenSeats.includes('E')"
         :showHcp="showHcp"
       />
     </div>
 
     <!-- South - spans all columns, centered -->
-    <div class="position south">
+    <div v-if="!hiddenSeats.includes('S')" class="position south">
       <HandDisplay
         :hand="hands.S"
         seat="S"
-        :hidden="hiddenSeats.includes('S')"
         :showHcp="showHcp"
       />
     </div>
