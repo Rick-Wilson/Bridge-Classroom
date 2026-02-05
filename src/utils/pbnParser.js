@@ -521,10 +521,32 @@ function replaceSuitSymbols(text) {
 }
 
 /**
+ * Parse [show] directive from text, returning array of seats or null
+ */
+function parseShowDirective(text) {
+  const showMatch = text.match(/\[SHOW\s+([^\]]+)\]/i)
+  if (!showMatch) return null
+
+  const showValue = showMatch[1].toUpperCase().trim()
+  if (showValue === 'ALL' || showValue === 'NESW') {
+    return ['N', 'E', 'S', 'W']
+  }
+
+  const seats = []
+  if (showValue.includes('N')) seats.push('N')
+  if (showValue.includes('E')) seats.push('E')
+  if (showValue.includes('S')) seats.push('S')
+  if (showValue.includes('W')) seats.push('W')
+
+  return seats.length > 0 ? seats : null
+}
+
+/**
  * Parse commentary to extract prompts for each student bid
  * Format: "...text... [BID 3\H] ...explanation..."
+ * Each prompt includes showSeatsAfter - visibility after answering that prompt
  * @param {Array} commentaryParts Array of commentary strings
- * @returns {Array} Array of {bid, promptText, explanationText} objects
+ * @returns {Array} Array of {bid, promptText, explanationText, showSeatsAfter} objects
  */
 export function parsePrompts(commentaryParts) {
   if (!commentaryParts.length) return []
@@ -562,10 +584,19 @@ export function parsePrompts(commentaryParts) {
     // We'll extract just until a double newline or next section
     let explanationText = textAfter.split(/\[BID|\[NEXT/i)[0].trim()
 
+    // Check for [show] directive in the text after this [BID]
+    // This determines what to show after the user answers this prompt
+    const showSeatsAfter = parseShowDirective(explanationText)
+
+    // Strip [show] tags from display text
+    promptText = promptText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
+    explanationText = explanationText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
+
     prompts.push({
       bid: cleanBid,
       promptText: replaceSuitSymbols(promptText),
-      explanationText: replaceSuitSymbols(explanationText)
+      explanationText: replaceSuitSymbols(explanationText),
+      showSeatsAfter  // null = no change, array = seats to show after answering this prompt
     })
   }
 

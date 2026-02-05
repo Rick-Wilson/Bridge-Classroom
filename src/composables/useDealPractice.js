@@ -164,8 +164,27 @@ export function useDealPractice() {
       return allSeats.filter(seat => !revealedSeats.value.includes(seat))
     }
 
-    // For non-step lessons, use [SHOW] directive from PBN
-    // PBN should always provide this; if missing, show all as fallback
+    // For bidding lessons, compute visibility by walking through answered prompts
+    // This supports the Back button - when currentPromptIndex decreases, visibility recalculates
+    if (hasPrompts.value) {
+      // Start with initial visibility
+      let showSeats = currentDeal.value.initialShowSeats || []
+
+      // Apply showSeatsAfter from each answered prompt
+      const promptsList = prompts.value
+      for (let i = 0; i < biddingState.currentPromptIndex; i++) {
+        const prompt = promptsList[i]
+        if (prompt?.showSeatsAfter) {
+          showSeats = prompt.showSeatsAfter
+        }
+      }
+
+      if (showSeats.length > 0) {
+        return allSeats.filter(seat => !showSeats.includes(seat))
+      }
+    }
+
+    // For display-only lessons, use initial [SHOW] directive from PBN
     const showSeats = currentDeal.value.initialShowSeats
     if (showSeats && showSeats.length > 0) {
       return allSeats.filter(seat => !showSeats.includes(seat))
