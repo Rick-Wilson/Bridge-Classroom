@@ -145,6 +145,7 @@ export function parsePbn(pbnContent) {
 
 /**
  * Internal function to parse prompts (to avoid circular dependency with export)
+ * Each prompt includes showSeatsAfter - visibility after answering that prompt
  */
 function parsePromptsInternal(commentaryParts) {
   if (!commentaryParts.length) return []
@@ -180,6 +181,10 @@ function parsePromptsInternal(commentaryParts) {
     // The explanation is the text after this [BID] until the next [BID] or end
     let explanationText = textAfter.split(/\[BID|\[NEXT/i)[0].trim()
 
+    // Check for [show] directive in the text after this [BID]
+    // This determines what to show after the user answers this prompt
+    const showSeatsAfter = parseShowDirective(explanationText)
+
     // Strip [SHOW ...] tags from display text
     promptText = promptText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
     explanationText = explanationText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
@@ -187,7 +192,8 @@ function parsePromptsInternal(commentaryParts) {
     prompts.push({
       bid: cleanBid,
       promptText: replaceSuitSymbols(promptText),
-      explanationText: replaceSuitSymbols(explanationText)
+      explanationText: replaceSuitSymbols(explanationText),
+      showSeatsAfter  // null = no change, array = seats to show after answering this prompt
     })
   }
 
