@@ -252,6 +252,7 @@ const showProgress = ref(false)
 const isTeacherMode = ref(false)
 const instructionContainer = ref(null)
 const currentCollection = ref(null)
+const currentLesson = ref(null)  // { id, name, category }
 
 // Auto-scroll instruction text when step changes
 watch(() => practice.stepState.currentStepIndex, () => {
@@ -312,10 +313,17 @@ onMounted(async () => {
   assignmentStore.initializeFromUrl()
   practice.observationStore.initialize()
 
-  // Check for collection in URL
+  // Check for collection and lesson in URL
   const collectionFromUrl = appConfig.getCollectionFromUrl()
+  const lessonFromUrl = appConfig.getLessonFromUrl()
+
   if (collectionFromUrl) {
     currentCollection.value = collectionFromUrl
+
+    // If lesson is also specified, auto-load it
+    if (lessonFromUrl) {
+      await loadLessonFromUrl(collectionFromUrl, lessonFromUrl)
+    }
   }
 
   // Initialize data sync (fetches teacher key, registers user, syncs pending data)
@@ -443,6 +451,10 @@ function handleLessonLoad({ subfolder, name, category, content }) {
     currentDealIndex.value = 0
     practice.loadDeal(dealsWithCategory[0])
     practice.resetStats()
+
+    // Store lesson metadata and update URL
+    currentLesson.value = { id: subfolder, name, category }
+    appConfig.setLessonInUrl(subfolder)
   } else {
     alert('No deals found in the lesson file')
   }
@@ -476,7 +488,9 @@ function gotoDeal(index) {
 // Return to lobby (exit collection and clear deals)
 function returnToLobby() {
   currentCollection.value = null
+  currentLesson.value = null
   appConfig.setCollectionInUrl(null)
+  appConfig.setLessonInUrl(null)
   deals.value = []
   currentDealIndex.value = 0
   practice.resetStats()
@@ -491,6 +505,81 @@ function selectCollection(collectionId) {
 // Get collection info by ID
 function getCollection(collectionId) {
   return appConfig.COLLECTIONS.find(c => c.id === collectionId)
+}
+
+/**
+ * Auto-load lesson from URL parameters
+ * Fetches TOC, finds lesson, loads PBN file
+ */
+async function loadLessonFromUrl(collectionId, lessonId) {
+  const collection = getCollection(collectionId)
+  if (!collection) {
+    console.error('Collection not found:', collectionId)
+    return false
+  }
+
+  try {
+    // Fetch the table of contents
+    const tocResponse = await fetch(collection.tocUrl)
+    if (!tocResponse.ok) {
+      throw new Error(`Failed to load TOC: ${tocResponse.statusText}`)
+    }
+    const toc = await tocResponse.json()
+
+    // Find the lesson in the TOC
+    let foundLesson = null
+    let foundCategory = null
+    for (const category of toc.categories || []) {
+      const lesson = category.lessons?.find(l => l.id === lessonId)
+      if (lesson) {
+        foundLesson = lesson
+        foundCategory = category
+        break
+      }
+    }
+
+    if (!foundLesson) {
+      console.error('Lesson not found in TOC:', lessonId)
+      return false
+    }
+
+    // Build the lesson URL (extract filename from lesson ID)
+    const filename = lessonId.includes('/') ? lessonId.split('/').pop() : lessonId
+    const lessonUrl = `${collection.baseUrl}/${filename}.pbn`
+
+    // Fetch the lesson PBN file
+    const pbnResponse = await fetch(lessonUrl)
+    if (!pbnResponse.ok) {
+      throw new Error(`Failed to load lesson: ${pbnResponse.statusText}`)
+    }
+    const content = await pbnResponse.text()
+
+    // Parse and load the deals
+    const parsed = parsePbn(content)
+    if (parsed.length > 0) {
+      const dealsWithCategory = parsed.map(deal => ({
+        ...deal,
+        subfolder: deal.subfolder || lessonId,
+        category: deal.category || foundCategory.name
+      }))
+      deals.value = dealsWithCategory
+      currentDealIndex.value = 0
+      practice.loadDeal(dealsWithCategory[0])
+      practice.resetStats()
+
+      // Store lesson metadata (URL already has the params)
+      currentLesson.value = {
+        id: lessonId,
+        name: foundLesson.name,
+        category: foundCategory.name
+      }
+      return true
+    }
+    return false
+  } catch (err) {
+    console.error('Error loading lesson from URL:', err)
+    return false
+  }
 }
 </script>
 

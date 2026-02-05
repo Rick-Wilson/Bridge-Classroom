@@ -51,6 +51,14 @@ function getCollectionFromUrl() {
 }
 
 /**
+ * Get current lesson from URL
+ */
+function getLessonFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  return params.get('lesson')
+}
+
+/**
  * Set collection in URL without reload
  */
 function setCollectionInUrl(collectionId) {
@@ -59,6 +67,19 @@ function setCollectionInUrl(collectionId) {
     url.searchParams.set('collection', collectionId)
   } else {
     url.searchParams.delete('collection')
+  }
+  window.history.pushState({}, '', url.toString())
+}
+
+/**
+ * Set lesson in URL without reload
+ */
+function setLessonInUrl(lessonId) {
+  const url = new URL(window.location.href)
+  if (lessonId) {
+    url.searchParams.set('lesson', lessonId)
+  } else {
+    url.searchParams.delete('lesson')
   }
   window.history.pushState({}, '', url.toString())
 }
@@ -234,6 +255,8 @@ export function useAppConfig() {
     getStorageData,
     getCollectionFromUrl,
     setCollectionInUrl,
+    getLessonFromUrl,
+    setLessonInUrl,
 
     // Constants
     COLLECTIONS,
