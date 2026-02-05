@@ -155,25 +155,27 @@ export function useDealPractice() {
   })
 
   // ==================== COMPUTED: Hand Visibility ====================
-  // Hidden seats based on [SHOW] tags, or bidding defaults if no steps
+  // Hidden seats driven by [SHOW] tags in PBN - app follows instructions
   const hiddenSeats = computed(() => {
     if (!currentDeal.value) return []
+    const allSeats = ['N', 'E', 'S', 'W']
 
-    // If has steps, use step-based [SHOW] tags (all hidden by default)
+    // For step-based lessons, use cumulative [SHOW] tags from steps
     if (hasSteps.value) {
       if (showAllTriggered.value) return []
-      const allSeats = ['N', 'E', 'S', 'W']
       return allSeats.filter(seat => !revealedSeats.value.includes(seat))
     }
 
-    // If bidding practice with prompts, use traditional hiding
-    if (hasPrompts.value) {
-      if (biddingState.auctionComplete) return []
-      const student = studentSeat.value
-      return (student === 'N' || student === 'S') ? ['E', 'W'] : ['N', 'S']
+    // For non-step lessons, use initial [SHOW] directive from PBN
+    // PBN should always provide this; if missing, show all as fallback
+    const showSeats = currentDeal.value.initialShowSeats
+    if (showSeats && showSeats.length > 0) {
+      // When auction complete in bidding practice, reveal all
+      if (hasPrompts.value && biddingState.auctionComplete) return []
+      return allSeats.filter(seat => !showSeats.includes(seat))
     }
 
-    // Display mode - show all
+    // No [SHOW] directive - show all (fallback for legacy PBN files)
     return []
   })
 

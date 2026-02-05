@@ -69,6 +69,7 @@ export function parsePbn(pbnContent) {
           currentDeal.commentary = formatCommentary(currentCommentary)
           currentDeal.prompts = parsePromptsInternal(currentCommentary)
           currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
+          currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
           currentDeal.mode = detectDealMode(currentCommentary)
           deals.push(currentDeal)
         }
@@ -134,6 +135,7 @@ export function parsePbn(pbnContent) {
     currentDeal.commentary = formatCommentary(currentCommentary)
     currentDeal.prompts = parsePromptsInternal(currentCommentary)
     currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
+    currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
     currentDeal.mode = detectDealMode(currentCommentary)
     deals.push(currentDeal)
   }
@@ -213,6 +215,37 @@ function detectDealMode(commentaryParts) {
   }
 
   return 'display'
+}
+
+/**
+ * Parse initial [SHOW ...] directive from commentary
+ * Returns array of seats to show, or null if no directive found
+ *
+ * @param {Array} commentaryParts Array of commentary strings
+ * @returns {Array|null} Array of seat letters ['N', 'S'] or null
+ */
+function parseInitialShowSeats(commentaryParts) {
+  if (!commentaryParts.length) return null
+
+  const fullText = commentaryParts.join('\n\n')
+
+  // Find first [SHOW ...] tag
+  const showMatch = fullText.match(/\[SHOW\s+([^\]]+)\]/i)
+  if (!showMatch) return null
+
+  const showValue = showMatch[1].toUpperCase().trim()
+  if (showValue === 'ALL' || showValue === 'NESW') {
+    return ['N', 'E', 'S', 'W']
+  }
+
+  // Parse individual seat letters
+  const seats = []
+  if (showValue.includes('N')) seats.push('N')
+  if (showValue.includes('E')) seats.push('E')
+  if (showValue.includes('S')) seats.push('S')
+  if (showValue.includes('W')) seats.push('W')
+
+  return seats.length > 0 ? seats : null
 }
 
 /**
@@ -361,6 +394,7 @@ function createEmptyDeal() {
     mode: 'display',  // 'bidding' | 'instruction' | 'display'
     openingLeader: null,  // Position of opening leader (N/E/S/W)
     openingLead: null,    // Opening lead card (e.g., "SJ" for spade jack)
+    initialShowSeats: null,  // Initial [SHOW ...] seats from PBN (null = use defaults)
     // Metadata embedded in PBN by lesson builder
     event: '',            // Event name (e.g., "Baker Bridge - Stayman")
     skillPath: null,      // Skill path (e.g., "bidding_conventions/stayman")
