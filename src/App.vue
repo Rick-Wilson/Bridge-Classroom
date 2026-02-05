@@ -128,14 +128,17 @@
 
             <!-- Bidding narrative - accumulating text with previous in grey -->
             <div v-if="practice.hasPrompts.value && !practice.isComplete.value" class="bidding-narrative-container">
-              <div class="bidding-narrative">
-                <!-- Previous prompts (greyed out) - both promptText and explanationText -->
+              <div class="bidding-narrative" ref="biddingNarrativeContainer">
+                <!-- Previous prompts (greyed out) -->
                 <template v-for="(prompt, idx) in practice.prompts.value.slice(0, practice.biddingState.currentPromptIndex)" :key="'prev-' + idx">
-                  <span class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
-                  <span v-if="prompt.explanationText" class="narrative-text previous" v-html="colorizeSuits(prompt.explanationText)"></span>
+                  <!-- Only show promptText for first prompt (subsequent prompts duplicate previous explanation) -->
+                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
+                  <!-- Show explanationText in grey only if it's not the most recent answer (that goes in black below) -->
+                  <span v-if="prompt.explanationText && idx < practice.biddingState.currentPromptIndex - 1" class="narrative-text previous" v-html="colorizeSuits(prompt.explanationText)"></span>
                 </template>
-                <!-- Current prompt text (active) -->
-                <span v-if="practice.currentPrompt.value?.promptText" class="narrative-text current" v-html="colorizeSuits(practice.currentPrompt.value.promptText)"></span>
+                <!-- Current text (black) - first prompt shows promptText, subsequent show previous explanation -->
+                <span v-if="practice.biddingState.currentPromptIndex === 0 && practice.currentPrompt.value?.promptText" class="narrative-text current" v-html="colorizeSuits(practice.currentPrompt.value.promptText)"></span>
+                <span v-else-if="practice.biddingState.currentPromptIndex > 0 && practice.prompts.value[practice.biddingState.currentPromptIndex - 1]?.explanationText" class="narrative-text current" v-html="colorizeSuits(practice.prompts.value[practice.biddingState.currentPromptIndex - 1].explanationText)"></span>
               </div>
 
               <!-- Bidding box -->
@@ -193,7 +196,9 @@
               <!-- Bidding lessons: show accumulated narrative with final explanation -->
               <div v-if="practice.hasPrompts.value && !practice.hasSteps.value" class="full-narrative">
                 <template v-for="(prompt, idx) in practice.prompts.value" :key="'final-' + idx">
-                  <span class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
+                  <!-- Only show promptText for first prompt (subsequent prompts duplicate previous explanation) -->
+                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
+                  <!-- Show explanationText - last one is "current" (black), rest are "previous" (grey) -->
                   <span v-if="prompt.explanationText" :class="['narrative-text', idx === practice.prompts.value.length - 1 ? 'current' : 'previous']" v-html="colorizeSuits(prompt.explanationText)"></span>
                 </template>
               </div>
@@ -270,6 +275,7 @@ const showSettings = ref(false)
 const showProgress = ref(false)
 const isTeacherMode = ref(false)
 const instructionContainer = ref(null)
+const biddingNarrativeContainer = ref(null)
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 
@@ -278,6 +284,15 @@ watch(() => practice.stepState.currentStepIndex, () => {
   nextTick(() => {
     if (instructionContainer.value) {
       instructionContainer.value.scrollTop = instructionContainer.value.scrollHeight
+    }
+  })
+})
+
+// Auto-scroll bidding narrative when prompt changes
+watch(() => practice.biddingState.currentPromptIndex, () => {
+  nextTick(() => {
+    if (biddingNarrativeContainer.value) {
+      biddingNarrativeContainer.value.scrollTop = biddingNarrativeContainer.value.scrollHeight
     }
   })
 })
