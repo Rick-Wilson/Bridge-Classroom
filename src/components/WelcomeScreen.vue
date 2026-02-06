@@ -41,6 +41,7 @@ const recoveryMessage = ref('')
 
 // Initialize
 onMounted(async () => {
+  console.log('[Recovery] onMounted starting')
   userStore.initialize()
   appConfig.initializeFromUrl()
 
@@ -48,12 +49,15 @@ onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search)
   const recoverToken = urlParams.get('recover')
   const recoverUserId = urlParams.get('user_id')
+  console.log('[Recovery] URL params - token:', recoverToken ? 'present' : 'missing', 'userId:', recoverUserId)
 
   if (recoverToken && recoverUserId) {
+    console.log('[Recovery] Starting recovery claim...')
     // Handle account recovery from magic link
     await handleRecoveryClaim(recoverUserId, recoverToken)
     // Clean URL after processing
     window.history.replaceState({}, document.title, window.location.pathname)
+    console.log('[Recovery] URL cleaned, returning from onMounted')
     return
   }
 
@@ -173,23 +177,28 @@ async function checkEmailOnServer() {
  * Handle recovery claim from magic link
  */
 async function handleRecoveryClaim(userId, token) {
+  console.log('[Recovery] handleRecoveryClaim called with userId:', userId)
   viewState.value = 'recovery-claiming'
   isLoading.value = true
   loadingMessage.value = 'Recovering your account...'
   recoveryError.value = ''
 
   try {
+    console.log('[Recovery] Calling claimRecovery...')
     const result = await userStore.claimRecovery(userId, token, API_URL)
+    console.log('[Recovery] claimRecovery result:', JSON.stringify(result))
 
     if (result.success && result.user) {
       // Success! User is logged in
+      console.log('[Recovery] Success! Emitting userReady with user:', result.user.firstName)
       emit('userReady', result.user)
     } else {
+      console.log('[Recovery] Failed:', result.error)
       recoveryError.value = result.error || 'Recovery failed. Please try again.'
       viewState.value = 'form'
     }
   } catch (err) {
-    console.error('Recovery claim failed:', err)
+    console.error('[Recovery] Exception:', err)
     recoveryError.value = 'Unable to complete recovery. Please try again.'
     viewState.value = 'form'
   } finally {

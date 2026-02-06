@@ -176,7 +176,7 @@ async fn send_recovery_email(
         <h2>Account Recovery</h2>
         <p>Hi {first_name},</p>
         <p>You requested to recover your Bridge Classroom account. Click the button below to restore your practice history:</p>
-        <a href="{recovery_url}" class="button">Restore My Account</a>
+        <a href="{recovery_url}" class="button" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Restore My Account</a>
         <p>Or copy and paste this link into your browser:</p>
         <p style="word-break: break-all; color: #666;">{recovery_url}</p>
         <p><strong>This link expires in 1 hour.</strong></p>
