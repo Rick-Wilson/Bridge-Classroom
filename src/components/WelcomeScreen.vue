@@ -136,27 +136,33 @@ function validateForm() {
  */
 async function checkEmailOnServer() {
   const emailToCheck = email.value.trim().toLowerCase()
+  console.log('[DEBUG] checkEmailOnServer() called with email:', emailToCheck)
+  console.log('[DEBUG] API_URL:', API_URL)
 
   try {
+    console.log('[DEBUG] Calling userStore.requestRecovery()...')
     // Try to request recovery - if successful, account exists
     const result = await userStore.requestRecovery(emailToCheck, API_URL)
+    console.log('[DEBUG] requestRecovery returned:', JSON.stringify(result))
 
     if (result.success) {
       // Account exists - recovery link sent
+      console.log('[DEBUG] Account exists - triggering recovery flow')
       recoveryEmail.value = emailToCheck
       recoveryMessage.value = result.message
       viewState.value = 'recovery-sent'
       return false
     } else if (result.message && result.message.includes('No account found')) {
       // No account found - proceed with registration
+      console.log('[DEBUG] No account found - proceeding with registration')
       return true
     } else {
       // Some other error
-      console.warn('Recovery check returned:', result)
+      console.warn('[DEBUG] Recovery check returned unexpected result:', result)
       return true // Proceed anyway
     }
   } catch (err) {
-    console.warn('Failed to check email on server:', err)
+    console.warn('[DEBUG] Failed to check email on server:', err)
     // If we can't reach server, proceed with registration
     return true
   }
@@ -223,20 +229,29 @@ async function handleRequestRecovery() {
 }
 
 async function handleSubmit() {
-  if (!validateForm()) return
+  console.log('[DEBUG] handleSubmit() called')
+  if (!validateForm()) {
+    console.log('[DEBUG] Form validation failed')
+    return
+  }
+  console.log('[DEBUG] Form validated, email:', email.value)
 
   // Show loading state while checking server
   isLoading.value = true
   loadingMessage.value = 'Checking account...'
 
+  console.log('[DEBUG] Calling checkEmailOnServer()...')
   // Check if email already exists on server
   const shouldProceed = await checkEmailOnServer()
+  console.log('[DEBUG] checkEmailOnServer returned:', shouldProceed)
   if (!shouldProceed) {
     // Recovery flow was triggered
+    console.log('[DEBUG] Recovery flow triggered, stopping registration')
     isLoading.value = false
     loadingMessage.value = ''
     return
   }
+  console.log('[DEBUG] Proceeding with user creation')
 
   // Determine classrooms
   let classrooms = []
