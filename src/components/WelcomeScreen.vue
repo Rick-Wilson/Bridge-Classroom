@@ -11,7 +11,7 @@ const userStore = useUserStore()
 // API URL for admin key and registration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
-// View state: 'form' | 'returning' | 'switcher'
+// View state: 'form' | 'returning' | 'switcher' | 'recovery-sent' | 'recovery-claiming'
 const viewState = ref('form')
 
 // Form data
@@ -39,10 +39,28 @@ const showRestoreOption = ref(false)
 const restoreError = ref('')
 const fileInput = ref(null)
 
+// Recovery state
+const recoveryEmail = ref('')
+const recoveryError = ref('')
+const recoveryMessage = ref('')
+
 // Initialize
 onMounted(async () => {
   userStore.initialize()
   appConfig.initializeFromUrl()
+
+  // Check for recovery URL parameters
+  const urlParams = new URLSearchParams(window.location.search)
+  const recoverToken = urlParams.get('recover')
+  const recoverUserId = urlParams.get('user_id')
+
+  if (recoverToken && recoverUserId) {
+    // Handle account recovery from magic link
+    await handleRecoveryClaim(recoverUserId, recoverToken)
+    // Clean URL after processing
+    window.history.replaceState({}, document.title, window.location.pathname)
+    return
+  }
 
   // Determine initial view
   if (userStore.hasUsers.value && userStore.currentUser.value) {
@@ -107,18 +125,123 @@ function validateForm() {
     valid = false
   }
 
-  // Check if email already in use
+  // Check if email already in use locally
   const existingUser = userStore.findUserByEmail(email.value)
   if (existingUser) {
-    errors.value.email = 'This email is already registered. Use "Restore from backup" if this is your account.'
+    errors.value.email = 'This email is already registered on this device.'
     valid = false
   }
 
   return valid
 }
 
+/**
+ * Check if email exists on server and offer recovery if so
+ * @returns {Promise<boolean>} True if should proceed with registration
+ */
+async function checkEmailOnServer() {
+  const emailToCheck = email.value.trim().toLowerCase()
+
+  try {
+    // Try to request recovery - if successful, account exists
+    const result = await userStore.requestRecovery(emailToCheck, API_URL)
+
+    if (result.success) {
+      // Account exists - recovery link sent
+      recoveryEmail.value = emailToCheck
+      recoveryMessage.value = result.message
+      viewState.value = 'recovery-sent'
+      return false
+    } else if (result.message && result.message.includes('No account found')) {
+      // No account found - proceed with registration
+      return true
+    } else {
+      // Some other error
+      console.warn('Recovery check returned:', result)
+      return true // Proceed anyway
+    }
+  } catch (err) {
+    console.warn('Failed to check email on server:', err)
+    // If we can't reach server, proceed with registration
+    return true
+  }
+}
+
+/**
+ * Handle recovery claim from magic link
+ */
+async function handleRecoveryClaim(userId, token) {
+  viewState.value = 'recovery-claiming'
+  isLoading.value = true
+  loadingMessage.value = 'Recovering your account...'
+  recoveryError.value = ''
+
+  try {
+    const result = await userStore.claimRecovery(userId, token, API_URL)
+
+    if (result.success && result.user) {
+      // Success! User is logged in
+      emit('userReady', result.user)
+    } else {
+      recoveryError.value = result.error || 'Recovery failed. Please try again.'
+      viewState.value = 'form'
+    }
+  } catch (err) {
+    console.error('Recovery claim failed:', err)
+    recoveryError.value = 'Unable to complete recovery. Please try again.'
+    viewState.value = 'form'
+  } finally {
+    isLoading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+/**
+ * Handle "Send recovery link" button click
+ */
+async function handleRequestRecovery() {
+  if (!recoveryEmail.value.trim()) {
+    recoveryError.value = 'Please enter your email address'
+    return
+  }
+
+  isLoading.value = true
+  loadingMessage.value = 'Sending recovery link...'
+  recoveryError.value = ''
+
+  try {
+    const result = await userStore.requestRecovery(recoveryEmail.value.trim(), API_URL)
+
+    if (result.success) {
+      recoveryMessage.value = result.message
+      viewState.value = 'recovery-sent'
+    } else {
+      recoveryError.value = result.message || 'Failed to send recovery link'
+    }
+  } catch (err) {
+    console.error('Recovery request failed:', err)
+    recoveryError.value = 'Unable to connect to server. Please try again.'
+  } finally {
+    isLoading.value = false
+    loadingMessage.value = ''
+  }
+}
+
 async function handleSubmit() {
   if (!validateForm()) return
+
+  // Show loading state while checking server
+  isLoading.value = true
+  loadingMessage.value = 'Checking account...'
+
+  // Check if email already exists on server
+  const shouldProceed = await checkEmailOnServer()
+  if (!shouldProceed) {
+    // Recovery flow was triggered
+    isLoading.value = false
+    loadingMessage.value = ''
+    return
+  }
 
   // Determine classrooms
   let classrooms = []
@@ -129,8 +252,7 @@ async function handleSubmit() {
   }
   // If ad-hoc, classrooms stays empty
 
-  // Show loading state while generating keys
-  isLoading.value = true
+  // Continue with user creation
   loadingMessage.value = 'Creating your secure encryption key...'
 
   try {
@@ -471,6 +593,46 @@ async function handleRestoreFile(event) {
           >
             Cancel
           </button>
+        </div>
+      </template>
+
+      <!-- Recovery link sent -->
+      <template v-else-if="viewState === 'recovery-sent'">
+        <div class="welcome-body recovery-sent">
+          <h2>Check Your Email</h2>
+          <p class="subtitle">
+            We found an existing account for <strong>{{ recoveryEmail }}</strong>.
+          </p>
+
+          <div class="recovery-info">
+            <p>{{ recoveryMessage }}</p>
+            <p class="recovery-note">
+              Click the link in the email to restore your account on this device.
+            </p>
+          </div>
+
+          <button class="back-link" @click="viewState = 'form'">
+            Use a different email
+          </button>
+        </div>
+      </template>
+
+      <!-- Recovery claiming (loading state) -->
+      <template v-else-if="viewState === 'recovery-claiming'">
+        <div class="welcome-body recovery-claiming">
+          <h2>Restoring Your Account</h2>
+          <p class="subtitle">{{ loadingMessage }}</p>
+
+          <div v-if="recoveryError" class="recovery-error-panel">
+            <p class="error-message">{{ recoveryError }}</p>
+            <button class="back-link" @click="viewState = 'form'">
+              Try again
+            </button>
+          </div>
+
+          <div v-else class="loading-spinner">
+            <div class="spinner"></div>
+          </div>
         </div>
       </template>
     </div>
@@ -835,6 +997,67 @@ async function handleRestoreFile(event) {
   color: #d32f2f;
   font-size: 13px;
   margin-top: 12px;
+}
+
+/* Recovery sent styles */
+.recovery-sent,
+.recovery-claiming {
+  text-align: center;
+}
+
+.recovery-info {
+  margin: 24px 0;
+  padding: 20px;
+  background: #e8f5e9;
+  border-radius: 8px;
+  color: #2e7d32;
+}
+
+.recovery-info p {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+}
+
+.recovery-info p:last-child {
+  margin-bottom: 0;
+}
+
+.recovery-note {
+  font-size: 14px;
+  color: #558b2f;
+  font-style: italic;
+}
+
+.recovery-error-panel {
+  margin: 24px 0;
+  padding: 20px;
+  background: #ffebee;
+  border-radius: 8px;
+}
+
+.recovery-error-panel .error-message {
+  margin-bottom: 16px;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e0e0e0;
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 480px) {

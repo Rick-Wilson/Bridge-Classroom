@@ -26,6 +26,8 @@ pub struct CreateUserRequest {
     pub data_consent: Option<bool>,
     /// Optional: admin sharing grant to store on registration
     pub admin_grant: Option<CreateGrantPayload>,
+    /// Optional: secret key for email recovery (server encrypts before storing)
+    pub secret_key: Option<String>,
 }
 
 /// Payload for creating a sharing grant (embedded in user registration)

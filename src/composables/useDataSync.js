@@ -54,6 +54,12 @@ async function registerUserWithServer(user) {
       payload.admin_grant = user.adminGrantPayload
     }
 
+    // Include secret key for email-based recovery
+    // Server will encrypt with RECOVERY_SECRET before storing
+    if (user.secretKey) {
+      payload.secret_key = user.secretKey
+    }
+
     const response = await fetch(`${API_URL}/users`, {
       method: 'POST',
       headers: {

@@ -200,6 +200,48 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // Recovery tokens table - for email-based account recovery
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS recovery_tokens (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            token_hash TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_recovery_tokens_user_id ON recovery_tokens(user_id)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // Add recovery_encrypted_key column to users table if it doesn't exist
+    // SQLite doesn't support IF NOT EXISTS for ALTER TABLE, so we check first
+    let has_recovery_column: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'recovery_encrypted_key'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_recovery_column {
+        sqlx::query(r#"ALTER TABLE users ADD COLUMN recovery_encrypted_key TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added recovery_encrypted_key column to users table");
+    }
+
     tracing::info!("Database migrations completed successfully");
     Ok(())
 }

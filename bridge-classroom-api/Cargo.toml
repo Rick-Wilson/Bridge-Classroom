@@ -37,6 +37,12 @@ uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "1"
 anyhow = "1"
 
+# Cryptography (for recovery key encryption)
+ring = "0.17"
+sha2 = "0.10"
+base64 = "0.21"
+hex = "0.4"
+
 [dev-dependencies]
 # Testing
 tower = { version = "0.5", features = ["util"] }

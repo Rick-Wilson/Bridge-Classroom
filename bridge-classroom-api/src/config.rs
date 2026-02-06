@@ -23,6 +23,9 @@ pub struct Config {
 
     /// Server port
     pub port: u16,
+
+    /// Secret for encrypting recovery keys (optional)
+    pub recovery_secret: Option<String>,
 }
 
 impl Config {
@@ -57,6 +60,8 @@ impl Config {
             .parse()
             .map_err(|_| ConfigError::InvalidPort)?;
 
+        let recovery_secret = env::var("RECOVERY_SECRET").ok();
+
         Ok(Config {
             database_url,
             api_key,
@@ -65,6 +70,7 @@ impl Config {
             allowed_origins,
             host,
             port,
+            recovery_secret,
         })
     }
 

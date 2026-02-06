@@ -6,6 +6,7 @@ use axum::{
 
 use crate::{
     models::{CreateUserRequest, CreateUserResponse, SharingGrant, User, UserInfo, UsersListResponse},
+    routes::recovery::encrypt_for_recovery,
     AppState,
 };
 
@@ -44,26 +45,64 @@ pub async fn create_user(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    // Encrypt secret key for recovery if provided and recovery is configured
+    let recovery_encrypted_key = if let (Some(secret_key), Some(recovery_secret)) =
+        (&req.secret_key, state.config.recovery_secret.as_ref())
+    {
+        match encrypt_for_recovery(secret_key, recovery_secret) {
+            Ok(encrypted) => Some(encrypted),
+            Err(e) => {
+                tracing::warn!("Failed to encrypt recovery key: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     if existing.is_some() {
         // User already exists - update their info
-        sqlx::query(
-            r#"
-            UPDATE users
-            SET first_name = ?, last_name = ?, email = ?, classroom = ?,
-                data_consent = ?, updated_at = ?
-            WHERE id = ?
-            "#,
-        )
-        .bind(&req.first_name)
-        .bind(&req.last_name)
-        .bind(&req.email)
-        .bind(&req.classroom)
-        .bind(req.data_consent.unwrap_or(true))
-        .bind(chrono::Utc::now().to_rfc3339())
-        .bind(&req.user_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        // Only update recovery key if a new one is provided
+        if let Some(ref encrypted_key) = recovery_encrypted_key {
+            sqlx::query(
+                r#"
+                UPDATE users
+                SET first_name = ?, last_name = ?, email = ?, classroom = ?,
+                    data_consent = ?, updated_at = ?, recovery_encrypted_key = ?
+                WHERE id = ?
+                "#,
+            )
+            .bind(&req.first_name)
+            .bind(&req.last_name)
+            .bind(&req.email)
+            .bind(&req.classroom)
+            .bind(req.data_consent.unwrap_or(true))
+            .bind(chrono::Utc::now().to_rfc3339())
+            .bind(encrypted_key)
+            .bind(&req.user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        } else {
+            sqlx::query(
+                r#"
+                UPDATE users
+                SET first_name = ?, last_name = ?, email = ?, classroom = ?,
+                    data_consent = ?, updated_at = ?
+                WHERE id = ?
+                "#,
+            )
+            .bind(&req.first_name)
+            .bind(&req.last_name)
+            .bind(&req.email)
+            .bind(&req.classroom)
+            .bind(req.data_consent.unwrap_or(true))
+            .bind(chrono::Utc::now().to_rfc3339())
+            .bind(&req.user_id)
+            .execute(&state.db)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        }
 
         tracing::info!("Updated existing user: {}", req.user_id);
     } else {
@@ -73,8 +112,8 @@ pub async fn create_user(
         sqlx::query(
             r#"
             INSERT INTO users (id, first_name, last_name, email, classroom,
-                               data_consent, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                               data_consent, created_at, updated_at, recovery_encrypted_key)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&user.id)
@@ -85,11 +124,12 @@ pub async fn create_user(
         .bind(user.data_consent)
         .bind(&user.created_at)
         .bind(&user.updated_at)
+        .bind(&recovery_encrypted_key)
         .execute(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-        tracing::info!("Created new user: {}", user.id);
+        tracing::info!("Created new user: {} (recovery: {})", user.id, recovery_encrypted_key.is_some());
 
         // If admin grant is provided, store it
         if let Some(admin_grant) = &req.admin_grant {

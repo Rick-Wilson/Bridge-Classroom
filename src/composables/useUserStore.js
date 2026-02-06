@@ -365,6 +365,88 @@ async function createGrantForViewer(viewerPublicKey) {
   return createSharingGrant(user.secretKey, viewerPublicKey)
 }
 
+/**
+ * Request account recovery for an email address
+ * @param {string} email - Email address to recover
+ * @param {string} apiUrl - API base URL
+ * @returns {Promise<{success: boolean, message: string, userId?: string}>}
+ */
+async function requestRecovery(email, apiUrl) {
+  try {
+    const response = await fetch(`${apiUrl}/recovery/request`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email })
+    })
+
+    const data = await response.json()
+    return data
+  } catch (err) {
+    console.error('Recovery request failed:', err)
+    return {
+      success: false,
+      message: 'Unable to connect to server. Please try again.'
+    }
+  }
+}
+
+/**
+ * Claim account recovery with token from email
+ * @param {string} userId - User ID from recovery URL
+ * @param {string} token - Recovery token from email
+ * @param {string} apiUrl - API base URL
+ * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
+ */
+async function claimRecovery(userId, token, apiUrl) {
+  try {
+    const response = await fetch(`${apiUrl}/recovery/claim`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ user_id: userId, token })
+    })
+
+    const data = await response.json()
+
+    if (!data.success || !data.user) {
+      return {
+        success: false,
+        error: data.error || 'Recovery failed'
+      }
+    }
+
+    // Restore user to local storage
+    const recoveredUser = {
+      id: data.user.id,
+      firstName: data.user.first_name,
+      lastName: data.user.last_name,
+      email: data.user.email,
+      classrooms: data.user.classroom ? [data.user.classroom] : [],
+      dataConsent: true,
+      secretKey: data.user.secret_key,
+      serverRegistered: true,
+      recoveredAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    users.value[recoveredUser.id] = recoveredUser
+    currentUserId.value = recoveredUser.id
+    saveToStorage()
+
+    return { success: true, user: recoveredUser }
+  } catch (err) {
+    console.error('Recovery claim failed:', err)
+    return {
+      success: false,
+      error: 'Unable to connect to server. Please try again.'
+    }
+  }
+}
+
 export function useUserStore() {
   // Computed properties
   const currentUser = computed(() => {
@@ -422,6 +504,10 @@ export function useUserStore() {
     dismissKeyBackupModal,
     getAdminViewerId,
     setAdminViewerId,
-    createGrantForViewer
+    createGrantForViewer,
+
+    // Account recovery
+    requestRecovery,
+    claimRecovery
   }
 }
