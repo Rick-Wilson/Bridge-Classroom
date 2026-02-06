@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
 /// Observation stored in the database
+/// encrypted_data is AES-256-GCM encrypted with the student's secret key
+/// Viewers get the key through sharing grants, not per-observation key blobs
 #[derive(Debug, Clone, FromRow, Serialize)]
 pub struct Observation {
     pub id: String,
@@ -14,8 +16,6 @@ pub struct Observation {
     pub deal_number: Option<i32>,
     pub encrypted_data: String,
     pub iv: String,
-    pub student_key_blob: String,
-    pub teacher_key_blob: Option<String>,
     pub created_at: String,
 }
 
@@ -52,8 +52,6 @@ impl From<Observation> for ObservationMetadata {
 pub struct EncryptedObservation {
     pub encrypted_data: String,
     pub iv: String,
-    pub student_key_blob: String,
-    pub teacher_key_blob: Option<String>,
     pub metadata: ObservationMetadataInput,
 }
 
@@ -144,8 +142,6 @@ impl Observation {
             deal_number: enc.metadata.deal_number,
             encrypted_data: enc.encrypted_data,
             iv: enc.iv,
-            student_key_blob: enc.student_key_blob,
-            teacher_key_blob: enc.teacher_key_blob,
             created_at: now,
         }
     }

@@ -57,19 +57,25 @@ async fn main() -> anyhow::Result<()> {
     let app = Router::new()
         // Health check
         .route("/health", get(health_check))
-        // API routes
+        // Auth routes
         .route("/api/auth/teacher", post(routes::authenticate_teacher))
-        .route("/api/keys/teacher", get(routes::get_teacher_key))
+        // Keys routes
+        .route("/api/keys/admin", get(routes::get_admin_key))
+        // User routes
         .route("/api/users", post(routes::create_user))
         .route("/api/users", get(routes::get_users))
+        // Viewer routes (teachers, partners, admin)
+        .route("/api/viewers", post(routes::create_viewer))
+        .route("/api/viewers", get(routes::get_viewers))
         .route(
-            "/api/users/:user_id/public-key",
-            get(routes::get_user_public_key),
+            "/api/viewers/:viewer_id/public-key",
+            get(routes::get_viewer_public_key),
         )
-        .route(
-            "/api/users/:user_id/encrypted-key",
-            get(routes::get_encrypted_key).put(routes::update_encrypted_key),
-        )
+        // Sharing grant routes
+        .route("/api/grants", post(routes::create_grant))
+        .route("/api/grants", get(routes::get_grants))
+        .route("/api/grants/:grant_id", axum::routing::delete(routes::revoke_grant))
+        // Observation routes
         .route("/api/observations", post(routes::submit_observations))
         .route("/api/observations", get(routes::get_observations))
         .route(

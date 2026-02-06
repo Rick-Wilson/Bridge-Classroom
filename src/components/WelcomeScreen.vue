@@ -2,14 +2,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useUserStore } from '../composables/useUserStore.js'
-import { isCredentialSyncSupported, getCredential } from '../utils/credentialSync.js'
 
 const emit = defineEmits(['userReady'])
 
 const appConfig = useAppConfig()
 const userStore = useUserStore()
 
-// API URL for key recovery
+// API URL for admin key and registration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 // View state: 'form' | 'returning' | 'switcher'
@@ -18,6 +17,7 @@ const viewState = ref('form')
 // Form data
 const firstName = ref('')
 const lastName = ref('')
+const email = ref('')
 const selectedClassrooms = ref([])
 const dataConsent = ref(true)
 
@@ -25,6 +25,7 @@ const dataConsent = ref(true)
 const errors = ref({
   firstName: '',
   lastName: '',
+  email: '',
   classrooms: ''
 })
 
@@ -38,11 +39,6 @@ const showRestoreOption = ref(false)
 const restoreError = ref('')
 const fileInput = ref(null)
 
-// Credential recovery state
-const credentialRecoveryAvailable = ref(false)
-const credentialRecoveryInProgress = ref(false)
-const credentialRecoveryError = ref('')
-
 // Initialize
 onMounted(async () => {
   userStore.initialize()
@@ -53,21 +49,6 @@ onMounted(async () => {
     viewState.value = 'returning'
   } else {
     viewState.value = 'form'
-
-    // Check for saved credentials in browser password manager
-    // This enables cross-device sync via iCloud Keychain, Google Password Manager, etc.
-    if (isCredentialSyncSupported()) {
-      try {
-        const credential = await getCredential()
-        if (credential && credential.userId) {
-          // We found saved credentials - show recovery option
-          credentialRecoveryAvailable.value = true
-        }
-      } catch (err) {
-        // Silently fail - credential access may be denied or not available
-        console.debug('Credential check:', err.message)
-      }
-    }
   }
 
   // If single classroom, auto-select it
@@ -76,11 +57,16 @@ onMounted(async () => {
   }
 })
 
+// Email validation regex
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 // Computed
 const isFormValid = computed(() => {
   return (
     firstName.value.trim().length > 0 &&
-    lastName.value.trim().length > 0
+    lastName.value.trim().length > 0 &&
+    email.value.trim().length > 0 &&
+    emailRegex.test(email.value.trim())
   )
 })
 
@@ -100,7 +86,7 @@ const teacherDisplay = computed(() => {
 
 // Methods
 function validateForm() {
-  errors.value = { firstName: '', lastName: '', classrooms: '' }
+  errors.value = { firstName: '', lastName: '', email: '', classrooms: '' }
   let valid = true
 
   if (!firstName.value.trim()) {
@@ -110,6 +96,21 @@ function validateForm() {
 
   if (!lastName.value.trim()) {
     errors.value.lastName = 'Last name is required'
+    valid = false
+  }
+
+  if (!email.value.trim()) {
+    errors.value.email = 'Email is required'
+    valid = false
+  } else if (!emailRegex.test(email.value.trim())) {
+    errors.value.email = 'Please enter a valid email address'
+    valid = false
+  }
+
+  // Check if email already in use
+  const existingUser = userStore.findUserByEmail(email.value)
+  if (existingUser) {
+    errors.value.email = 'This email is already registered. Use "Restore from backup" if this is your account.'
     valid = false
   }
 
@@ -130,21 +131,23 @@ async function handleSubmit() {
 
   // Show loading state while generating keys
   isLoading.value = true
-  loadingMessage.value = 'Creating your secure encryption keys...'
+  loadingMessage.value = 'Creating your secure encryption key...'
 
   try {
-    // Create user (now async - generates cryptographic keys)
+    // Create user with AES secret key and admin sharing grant
     const user = await userStore.createUser({
       firstName: firstName.value,
       lastName: lastName.value,
+      email: email.value,
       classrooms,
-      dataConsent: dataConsent.value
+      dataConsent: dataConsent.value,
+      apiUrl: API_URL
     })
 
     emit('userReady', user)
   } catch (err) {
     console.error('Failed to create user:', err)
-    errors.value.firstName = 'Failed to create account. Please try again.'
+    errors.value.email = 'Failed to create account. Please try again.'
   } finally {
     isLoading.value = false
     loadingMessage.value = ''
@@ -168,11 +171,12 @@ function handleAddNewUser() {
   // Clear form
   firstName.value = ''
   lastName.value = ''
+  email.value = ''
   selectedClassrooms.value = appConfig.hasSingleClassroom.value
     ? [appConfig.singleClassroom.value.id]
     : []
   dataConsent.value = true
-  errors.value = { firstName: '', lastName: '', classrooms: '' }
+  errors.value = { firstName: '', lastName: '', email: '', classrooms: '' }
 
   viewState.value = 'form'
 }
@@ -234,40 +238,6 @@ async function handleRestoreFile(event) {
   }
 }
 
-// Recover from browser password manager (cross-device sync)
-async function handleCredentialRecovery() {
-  credentialRecoveryError.value = ''
-  credentialRecoveryInProgress.value = true
-  isLoading.value = true
-  loadingMessage.value = 'Recovering your account...'
-
-  try {
-    const result = await userStore.tryKeyRecovery(API_URL)
-
-    if (result.success) {
-      if (result.alreadyLocal) {
-        // User was already in local storage
-        emit('userReady', result.user)
-      } else if (result.recovered) {
-        // Successfully recovered from server
-        emit('userReady', result.user)
-      }
-    } else {
-      credentialRecoveryError.value = result.error || 'Failed to recover account'
-    }
-  } catch (err) {
-    console.error('Credential recovery failed:', err)
-    credentialRecoveryError.value = 'Failed to recover account. Please try again.'
-  } finally {
-    credentialRecoveryInProgress.value = false
-    isLoading.value = false
-    loadingMessage.value = ''
-  }
-}
-
-function dismissCredentialRecovery() {
-  credentialRecoveryAvailable.value = false
-}
 </script>
 
 <template>
@@ -281,29 +251,6 @@ function dismissCredentialRecovery() {
       <!-- First-time user form -->
       <template v-if="viewState === 'form'">
         <div class="welcome-body">
-          <!-- Credential recovery banner -->
-          <div v-if="credentialRecoveryAvailable && !credentialRecoveryInProgress" class="recovery-banner">
-            <p>Account found in your browser's saved passwords.</p>
-            <button
-              type="button"
-              class="recovery-btn"
-              @click="handleCredentialRecovery"
-              :disabled="isLoading"
-            >
-              Restore My Account
-            </button>
-            <button
-              type="button"
-              class="recovery-dismiss"
-              @click="dismissCredentialRecovery"
-            >
-              Start fresh instead
-            </button>
-            <p v-if="credentialRecoveryError" class="recovery-error">
-              {{ credentialRecoveryError }}
-            </p>
-          </div>
-
           <h2>Welcome!</h2>
           <p class="subtitle">Please enter your name to get started.</p>
 
@@ -338,6 +285,23 @@ function dismissCredentialRecovery() {
               <span v-if="errors.lastName" class="error-message">
                 {{ errors.lastName }}
               </span>
+            </div>
+
+            <!-- Email -->
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input
+                id="email"
+                v-model="email"
+                type="email"
+                placeholder="Enter your email address"
+                :class="{ 'has-error': errors.email }"
+                autocomplete="email"
+              />
+              <span v-if="errors.email" class="error-message">
+                {{ errors.email }}
+              </span>
+              <span class="field-hint">Used for account recovery and sharing with your teacher</span>
             </div>
 
             <!-- Classroom selection (only if multiple available) -->
@@ -587,9 +551,24 @@ function dismissCredentialRecovery() {
   transition: border-color 0.2s;
 }
 
-.form-group input[type="text"]:focus {
+.form-group input[type="text"]:focus,
+.form-group input[type="email"]:focus {
   outline: none;
   border-color: #667eea;
+}
+
+.form-group input[type="email"] {
+  padding: 12px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
 }
 
 .form-group input.has-error {
@@ -856,68 +835,6 @@ function dismissCredentialRecovery() {
   color: #d32f2f;
   font-size: 13px;
   margin-top: 12px;
-}
-
-/* Credential recovery banner */
-.recovery-banner {
-  margin-bottom: 24px;
-  padding: 20px;
-  background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
-  border-radius: 12px;
-  text-align: center;
-  border: 1px solid #a5d6a7;
-}
-
-.recovery-banner p {
-  margin: 0 0 12px 0;
-  font-size: 15px;
-  color: #2e7d32;
-  font-weight: 500;
-}
-
-.recovery-btn {
-  padding: 12px 24px;
-  background: #43a047;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.recovery-btn:hover:not(:disabled) {
-  background: #388e3c;
-  transform: translateY(-1px);
-}
-
-.recovery-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.recovery-dismiss {
-  display: block;
-  width: 100%;
-  margin-top: 12px;
-  padding: 8px;
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.recovery-dismiss:hover {
-  color: #333;
-  text-decoration: underline;
-}
-
-.recovery-error {
-  color: #c62828;
-  font-size: 13px;
-  margin: 12px 0 0 0;
 }
 
 @media (max-width: 480px) {

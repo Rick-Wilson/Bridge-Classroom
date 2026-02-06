@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import { importKey } from '../utils/crypto.js'
+import { importPrivateKey } from '../utils/crypto.js'
 
 const STORAGE_KEY = 'bridgeTeacher'
 const SESSION_KEY = 'bridgeTeacherSession'
@@ -12,6 +12,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || ''
 const isAuthenticated = ref(false)
 const teacherPrivateKey = ref(null) // CryptoKey object
 const privateKeyBase64 = ref(null)  // Base64 string for storage
+const viewerId = ref(null)          // Viewer ID in the database
 const sessionExpiry = ref(null)
 const initialized = ref(false)
 
@@ -73,12 +74,12 @@ async function verifyPassword(password) {
 
 /**
  * Validate the private key by attempting to import it
- * @param {string} keyBase64 - Base64 encoded private key
+ * @param {string} keyBase64 - Base64 encoded RSA private key
  * @returns {Promise<{valid: boolean, key?: CryptoKey, error?: string}>}
  */
 async function validatePrivateKey(keyBase64) {
   try {
-    const key = await importKey(keyBase64, false)
+    const key = await importPrivateKey(keyBase64)
     return { valid: true, key }
   } catch (err) {
     console.error('Private key validation error:', err)
@@ -99,6 +100,7 @@ function loadSession() {
       if (session.expiry && new Date(session.expiry) > new Date()) {
         sessionExpiry.value = session.expiry
         privateKeyBase64.value = session.privateKeyBase64
+        viewerId.value = session.viewerId || null
         return true
       }
     }
@@ -115,7 +117,8 @@ function saveSession() {
   try {
     const session = {
       expiry: sessionExpiry.value,
-      privateKeyBase64: privateKeyBase64.value
+      privateKeyBase64: privateKeyBase64.value,
+      viewerId: viewerId.value
     }
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
   } catch (err) {
@@ -228,11 +231,28 @@ function logout() {
 }
 
 /**
- * Get the teacher's private key for decryption
- * @returns {CryptoKey|null}
+ * Get the teacher's private key (base64 encoded) for decryption
+ * @returns {string|null}
  */
 function getPrivateKey() {
-  return teacherPrivateKey.value
+  return privateKeyBase64.value
+}
+
+/**
+ * Get the teacher's viewer ID
+ * @returns {string|null}
+ */
+function getViewerId() {
+  return viewerId.value
+}
+
+/**
+ * Set the viewer ID (called after login when retrieving viewer info)
+ * @param {string} id
+ */
+function setViewerId(id) {
+  viewerId.value = id
+  saveSession()
 }
 
 /**
@@ -281,6 +301,8 @@ export function useTeacherAuth() {
     login,
     logout,
     getPrivateKey,
+    getViewerId,
+    setViewerId,
     isSessionValid,
     extendSession,
     clearRememberedKey

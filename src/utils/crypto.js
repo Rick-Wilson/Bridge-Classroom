@@ -1,17 +1,18 @@
 /**
  * Cryptography utilities using Web Crypto API
  *
- * Encryption scheme:
- * - RSA-OAEP 2048-bit for asymmetric key exchange
- * - AES-256-GCM for symmetric data encryption
+ * New simplified encryption scheme:
+ * - Each student has a single AES-256-GCM secret key
+ * - All observations encrypted with that one key
+ * - Sharing grants: student's secret key RSA-encrypted for viewers
  *
- * Flow for encrypting observations:
- * 1. Generate one-time AES-256-GCM symmetric key
- * 2. Encrypt observation JSON with symmetric key
- * 3. Encrypt symmetric key with student's RSA public key
- * 4. Encrypt symmetric key with teacher's RSA public key
- * 5. Package: { encrypted_data, iv, student_key_blob, teacher_key_blob }
+ * No more per-observation key wrapping!
  */
+
+const AES_ALGORITHM = {
+  name: 'AES-GCM',
+  length: 256
+}
 
 const RSA_ALGORITHM = {
   name: 'RSA-OAEP',
@@ -20,148 +21,30 @@ const RSA_ALGORITHM = {
   hash: 'SHA-256'
 }
 
-const AES_ALGORITHM = {
-  name: 'AES-GCM',
-  length: 256
-}
+// ============ AES Secret Key Functions ============
 
 /**
- * Generate an RSA-OAEP keypair for asymmetric encryption
- * @returns {Promise<{publicKey: CryptoKey, privateKey: CryptoKey}>}
+ * Generate a new AES-256-GCM secret key for a user
+ * This is the user's single encryption key for all their observations
+ * @returns {Promise<string>} Base64-encoded raw AES key
  */
-export async function generateKeyPair() {
-  const keyPair = await crypto.subtle.generateKey(
-    RSA_ALGORITHM,
-    true, // extractable
-    ['encrypt', 'decrypt']
-  )
-  return keyPair
-}
-
-/**
- * Export a CryptoKey to base64-encoded string
- * @param {CryptoKey} key - The key to export
- * @param {boolean} isPublic - True for public key (SPKI), false for private (PKCS8)
- * @returns {Promise<string>} Base64-encoded key
- */
-export async function exportKey(key, isPublic = true) {
-  const format = isPublic ? 'spki' : 'pkcs8'
-  const exported = await crypto.subtle.exportKey(format, key)
-  return arrayBufferToBase64(exported)
-}
-
-/**
- * Import a key from base64-encoded string
- * @param {string} keyData - Base64-encoded key
- * @param {boolean} isPublic - True for public key, false for private
- * @returns {Promise<CryptoKey>}
- */
-export async function importKey(keyData, isPublic = true) {
-  const format = isPublic ? 'spki' : 'pkcs8'
-  const keyBuffer = base64ToArrayBuffer(keyData)
-
-  return crypto.subtle.importKey(
-    format,
-    keyBuffer,
-    RSA_ALGORITHM,
-    true, // extractable
-    isPublic ? ['encrypt'] : ['decrypt']
-  )
-}
-
-/**
- * Generate a one-time AES-256-GCM symmetric key
- * @returns {Promise<CryptoKey>}
- */
-export async function generateSymmetricKey() {
-  return crypto.subtle.generateKey(
+export async function generateSecretKey() {
+  const key = await crypto.subtle.generateKey(
     AES_ALGORITHM,
     true, // extractable
     ['encrypt', 'decrypt']
   )
+  const rawKey = await crypto.subtle.exportKey('raw', key)
+  return arrayBufferToBase64(rawKey)
 }
 
 /**
- * Encrypt data with AES-256-GCM
- * @param {string} plaintext - Data to encrypt (will be JSON stringified if object)
- * @param {CryptoKey} symmetricKey - AES key
- * @returns {Promise<{ciphertext: string, iv: string}>} Base64-encoded ciphertext and IV
+ * Import a secret key from base64 string
+ * @param {string} secretKeyBase64 - Base64-encoded raw AES key
+ * @returns {Promise<CryptoKey>}
  */
-export async function encryptWithSymmetricKey(plaintext, symmetricKey) {
-  const iv = crypto.getRandomValues(new Uint8Array(12)) // 96-bit IV for GCM
-  const encoder = new TextEncoder()
-  const data = encoder.encode(typeof plaintext === 'string' ? plaintext : JSON.stringify(plaintext))
-
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    symmetricKey,
-    data
-  )
-
-  return {
-    ciphertext: arrayBufferToBase64(ciphertext),
-    iv: arrayBufferToBase64(iv)
-  }
-}
-
-/**
- * Decrypt data with AES-256-GCM
- * @param {string} ciphertext - Base64-encoded ciphertext
- * @param {string} iv - Base64-encoded IV
- * @param {CryptoKey} symmetricKey - AES key
- * @returns {Promise<string>} Decrypted plaintext
- */
-export async function decryptWithSymmetricKey(ciphertext, iv, symmetricKey) {
-  const ciphertextBuffer = base64ToArrayBuffer(ciphertext)
-  const ivBuffer = base64ToArrayBuffer(iv)
-
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: ivBuffer },
-    symmetricKey,
-    ciphertextBuffer
-  )
-
-  const decoder = new TextDecoder()
-  return decoder.decode(decrypted)
-}
-
-/**
- * Encrypt a symmetric key with an RSA public key
- * @param {CryptoKey} symmetricKey - The AES key to wrap
- * @param {CryptoKey} publicKey - RSA public key
- * @returns {Promise<string>} Base64-encoded encrypted key
- */
-export async function wrapSymmetricKey(symmetricKey, publicKey) {
-  // Export the symmetric key first
-  const rawKey = await crypto.subtle.exportKey('raw', symmetricKey)
-
-  // Encrypt with RSA-OAEP
-  const wrapped = await crypto.subtle.encrypt(
-    { name: 'RSA-OAEP' },
-    publicKey,
-    rawKey
-  )
-
-  return arrayBufferToBase64(wrapped)
-}
-
-/**
- * Decrypt a symmetric key with an RSA private key
- * @param {string} wrappedKey - Base64-encoded encrypted key
- * @param {CryptoKey} privateKey - RSA private key
- * @returns {Promise<CryptoKey>} The unwrapped AES key
- */
-export async function unwrapSymmetricKey(wrappedKey, privateKey) {
-  const wrappedBuffer = base64ToArrayBuffer(wrappedKey)
-
-  // Decrypt with RSA-OAEP
-  const rawKey = await crypto.subtle.decrypt(
-    { name: 'RSA-OAEP' },
-    privateKey,
-    wrappedBuffer
-  )
-
-  // Import as AES key
+export async function importSecretKey(secretKeyBase64) {
+  const rawKey = base64ToArrayBuffer(secretKeyBase64)
   return crypto.subtle.importKey(
     'raw',
     rawKey,
@@ -171,85 +54,173 @@ export async function unwrapSymmetricKey(wrappedKey, privateKey) {
   )
 }
 
-/**
- * Encrypt an observation for both student and teacher
- * @param {Object} observation - The observation data to encrypt
- * @param {CryptoKey} studentPublicKey - Student's RSA public key
- * @param {CryptoKey} teacherPublicKey - Teacher's RSA public key
- * @returns {Promise<Object>} Encrypted package
- */
-export async function encryptObservation(observation, studentPublicKey, teacherPublicKey) {
-  // Generate one-time symmetric key
-  const symmetricKey = await generateSymmetricKey()
+// ============ Observation Encryption ============
 
-  // Encrypt the observation data
-  const { ciphertext, iv } = await encryptWithSymmetricKey(
-    JSON.stringify(observation),
-    symmetricKey
+/**
+ * Encrypt an observation with the user's secret key
+ * Simple AES-256-GCM encryption - no dual-key complexity
+ *
+ * @param {Object} observation - The observation data to encrypt
+ * @param {string} secretKeyBase64 - Base64-encoded AES secret key
+ * @returns {Promise<{encrypted_data: string, iv: string}>}
+ */
+export async function encryptObservation(observation, secretKeyBase64) {
+  const secretKey = await importSecretKey(secretKeyBase64)
+  const iv = crypto.getRandomValues(new Uint8Array(12)) // 96-bit IV for GCM
+
+  const encoder = new TextEncoder()
+  const data = encoder.encode(JSON.stringify(observation))
+
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    secretKey,
+    data
   )
 
-  // Wrap the symmetric key for both parties
-  const studentKeyBlob = await wrapSymmetricKey(symmetricKey, studentPublicKey)
-  const teacherKeyBlob = await wrapSymmetricKey(symmetricKey, teacherPublicKey)
-
   return {
-    encrypted_data: ciphertext,
-    iv,
-    student_key_blob: studentKeyBlob,
-    teacher_key_blob: teacherKeyBlob
+    encrypted_data: arrayBufferToBase64(ciphertext),
+    iv: arrayBufferToBase64(iv)
   }
 }
 
 /**
- * Decrypt an observation using a private key
- * @param {Object} encryptedPackage - The encrypted observation package
- * @param {CryptoKey} privateKey - RSA private key (student or teacher)
- * @param {boolean} isTeacher - True to use teacher_key_blob, false for student_key_blob
+ * Decrypt an observation with the user's secret key
+ *
+ * @param {string} encryptedData - Base64-encoded ciphertext
+ * @param {string} iv - Base64-encoded IV
+ * @param {string} secretKeyBase64 - Base64-encoded AES secret key
  * @returns {Promise<Object>} Decrypted observation
  */
-export async function decryptObservation(encryptedPackage, privateKey, isTeacher = false) {
-  const keyBlob = isTeacher
-    ? encryptedPackage.teacher_key_blob
-    : encryptedPackage.student_key_blob
+export async function decryptObservation(encryptedData, iv, secretKeyBase64) {
+  const secretKey = await importSecretKey(secretKeyBase64)
+  const ciphertextBuffer = base64ToArrayBuffer(encryptedData)
+  const ivBuffer = base64ToArrayBuffer(iv)
 
-  // Unwrap the symmetric key
-  const symmetricKey = await unwrapSymmetricKey(keyBlob, privateKey)
-
-  // Decrypt the observation
-  const decrypted = await decryptWithSymmetricKey(
-    encryptedPackage.encrypted_data,
-    encryptedPackage.iv,
-    symmetricKey
+  const decrypted = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: ivBuffer },
+    secretKey,
+    ciphertextBuffer
   )
 
-  return JSON.parse(decrypted)
+  const decoder = new TextDecoder()
+  return JSON.parse(decoder.decode(decrypted))
 }
 
+// ============ Sharing Grants (RSA Key Exchange) ============
+
 /**
- * Generate a complete keypair and export both keys as base64
- * Convenience function for user registration
- * @returns {Promise<{publicKey: string, privateKey: string}>}
+ * Import an RSA public key from base64 (SPKI format)
+ * Used for importing viewer public keys
+ * @param {string} publicKeyBase64 - Base64-encoded SPKI public key
+ * @returns {Promise<CryptoKey>}
  */
-export async function generateExportedKeyPair() {
-  const keyPair = await generateKeyPair()
-  const publicKey = await exportKey(keyPair.publicKey, true)
-  const privateKey = await exportKey(keyPair.privateKey, false)
-  return { publicKey, privateKey }
+export async function importPublicKey(publicKeyBase64) {
+  const keyBuffer = base64ToArrayBuffer(publicKeyBase64)
+  return crypto.subtle.importKey(
+    'spki',
+    keyBuffer,
+    RSA_ALGORITHM,
+    true,
+    ['encrypt']
+  )
 }
 
 /**
- * Create a backup file object for a user's keys
- * @param {Object} user - User object with id, firstName, lastName, publicKey, privateKey
+ * Import an RSA private key from base64 (PKCS8 format)
+ * Used by viewers to decrypt sharing grants
+ * @param {string} privateKeyBase64 - Base64-encoded PKCS8 private key
+ * @returns {Promise<CryptoKey>}
+ */
+export async function importPrivateKey(privateKeyBase64) {
+  const keyBuffer = base64ToArrayBuffer(privateKeyBase64)
+  return crypto.subtle.importKey(
+    'pkcs8',
+    keyBuffer,
+    RSA_ALGORITHM,
+    true,
+    ['decrypt']
+  )
+}
+
+/**
+ * Generate an RSA keypair for a viewer (teacher, partner, admin)
+ * @returns {Promise<{publicKey: string, privateKey: string}>} Base64-encoded keys
+ */
+export async function generateViewerKeyPair() {
+  const keyPair = await crypto.subtle.generateKey(
+    RSA_ALGORITHM,
+    true,
+    ['encrypt', 'decrypt']
+  )
+
+  const publicKey = await crypto.subtle.exportKey('spki', keyPair.publicKey)
+  const privateKey = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey)
+
+  return {
+    publicKey: arrayBufferToBase64(publicKey),
+    privateKey: arrayBufferToBase64(privateKey)
+  }
+}
+
+/**
+ * Create a sharing grant - encrypts user's secret key for a viewer
+ *
+ * @param {string} secretKeyBase64 - User's AES secret key
+ * @param {string} viewerPublicKeyBase64 - Viewer's RSA public key
+ * @returns {Promise<string>} Base64-encoded encrypted payload
+ */
+export async function createSharingGrant(secretKeyBase64, viewerPublicKeyBase64) {
+  const viewerPublicKey = await importPublicKey(viewerPublicKeyBase64)
+
+  // The payload is just the raw AES key bytes
+  const secretKeyBuffer = base64ToArrayBuffer(secretKeyBase64)
+
+  // RSA-OAEP encrypt the secret key
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'RSA-OAEP' },
+    viewerPublicKey,
+    secretKeyBuffer
+  )
+
+  return arrayBufferToBase64(encrypted)
+}
+
+/**
+ * Decrypt a sharing grant - viewer recovers student's secret key
+ *
+ * @param {string} encryptedPayload - Base64-encoded encrypted payload
+ * @param {string} viewerPrivateKeyBase64 - Viewer's RSA private key
+ * @returns {Promise<string>} Base64-encoded AES secret key
+ */
+export async function decryptSharingGrant(encryptedPayload, viewerPrivateKeyBase64) {
+  const viewerPrivateKey = await importPrivateKey(viewerPrivateKeyBase64)
+  const encryptedBuffer = base64ToArrayBuffer(encryptedPayload)
+
+  // RSA-OAEP decrypt to recover the secret key
+  const secretKeyBuffer = await crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    viewerPrivateKey,
+    encryptedBuffer
+  )
+
+  return arrayBufferToBase64(secretKeyBuffer)
+}
+
+// ============ Key Backup/Restore ============
+
+/**
+ * Create a backup file object for a user's secret key
+ * @param {Object} user - User object with id, firstName, lastName, email, secretKey
  * @returns {Object} Backup file data
  */
 export function createKeyBackup(user) {
   return {
     bridge_practice_backup: true,
-    version: '1.0',
+    version: '2.0',
     user_id: user.id,
     name: `${user.firstName} ${user.lastName}`,
-    private_key: user.privateKey,
-    public_key: user.publicKey,
+    email: user.email,
+    secret_key: user.secretKey,
     created: new Date().toISOString().split('T')[0],
     note: 'Keep this file safe. Import it to restore your practice history on a new device.'
   }
@@ -269,8 +240,14 @@ export function validateKeyBackup(backup) {
     return { valid: false, error: 'Not a Bridge Practice backup file' }
   }
 
-  if (!backup.private_key || !backup.public_key) {
-    return { valid: false, error: 'Backup file is missing key data' }
+  // Support both v1.0 (RSA keys) and v2.0 (AES secret key)
+  if (backup.version === '2.0') {
+    if (!backup.secret_key) {
+      return { valid: false, error: 'Backup file is missing secret key' }
+    }
+  } else if (backup.version === '1.0' || !backup.version) {
+    // Legacy RSA backup - cannot migrate
+    return { valid: false, error: 'Legacy backup format (v1.0) is no longer supported. Please re-register.' }
   }
 
   if (!backup.user_id) {
@@ -281,144 +258,18 @@ export function validateKeyBackup(backup) {
 }
 
 /**
- * Test if keys can encrypt/decrypt (validation)
- * @param {string} publicKeyBase64 - Base64-encoded public key
- * @param {string} privateKeyBase64 - Base64-encoded private key
+ * Test if a secret key can encrypt/decrypt correctly
+ * @param {string} secretKeyBase64 - Base64-encoded AES key
  * @returns {Promise<boolean>}
  */
-export async function validateKeyPair(publicKeyBase64, privateKeyBase64) {
+export async function validateSecretKey(secretKeyBase64) {
   try {
-    const publicKey = await importKey(publicKeyBase64, true)
-    const privateKey = await importKey(privateKeyBase64, false)
-
-    // Test encrypt/decrypt round trip
     const testData = { test: 'validation', timestamp: Date.now() }
-    const symmetricKey = await generateSymmetricKey()
-    const { ciphertext, iv } = await encryptWithSymmetricKey(JSON.stringify(testData), symmetricKey)
-    const wrappedKey = await wrapSymmetricKey(symmetricKey, publicKey)
-
-    const unwrappedKey = await unwrapSymmetricKey(wrappedKey, privateKey)
-    const decrypted = await decryptWithSymmetricKey(ciphertext, iv, unwrappedKey)
-    const parsed = JSON.parse(decrypted)
-
-    return parsed.test === 'validation'
+    const { encrypted_data, iv } = await encryptObservation(testData, secretKeyBase64)
+    const decrypted = await decryptObservation(encrypted_data, iv, secretKeyBase64)
+    return decrypted.test === 'validation'
   } catch (err) {
     console.error('Key validation failed:', err)
-    return false
-  }
-}
-
-// ============ Passphrase-Based Key Encryption ============
-// Used for cross-device sync via browser password managers
-
-const PBKDF2_ITERATIONS = 100000
-
-/**
- * Derive an AES key from a passphrase using PBKDF2
- * @param {string} passphrase - The passphrase
- * @param {Uint8Array} salt - Salt for key derivation
- * @returns {Promise<CryptoKey>}
- */
-async function deriveKeyFromPassphrase(passphrase, salt) {
-  const encoder = new TextEncoder()
-  const passphraseKey = await crypto.subtle.importKey(
-    'raw',
-    encoder.encode(passphrase),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  )
-
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt,
-      iterations: PBKDF2_ITERATIONS,
-      hash: 'SHA-256'
-    },
-    passphraseKey,
-    AES_ALGORITHM,
-    false,
-    ['encrypt', 'decrypt']
-  )
-}
-
-/**
- * Encrypt a private key with a passphrase
- * Used for storing encrypted keys on the server for cross-device sync
- *
- * @param {string} privateKeyBase64 - Base64-encoded private key (PKCS8)
- * @param {string} passphrase - The passphrase to encrypt with
- * @returns {Promise<string>} Base64-encoded encrypted package (salt + iv + ciphertext)
- */
-export async function encryptPrivateKeyWithPassphrase(privateKeyBase64, passphrase) {
-  // Generate random salt and IV
-  const salt = crypto.getRandomValues(new Uint8Array(16))
-  const iv = crypto.getRandomValues(new Uint8Array(12))
-
-  // Derive encryption key from passphrase
-  const derivedKey = await deriveKeyFromPassphrase(passphrase, salt)
-
-  // Encrypt the private key
-  const encoder = new TextEncoder()
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    derivedKey,
-    encoder.encode(privateKeyBase64)
-  )
-
-  // Combine salt + iv + ciphertext into one package
-  const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength)
-  combined.set(salt, 0)
-  combined.set(iv, salt.length)
-  combined.set(new Uint8Array(ciphertext), salt.length + iv.length)
-
-  return arrayBufferToBase64(combined.buffer)
-}
-
-/**
- * Decrypt a private key with a passphrase
- *
- * @param {string} encryptedPackage - Base64-encoded encrypted package
- * @param {string} passphrase - The passphrase to decrypt with
- * @returns {Promise<string>} Base64-encoded private key (PKCS8)
- */
-export async function decryptPrivateKeyWithPassphrase(encryptedPackage, passphrase) {
-  // Decode the combined package
-  const combined = new Uint8Array(base64ToArrayBuffer(encryptedPackage))
-
-  // Extract salt, iv, and ciphertext
-  const salt = combined.slice(0, 16)
-  const iv = combined.slice(16, 28)
-  const ciphertext = combined.slice(28)
-
-  // Derive decryption key from passphrase
-  const derivedKey = await deriveKeyFromPassphrase(passphrase, salt)
-
-  // Decrypt the private key
-  const decrypted = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    derivedKey,
-    ciphertext
-  )
-
-  const decoder = new TextDecoder()
-  return decoder.decode(decrypted)
-}
-
-/**
- * Test if a passphrase can decrypt an encrypted key package
- * @param {string} encryptedPackage - Base64-encoded encrypted package
- * @param {string} passphrase - The passphrase to test
- * @returns {Promise<boolean>}
- */
-export async function testPassphraseDecryption(encryptedPackage, passphrase) {
-  try {
-    const decrypted = await decryptPrivateKeyWithPassphrase(encryptedPackage, passphrase)
-    // Try to import the decrypted key to verify it's valid
-    await importKey(decrypted, false)
-    return true
-  } catch {
     return false
   }
 }

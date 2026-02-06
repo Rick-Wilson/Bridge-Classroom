@@ -1,25 +1,18 @@
 import { ref, computed } from 'vue'
 import {
-  generateExportedKeyPair,
+  generateSecretKey,
   createKeyBackup,
   validateKeyBackup,
-  validateKeyPair,
-  encryptPrivateKeyWithPassphrase,
-  decryptPrivateKeyWithPassphrase
+  validateSecretKey,
+  createSharingGrant
 } from '../utils/crypto.js'
-import {
-  isCredentialSyncSupported,
-  generatePassphrase,
-  saveCredential,
-  getCredential
-} from '../utils/credentialSync.js'
 
 const STORAGE_KEY = 'bridgePractice'
 
 // Singleton state (shared across all component instances)
 const users = ref({})
 const currentUserId = ref(null)
-const teacherPublicKey = ref(null)
+const adminViewerId = ref(null)
 const initialized = ref(false)
 
 // Flag to track if user just registered (for showing key backup modal)
@@ -35,7 +28,7 @@ function loadFromStorage() {
       const data = JSON.parse(stored)
       users.value = data.users || {}
       currentUserId.value = data.currentUserId || null
-      teacherPublicKey.value = data.teacherPublicKey || null
+      adminViewerId.value = data.adminViewerId || null
     }
     initialized.value = true
   } catch (err) {
@@ -53,8 +46,8 @@ function saveToStorage() {
     const data = stored ? JSON.parse(stored) : {}
     data.users = users.value
     data.currentUserId = currentUserId.value
-    if (teacherPublicKey.value) {
-      data.teacherPublicKey = teacherPublicKey.value
+    if (adminViewerId.value) {
+      data.adminViewerId = adminViewerId.value
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch (err) {
@@ -63,36 +56,39 @@ function saveToStorage() {
 }
 
 /**
- * Create a new user with cryptographic keys
+ * Create a new user with AES secret key
  * @param {Object} userData - User data
  * @param {string} userData.firstName - First name (required)
  * @param {string} userData.lastName - Last name (required)
+ * @param {string} userData.email - Email address (required)
  * @param {string[]} userData.classrooms - Array of classroom IDs
  * @param {boolean} userData.dataConsent - Data sharing consent
+ * @param {string} userData.apiUrl - API base URL for fetching admin key
  * @returns {Promise<Object>} The created user
  */
-async function createUser({ firstName, lastName, classrooms = [], dataConsent = true }) {
+async function createUser({ firstName, lastName, email, classrooms = [], dataConsent = true, apiUrl }) {
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
 
-  // Generate cryptographic keypair
-  const { publicKey, privateKey } = await generateExportedKeyPair()
+  // Generate AES-256-GCM secret key
+  const secretKey = await generateSecretKey()
 
-  // Try to set up cross-device sync via browser credential manager
-  let encryptedPrivateKey = null
-  let credentialSaved = false
-
-  if (isCredentialSyncSupported()) {
+  // Create admin sharing grant if we have an API URL
+  let adminGrantPayload = null
+  if (apiUrl) {
     try {
-      const passphrase = generatePassphrase()
-      encryptedPrivateKey = await encryptPrivateKeyWithPassphrase(privateKey, passphrase)
-      credentialSaved = await saveCredential(id, passphrase)
-      if (credentialSaved) {
-        console.log('Credential saved to browser password manager for cross-device sync')
+      const adminKeyResponse = await fetch(`${apiUrl}/keys/admin`)
+      if (adminKeyResponse.ok) {
+        const adminData = await adminKeyResponse.json()
+        adminViewerId.value = adminData.viewer_id
+        adminGrantPayload = {
+          grantee_id: adminData.viewer_id,
+          encrypted_payload: await createSharingGrant(secretKey, adminData.public_key)
+        }
       }
     } catch (err) {
-      console.warn('Failed to set up credential sync:', err)
-      // Continue without credential sync - user can still use file backup
+      console.warn('Failed to create admin sharing grant:', err)
+      // Continue without admin grant - can be created later
     }
   }
 
@@ -100,13 +96,12 @@ async function createUser({ firstName, lastName, classrooms = [], dataConsent = 
     id,
     firstName: firstName.trim(),
     lastName: lastName.trim(),
+    email: email.trim().toLowerCase(),
     classrooms,
     dataConsent,
-    publicKey,
-    privateKey,
-    encryptedPrivateKey, // For server-side storage and cross-device sync
-    credentialSaved, // Track if browser credential was saved
-    serverRegistered: false, // Will be set true after server registration in Stage 4
+    secretKey,
+    serverRegistered: false,
+    adminGrantPayload, // Store for sending to server during registration
     createdAt: now,
     updatedAt: now
   }
@@ -115,7 +110,7 @@ async function createUser({ firstName, lastName, classrooms = [], dataConsent = 
   currentUserId.value = id
   saveToStorage()
 
-  // Trigger key backup modal for new users (file backup is still recommended)
+  // Trigger key backup modal for new users
   showKeyBackupModal.value = true
 
   return user
@@ -141,6 +136,9 @@ function updateUser(userId, updates) {
   }
   if (updates.lastName !== undefined) {
     user.lastName = updates.lastName.trim()
+  }
+  if (updates.email !== undefined) {
+    user.email = updates.email.trim().toLowerCase()
   }
   if (updates.classrooms !== undefined) {
     user.classrooms = updates.classrooms
@@ -218,6 +216,22 @@ function findUserByName(firstName, lastName) {
 }
 
 /**
+ * Check if a user exists with given email
+ * @param {string} email
+ * @returns {Object|null} Existing user or null
+ */
+function findUserByEmail(email) {
+  const normalizedEmail = email.trim().toLowerCase()
+
+  for (const user of Object.values(users.value)) {
+    if (user.email && user.email.toLowerCase() === normalizedEmail) {
+      return user
+    }
+  }
+  return null
+}
+
+/**
  * Get user by ID
  * @param {string} userId
  * @returns {Object|null}
@@ -232,7 +246,7 @@ function getUser(userId) {
 function clearUsers() {
   users.value = {}
   currentUserId.value = null
-  teacherPublicKey.value = null
+  adminViewerId.value = null
   showKeyBackupModal.value = false
   saveToStorage()
   initialized.value = false
@@ -259,18 +273,17 @@ async function restoreFromBackup(backup) {
     return { success: false, error: validation.error }
   }
 
-  // Validate the keypair actually works
-  const keysValid = await validateKeyPair(backup.public_key, backup.private_key)
-  if (!keysValid) {
-    return { success: false, error: 'The keys in this backup file are invalid or corrupted' }
+  // Validate the secret key actually works
+  const keyValid = await validateSecretKey(backup.secret_key)
+  if (!keyValid) {
+    return { success: false, error: 'The secret key in this backup file is invalid or corrupted' }
   }
 
   // Check if user already exists
   const existingUser = users.value[backup.user_id]
   if (existingUser) {
-    // Update existing user's keys (in case they were lost)
-    existingUser.publicKey = backup.public_key
-    existingUser.privateKey = backup.private_key
+    // Update existing user's key (in case it was lost)
+    existingUser.secretKey = backup.secret_key
     existingUser.updatedAt = new Date().toISOString()
     currentUserId.value = backup.user_id
     saveToStorage()
@@ -286,10 +299,10 @@ async function restoreFromBackup(backup) {
     id: backup.user_id,
     firstName,
     lastName,
+    email: backup.email || '',
     classrooms: [],
     dataConsent: true,
-    publicKey: backup.public_key,
-    privateKey: backup.private_key,
+    secretKey: backup.secret_key,
     serverRegistered: false,
     restoredFromBackup: true,
     createdAt: backup.created || new Date().toISOString(),
@@ -309,94 +322,10 @@ async function restoreFromBackup(backup) {
  */
 function getKeyBackup() {
   const user = users.value[currentUserId.value]
-  if (!user || !user.publicKey || !user.privateKey) {
+  if (!user || !user.secretKey) {
     return null
   }
   return createKeyBackup(user)
-}
-
-/**
- * Try to recover keys from browser credential manager + server
- * This enables cross-device sync via browser password managers (iCloud Keychain, Google, etc.)
- * @param {string} apiUrl - API base URL
- * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
- */
-async function tryKeyRecovery(apiUrl) {
-  if (!isCredentialSyncSupported()) {
-    return { success: false, error: 'Credential sync not supported in this browser' }
-  }
-
-  try {
-    // Get stored credential from browser password manager
-    const credential = await getCredential()
-    if (!credential) {
-      return { success: false, error: 'No saved credentials found' }
-    }
-
-    const { userId, passphrase } = credential
-
-    // Check if we already have this user locally
-    if (users.value[userId]) {
-      // User exists locally - just switch to them
-      currentUserId.value = userId
-      saveToStorage()
-      return { success: true, user: users.value[userId], alreadyLocal: true }
-    }
-
-    // Fetch encrypted key from server
-    const response = await fetch(`${apiUrl}/users/${userId}/encrypted-key`)
-    if (!response.ok) {
-      if (response.status === 404) {
-        return { success: false, error: 'User not found on server' }
-      }
-      return { success: false, error: `Server error: ${response.status}` }
-    }
-
-    const data = await response.json()
-    if (!data.encrypted_private_key) {
-      return { success: false, error: 'No encrypted key stored on server' }
-    }
-
-    // Decrypt the private key with the passphrase
-    let privateKey
-    try {
-      privateKey = await decryptPrivateKeyWithPassphrase(data.encrypted_private_key, passphrase)
-    } catch (err) {
-      return { success: false, error: 'Failed to decrypt key - passphrase may be incorrect' }
-    }
-
-    // Validate the keypair
-    const keysValid = await validateKeyPair(data.public_key, privateKey)
-    if (!keysValid) {
-      return { success: false, error: 'Recovered keys are invalid' }
-    }
-
-    // Create user locally from recovered data
-    const user = {
-      id: userId,
-      firstName: 'Recovered',
-      lastName: 'User',
-      classrooms: [],
-      dataConsent: true,
-      publicKey: data.public_key,
-      privateKey,
-      encryptedPrivateKey: data.encrypted_private_key,
-      credentialSaved: true,
-      serverRegistered: true, // Already on server
-      recoveredFromCredentials: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-
-    users.value[userId] = user
-    currentUserId.value = userId
-    saveToStorage()
-
-    return { success: true, user, recovered: true }
-  } catch (err) {
-    console.error('Key recovery failed:', err)
-    return { success: false, error: err.message }
-  }
 }
 
 /**
@@ -407,20 +336,33 @@ function dismissKeyBackupModal() {
 }
 
 /**
- * Set the teacher's public key
- * @param {string} publicKey - Base64-encoded public key
+ * Get the admin viewer ID
+ * @returns {string|null}
  */
-function setTeacherPublicKey(publicKey) {
-  teacherPublicKey.value = publicKey
+function getAdminViewerId() {
+  return adminViewerId.value
+}
+
+/**
+ * Set the admin viewer ID
+ * @param {string} viewerId
+ */
+function setAdminViewerId(viewerId) {
+  adminViewerId.value = viewerId
   saveToStorage()
 }
 
 /**
- * Get the teacher's public key
- * @returns {string|null}
+ * Create a sharing grant for a viewer
+ * @param {string} viewerPublicKey - Viewer's RSA public key (base64)
+ * @returns {Promise<string|null>} Encrypted payload or null if no current user
  */
-function getTeacherPublicKey() {
-  return teacherPublicKey.value
+async function createGrantForViewer(viewerPublicKey) {
+  const user = users.value[currentUserId.value]
+  if (!user || !user.secretKey) {
+    return null
+  }
+  return createSharingGrant(user.secretKey, viewerPublicKey)
 }
 
 export function useUserStore() {
@@ -450,7 +392,7 @@ export function useUserStore() {
     // State
     users,
     currentUserId,
-    teacherPublicKey,
+    adminViewerId,
     initialized,
     showKeyBackupModal,
 
@@ -470,6 +412,7 @@ export function useUserStore() {
     deleteUser,
     switchUser,
     findUserByName,
+    findUserByEmail,
     getUser,
     clearUsers,
 
@@ -477,8 +420,8 @@ export function useUserStore() {
     restoreFromBackup,
     getKeyBackup,
     dismissKeyBackupModal,
-    setTeacherPublicKey,
-    getTeacherPublicKey,
-    tryKeyRecovery
+    getAdminViewerId,
+    setAdminViewerId,
+    createGrantForViewer
   }
 }

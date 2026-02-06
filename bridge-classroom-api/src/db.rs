@@ -49,15 +49,17 @@ pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>, DbError> {
 
 /// Run database migrations
 async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
-    // Create tables if they don't exist
+    // Users table - stores student information
+    // Note: first_name and last_name are plaintext for teacher queries
+    // Secret key is stored client-side only (not on server)
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
-            first_name_encrypted TEXT,
-            last_name_encrypted TEXT,
+            first_name TEXT NOT NULL,
+            last_name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
             classroom TEXT,
-            public_key TEXT NOT NULL,
             data_consent INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
@@ -68,6 +70,50 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // Viewers table - teachers, partners, admin who can view student data
+    // Each viewer has an RSA keypair for receiving encrypted sharing grants
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS viewers (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            email TEXT NOT NULL UNIQUE,
+            public_key TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'teacher',
+            created_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // Sharing grants - links students to viewers
+    // encrypted_payload contains student's secret key encrypted with viewer's public key
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS sharing_grants (
+            id TEXT PRIMARY KEY,
+            grantor_id TEXT NOT NULL,
+            grantee_id TEXT NOT NULL,
+            encrypted_payload TEXT NOT NULL,
+            granted_at TEXT NOT NULL,
+            expires_at TEXT,
+            revoked INTEGER NOT NULL DEFAULT 0,
+            revoked_at TEXT,
+            FOREIGN KEY (grantor_id) REFERENCES users(id),
+            FOREIGN KEY (grantee_id) REFERENCES viewers(id),
+            UNIQUE(grantor_id, grantee_id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // Observations table - encrypted practice data
+    // encrypted_data is AES-256-GCM encrypted with student's secret key
+    // No key blobs needed - viewers use sharing grants to get the key
     sqlx::query(
         r#"
         CREATE TABLE IF NOT EXISTS observations (
@@ -81,8 +127,6 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
             deal_number INTEGER,
             encrypted_data TEXT NOT NULL,
             iv TEXT NOT NULL,
-            student_key_blob TEXT NOT NULL,
-            teacher_key_blob TEXT,
             created_at TEXT NOT NULL,
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
@@ -93,49 +137,64 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
     // Create indexes for common queries
-    // Add encrypted_private_key column if it doesn't exist (migration for existing databases)
-    // This column stores the user's private key encrypted with their recovery passphrase
-    // The passphrase is stored in the browser's password manager for cross-device sync
-    let _ = sqlx::query(
-        r#"
-        ALTER TABLE users ADD COLUMN encrypted_private_key TEXT
-        "#,
-    )
-    .execute(pool)
-    .await;
-    // Ignore error - column may already exist
-
     sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_observations_user_id ON observations(user_id)
-        "#,
+        r#"CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"#,
     )
     .execute(pool)
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
     sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_observations_classroom ON observations(classroom)
-        "#,
+        r#"CREATE INDEX IF NOT EXISTS idx_users_classroom ON users(classroom)"#,
     )
     .execute(pool)
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
     sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_observations_timestamp ON observations(timestamp)
-        "#,
+        r#"CREATE INDEX IF NOT EXISTS idx_viewers_email ON viewers(email)"#,
     )
     .execute(pool)
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
     sqlx::query(
-        r#"
-        CREATE INDEX IF NOT EXISTS idx_observations_skill_path ON observations(skill_path)
-        "#,
+        r#"CREATE INDEX IF NOT EXISTS idx_grants_grantor ON sharing_grants(grantor_id)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_grants_grantee ON sharing_grants(grantee_id)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_observations_user_id ON observations(user_id)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_observations_classroom ON observations(classroom)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_observations_timestamp ON observations(timestamp)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_observations_skill_path ON observations(skill_path)"#,
     )
     .execute(pool)
     .await

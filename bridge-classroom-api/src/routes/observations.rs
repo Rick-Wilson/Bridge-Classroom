@@ -62,15 +62,12 @@ pub async fn submit_observations(
             r#"
             INSERT INTO observations (
                 id, user_id, timestamp, skill_path, correct, classroom,
-                deal_subfolder, deal_number, encrypted_data, iv,
-                student_key_blob, teacher_key_blob, created_at
+                deal_subfolder, deal_number, encrypted_data, iv, created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 encrypted_data = excluded.encrypted_data,
-                iv = excluded.iv,
-                student_key_blob = excluded.student_key_blob,
-                teacher_key_blob = excluded.teacher_key_blob
+                iv = excluded.iv
             "#,
         )
         .bind(&obs.id)
@@ -83,8 +80,6 @@ pub async fn submit_observations(
         .bind(obs.deal_number)
         .bind(&obs.encrypted_data)
         .bind(&obs.iv)
-        .bind(&obs.student_key_blob)
-        .bind(&obs.teacher_key_blob)
         .bind(&obs.created_at)
         .execute(&state.db)
         .await

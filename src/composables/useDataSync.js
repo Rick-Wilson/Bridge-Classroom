@@ -1,4 +1,4 @@
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
 import { useObservationStore } from './useObservationStore.js'
 
@@ -40,20 +40,26 @@ function getBackoffDelay(attempt) {
  */
 async function registerUserWithServer(user) {
   try {
+    const payload = {
+      user_id: user.id,
+      first_name: user.firstName,
+      last_name: user.lastName,
+      email: user.email,
+      classroom: user.classrooms?.[0] || null,
+      data_consent: user.dataConsent
+    }
+
+    // Include admin grant if available
+    if (user.adminGrantPayload) {
+      payload.admin_grant = user.adminGrantPayload
+    }
+
     const response = await fetch(`${API_URL}/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        user_id: user.id,
-        first_name: user.firstName,
-        last_name: user.lastName,
-        classroom: user.classrooms?.[0] || null,
-        public_key: user.publicKey,
-        encrypted_private_key: user.encryptedPrivateKey || null, // For cross-device sync
-        data_consent: user.dataConsent
-      })
+      body: JSON.stringify(payload)
     })
 
     if (!response.ok) {
@@ -70,26 +76,6 @@ async function registerUserWithServer(user) {
 }
 
 /**
- * Fetch teacher public key from server
- * @returns {Promise<{success: boolean, publicKey?: string, error?: string}>}
- */
-async function fetchTeacherPublicKey() {
-  try {
-    const response = await fetch(`${API_URL}/keys/teacher`)
-
-    if (!response.ok) {
-      return { success: false, error: `Server error: ${response.status}` }
-    }
-
-    const result = await response.json()
-    return { success: true, publicKey: result.public_key }
-  } catch (err) {
-    console.error('Failed to fetch teacher public key:', err)
-    return { success: false, error: err.message }
-  }
-}
-
-/**
  * Sync observations to server
  * @param {Array} observations - Array of observations to sync
  * @returns {Promise<{success: boolean, synced?: number, errors?: string[]}>}
@@ -100,7 +86,7 @@ async function syncObservationsToServer(observations) {
   }
 
   // Filter to only encrypted observations ready to send
-  const readyToSync = observations.filter(obs => obs.encrypted && !obs.needsTeacherKey)
+  const readyToSync = observations.filter(obs => obs.encrypted)
 
   if (readyToSync.length === 0) {
     return { success: true, synced: 0, errors: [] }
@@ -111,8 +97,6 @@ async function syncObservationsToServer(observations) {
       observations: readyToSync.map(obs => ({
         encrypted_data: obs.encrypted_data,
         iv: obs.iv,
-        student_key_blob: obs.student_key_blob,
-        teacher_key_blob: obs.teacher_key_blob,
         metadata: obs.metadata
       }))
     }
@@ -145,7 +129,7 @@ async function syncObservationsToServer(observations) {
 
 /**
  * Main sync function - syncs all pending data
- * @returns {Promise<{success: boolean, userRegistered?: boolean, teacherKeyFetched?: boolean, observationsSynced?: number}>}
+ * @returns {Promise<{success: boolean, userRegistered?: boolean, observationsSynced?: number}>}
  */
 async function performSync() {
   const userStore = useUserStore()
@@ -163,7 +147,6 @@ async function performSync() {
   const result = {
     success: true,
     userRegistered: false,
-    teacherKeyFetched: false,
     observationsSynced: 0
   }
 
@@ -183,23 +166,10 @@ async function performSync() {
       }
     }
 
-    // 2. Fetch teacher public key if we don't have it
-    if (!userStore.getTeacherPublicKey()) {
-      const keyResult = await fetchTeacherPublicKey()
-      if (keyResult.success && keyResult.publicKey) {
-        userStore.setTeacherPublicKey(keyResult.publicKey)
-        result.teacherKeyFetched = true
-        console.log('Teacher public key fetched')
-
-        // Re-encrypt any observations that were waiting for teacher key
-        const reencrypted = await observationStore.reencryptWithTeacherKey()
-        if (reencrypted > 0) {
-          console.log(`Re-encrypted ${reencrypted} observations with teacher key`)
-        }
-      } else {
-        console.warn('Failed to fetch teacher key:', keyResult.error)
-        // Continue anyway - we can encrypt with student key only
-      }
+    // 2. Encrypt any unencrypted observations
+    const encryptedCount = await observationStore.encryptPendingObservations()
+    if (encryptedCount > 0) {
+      console.log(`Encrypted ${encryptedCount} observations`)
     }
 
     // 3. Sync pending observations
@@ -210,7 +180,7 @@ async function performSync() {
         if (syncResult.success && syncResult.synced > 0) {
           // Remove synced observations
           const syncedIds = pending
-            .filter(obs => obs.encrypted && !obs.needsTeacherKey)
+            .filter(obs => obs.encrypted)
             .slice(0, syncResult.synced)
             .map(obs => obs.metadata?.observation_id)
 
@@ -296,7 +266,7 @@ function syncBeforeUnload() {
   if (!user?.dataConsent) return
 
   const pending = observationStore.getPendingObservations()
-  const readyToSync = pending.filter(obs => obs.encrypted && !obs.needsTeacherKey)
+  const readyToSync = pending.filter(obs => obs.encrypted)
 
   if (readyToSync.length === 0) return
 
@@ -304,8 +274,6 @@ function syncBeforeUnload() {
     observations: readyToSync.map(obs => ({
       encrypted_data: obs.encrypted_data,
       iv: obs.iv,
-      student_key_blob: obs.student_key_blob,
-      teacher_key_blob: obs.teacher_key_blob,
       metadata: obs.metadata
     }))
   }
@@ -397,7 +365,6 @@ export function useDataSync() {
     forceSync,
     retrySync,
     registerUserWithServer,
-    fetchTeacherPublicKey,
     syncObservationsToServer
   }
 }

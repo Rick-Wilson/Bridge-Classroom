@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { useTeacherAuth } from './useTeacherAuth.js'
-import { decryptObservation } from '../utils/crypto.js'
+import { decryptObservation, decryptSharingGrant } from '../utils/crypto.js'
 import { getSkillFromPath } from '../utils/skillPath.js'
 
 // API configuration
@@ -105,14 +105,15 @@ async function fetchObservationMetadata(filters = {}) {
 }
 
 /**
- * Decrypt a single observation using teacher's private key
+ * Decrypt a single observation using student's secret key
+ * (Teacher gets secret key from sharing grant)
  * @param {Object} encrypted - Encrypted observation
- * @param {CryptoKey} privateKey - Teacher's private key
+ * @param {string} secretKey - Student's AES secret key (base64)
  * @returns {Promise<Object|null>}
  */
-async function decryptSingleObservation(encrypted, privateKey) {
+async function decryptSingleObservation(encrypted, secretKey) {
   try {
-    const decrypted = await decryptObservation(encrypted, privateKey, true)
+    const decrypted = await decryptObservation(encrypted.encrypted_data, encrypted.iv, secretKey)
     return {
       ...decrypted,
       id: encrypted.id,
@@ -125,6 +126,62 @@ async function decryptSingleObservation(encrypted, privateKey) {
     }
   } catch (err) {
     console.error('Failed to decrypt observation:', encrypted.id, err)
+    return null
+  }
+}
+
+// Cache of student secret keys (recovered from grants)
+const studentSecretKeys = new Map()
+
+/**
+ * Get a student's secret key from their sharing grant
+ * @param {string} userId - Student's user ID
+ * @param {string} viewerPrivateKey - Teacher's RSA private key (base64)
+ * @returns {Promise<string|null>} Student's AES secret key or null
+ */
+async function getStudentSecretKey(userId, viewerPrivateKey) {
+  // Check cache first
+  if (studentSecretKeys.has(userId)) {
+    return studentSecretKeys.get(userId)
+  }
+
+  const teacherAuth = useTeacherAuth()
+  const viewerId = teacherAuth.getViewerId?.() || null
+
+  if (!viewerId) {
+    console.error('No viewer ID available')
+    return null
+  }
+
+  try {
+    // Fetch grants for this viewer
+    const response = await fetch(`${API_URL}/grants?grantee_id=${viewerId}`, {
+      headers: { 'x-api-key': API_KEY }
+    })
+
+    if (!response.ok) {
+      console.error('Failed to fetch grants:', response.status)
+      return null
+    }
+
+    const { grants } = await response.json()
+
+    // Find grant from this student
+    const grant = grants.find(g => g.grantor_id === userId)
+    if (!grant) {
+      console.warn('No grant found from student:', userId)
+      return null
+    }
+
+    // Decrypt the grant to get student's secret key
+    const secretKey = await decryptSharingGrant(grant.encrypted_payload, viewerPrivateKey)
+
+    // Cache for future use
+    studentSecretKeys.set(userId, secretKey)
+
+    return secretKey
+  } catch (err) {
+    console.error('Failed to get student secret key:', err)
     return null
   }
 }
@@ -175,6 +232,7 @@ async function loadDashboard(forceRefresh = false) {
 
 /**
  * Fetch and decrypt observations for a specific student (for detail view)
+ * Teacher must have a sharing grant from the student to decrypt
  * @param {string} userId - Student's user ID
  * @returns {Promise<{success: boolean, observations?: Array, error?: string}>}
  */
@@ -185,7 +243,7 @@ async function loadStudentObservations(userId) {
     return { success: false, error: 'Not authenticated' }
   }
 
-  const privateKey = teacherAuth.getPrivateKey()
+  const privateKey = teacherAuth.getPrivateKey?.() || null
   if (!privateKey) {
     return { success: false, error: 'Private key not available' }
   }
@@ -194,10 +252,17 @@ async function loadStudentObservations(userId) {
   error.value = null
 
   try {
+    // Get student's secret key from their sharing grant
+    const secretKey = await getStudentSecretKey(userId, privateKey)
+    if (!secretKey) {
+      return { success: false, error: 'No sharing grant from this student or failed to decrypt' }
+    }
+
+    // Fetch encrypted observations
     const encrypted = await fetchObservations({ userId, limit: 1000 })
 
-    // Decrypt all observations
-    const decryptPromises = encrypted.map(obs => decryptSingleObservation(obs, privateKey))
+    // Decrypt all observations using student's secret key
+    const decryptPromises = encrypted.map(obs => decryptSingleObservation(obs, secretKey))
     const decrypted = await Promise.all(decryptPromises)
 
     // Filter out failed decryptions

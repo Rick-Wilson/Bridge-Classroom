@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
-import { importKey, decryptObservation } from '../utils/crypto.js'
+import { decryptObservation } from '../utils/crypto.js'
 
 // API configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
@@ -39,12 +39,12 @@ async function fetchObservationsFromServer(userId) {
 /**
  * Decrypt a single observation
  * @param {Object} encrypted - Encrypted observation from server
- * @param {CryptoKey} privateKey - Student's private key
+ * @param {string} secretKey - Student's AES secret key (base64)
  * @returns {Promise<Object|null>} Decrypted observation or null on failure
  */
-async function decryptSingleObservation(encrypted, privateKey) {
+async function decryptSingleObservation(encrypted, secretKey) {
   try {
-    const decrypted = await decryptObservation(encrypted, privateKey, false)
+    const decrypted = await decryptObservation(encrypted.encrypted_data, encrypted.iv, secretKey)
     return {
       ...decrypted,
       // Include metadata from server
@@ -91,17 +91,14 @@ async function fetchProgress(forceRefresh = false) {
     const encrypted = await fetchObservationsFromServer(user.id)
     observations.value = encrypted
 
-    // If no private key, we can't decrypt
-    if (!user.privateKey) {
-      error.value = 'No private key available for decryption'
+    // If no secret key, we can't decrypt
+    if (!user.secretKey) {
+      error.value = 'No secret key available for decryption'
       return { success: false, error: error.value }
     }
 
-    // Import private key
-    const privateKey = await importKey(user.privateKey, false)
-
-    // Decrypt all observations
-    const decryptPromises = encrypted.map(obs => decryptSingleObservation(obs, privateKey))
+    // Decrypt all observations using AES secret key
+    const decryptPromises = encrypted.map(obs => decryptSingleObservation(obs, user.secretKey))
     const decrypted = await Promise.all(decryptPromises)
 
     // Filter out failed decryptions

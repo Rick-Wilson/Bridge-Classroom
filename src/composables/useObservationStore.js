@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { createObservation, extractMetadata, generateSessionId, validateObservation } from '../utils/observationSchema.js'
 import { generateSkillPath } from '../utils/skillPath.js'
-import { encryptObservation, importKey } from '../utils/crypto.js'
+import { encryptObservation } from '../utils/crypto.js'
 import { useUserStore } from './useUserStore.js'
 import { useAssignmentStore } from './useAssignmentStore.js'
 
@@ -156,8 +156,8 @@ async function recordObservation({
     sessionStats.value.wrongCount++
   }
 
-  // If user has data consent and we have keys, encrypt the observation
-  if (user.dataConsent && user.publicKey) {
+  // If user has data consent and secret key, encrypt the observation
+  if (user.dataConsent && user.secretKey) {
     const encryptResult = await encryptAndQueueObservation(observation, user)
     if (!encryptResult.success) {
       console.warn('Failed to encrypt observation, storing unencrypted:', encryptResult.error)
@@ -165,7 +165,7 @@ async function recordObservation({
       queueUnencryptedObservation(observation, user.classrooms?.[0] || null)
     }
   } else {
-    // Store unencrypted (user may not have consented, or keys not yet generated)
+    // Store unencrypted (user may not have consented, or key not yet generated)
     queueUnencryptedObservation(observation, user.classrooms?.[0] || null)
   }
 
@@ -173,93 +173,36 @@ async function recordObservation({
 }
 
 /**
- * Encrypt and queue an observation
+ * Encrypt and queue an observation using user's secret key
+ * Simple AES-256-GCM encryption - no dual-key complexity!
+ *
  * @param {Object} observation - The observation to encrypt
- * @param {Object} user - The current user
+ * @param {Object} user - The current user (needs secretKey)
  * @returns {Promise<{success: boolean, error?: string}>}
  */
 async function encryptAndQueueObservation(observation, user) {
-  const userStore = useUserStore()
-
   try {
-    // Import student public key
-    const studentPublicKey = await importKey(user.publicKey, true)
+    // Encrypt with user's secret key (AES-256-GCM)
+    const { encrypted_data, iv } = await encryptObservation(observation, user.secretKey)
 
-    // Get teacher public key (may not be available yet)
-    const teacherPublicKeyBase64 = userStore.getTeacherPublicKey()
+    // Extract metadata for server-side queries
+    const classroom = user.classrooms?.[0] || null
+    const metadata = extractMetadata(observation, classroom)
 
-    if (teacherPublicKeyBase64) {
-      // Full encryption with both keys
-      const teacherPublicKey = await importKey(teacherPublicKeyBase64, true)
-
-      const encrypted = await encryptObservation(
-        observation,
-        studentPublicKey,
-        teacherPublicKey
-      )
-
-      // Extract metadata for server-side queries
-      const classroom = user.classrooms?.[0] || null
-      const metadata = extractMetadata(observation, classroom)
-
-      // Queue the encrypted observation
-      pendingObservations.value.push({
-        ...encrypted,
-        metadata,
-        encrypted: true,
-        queuedAt: new Date().toISOString()
-      })
-    } else {
-      // Encrypt with student key only (teacher key not available yet)
-      // This will be re-encrypted when teacher key becomes available
-      const encrypted = await encryptObservationStudentOnly(observation, studentPublicKey)
-
-      const classroom = user.classrooms?.[0] || null
-      const metadata = extractMetadata(observation, classroom)
-
-      pendingObservations.value.push({
-        ...encrypted,
-        metadata,
-        encrypted: true,
-        needsTeacherKey: true,
-        queuedAt: new Date().toISOString()
-      })
-    }
+    // Queue the encrypted observation
+    pendingObservations.value.push({
+      encrypted_data,
+      iv,
+      metadata,
+      encrypted: true,
+      queuedAt: new Date().toISOString()
+    })
 
     saveToStorage()
     return { success: true }
   } catch (err) {
     console.error('Failed to encrypt observation:', err)
     return { success: false, error: err.message }
-  }
-}
-
-/**
- * Encrypt observation with student key only (when teacher key not available)
- * @param {Object} observation - The observation to encrypt
- * @param {CryptoKey} studentPublicKey - Student's public key
- * @returns {Promise<Object>} Partially encrypted package
- */
-async function encryptObservationStudentOnly(observation, studentPublicKey) {
-  const { encryptWithSymmetricKey, generateSymmetricKey, wrapSymmetricKey } = await import('../utils/crypto.js')
-
-  // Generate one-time symmetric key
-  const symmetricKey = await generateSymmetricKey()
-
-  // Encrypt the observation data
-  const { ciphertext, iv } = await encryptWithSymmetricKey(
-    JSON.stringify(observation),
-    symmetricKey
-  )
-
-  // Wrap the symmetric key for student only
-  const studentKeyBlob = await wrapSymmetricKey(symmetricKey, studentPublicKey)
-
-  return {
-    encrypted_data: ciphertext,
-    iv,
-    student_key_blob: studentKeyBlob,
-    teacher_key_blob: null // Will be added later
   }
 }
 
@@ -279,6 +222,52 @@ function queueUnencryptedObservation(observation, classroom) {
   })
 
   saveToStorage()
+}
+
+/**
+ * Encrypt any unencrypted observations in the queue
+ * Call this after user gets their secret key
+ * @returns {Promise<number>} Number of observations encrypted
+ */
+async function encryptPendingObservations() {
+  const userStore = useUserStore()
+  const user = userStore.currentUser.value
+
+  if (!user?.secretKey) {
+    return 0
+  }
+
+  let encryptedCount = 0
+
+  for (let i = 0; i < pendingObservations.value.length; i++) {
+    const obs = pendingObservations.value[i]
+
+    if (!obs.encrypted && obs.observation) {
+      try {
+        const { encrypted_data, iv } = await encryptObservation(obs.observation, user.secretKey)
+
+        // Update the observation to encrypted form
+        pendingObservations.value[i] = {
+          encrypted_data,
+          iv,
+          metadata: obs.metadata,
+          encrypted: true,
+          queuedAt: obs.queuedAt,
+          encryptedAt: new Date().toISOString()
+        }
+
+        encryptedCount++
+      } catch (err) {
+        console.error('Failed to encrypt observation:', err)
+      }
+    }
+  }
+
+  if (encryptedCount > 0) {
+    saveToStorage()
+  }
+
+  return encryptedCount
 }
 
 /**
@@ -317,72 +306,6 @@ function clearPendingObservations() {
 }
 
 /**
- * Re-encrypt observations that need teacher key
- * Call this after teacher key becomes available
- * @returns {Promise<number>} Number of observations re-encrypted
- */
-async function reencryptWithTeacherKey() {
-  const userStore = useUserStore()
-  const teacherPublicKeyBase64 = userStore.getTeacherPublicKey()
-
-  if (!teacherPublicKeyBase64) {
-    return 0
-  }
-
-  const user = userStore.currentUser.value
-  if (!user?.privateKey) {
-    return 0
-  }
-
-  try {
-    const { importKey, decryptObservation: decryptObs, encryptObservation: encryptObs } = await import('../utils/crypto.js')
-
-    const studentPrivateKey = await importKey(user.privateKey, false)
-    const studentPublicKey = await importKey(user.publicKey, true)
-    const teacherPublicKey = await importKey(teacherPublicKeyBase64, true)
-
-    let reencryptedCount = 0
-
-    for (let i = 0; i < pendingObservations.value.length; i++) {
-      const obs = pendingObservations.value[i]
-
-      if (obs.encrypted && obs.needsTeacherKey) {
-        try {
-          // Decrypt with student key
-          const decrypted = await decryptObs(obs, studentPrivateKey, false)
-
-          // Re-encrypt with both keys
-          const encrypted = await encryptObs(decrypted, studentPublicKey, teacherPublicKey)
-
-          // Update the observation
-          pendingObservations.value[i] = {
-            ...encrypted,
-            metadata: obs.metadata,
-            encrypted: true,
-            needsTeacherKey: false,
-            queuedAt: obs.queuedAt,
-            reencryptedAt: new Date().toISOString()
-          }
-
-          reencryptedCount++
-        } catch (err) {
-          console.error('Failed to re-encrypt observation:', err)
-        }
-      }
-    }
-
-    if (reencryptedCount > 0) {
-      saveToStorage()
-    }
-
-    return reencryptedCount
-  } catch (err) {
-    console.error('Failed to re-encrypt observations:', err)
-    return 0
-  }
-}
-
-/**
  * Get observations for the current session (from memory, not storage)
  * For local display only - decrypted observations are not stored
  * @returns {Object} Session statistics
@@ -413,8 +336,8 @@ export function useObservationStore() {
 
   const hasPendingObservations = computed(() => pendingObservations.value.length > 0)
 
-  const needsTeacherKey = computed(() =>
-    pendingObservations.value.some(obs => obs.needsTeacherKey)
+  const hasUnencryptedObservations = computed(() =>
+    pendingObservations.value.some(obs => !obs.encrypted)
   )
 
   const currentSessionId = computed(() => sessionId.value)
@@ -429,18 +352,18 @@ export function useObservationStore() {
     // Computed
     pendingCount,
     hasPendingObservations,
-    needsTeacherKey,
+    hasUnencryptedObservations,
     currentSessionId,
 
     // Methods
     initialize,
     startNewSession,
     recordObservation,
+    encryptPendingObservations,
     getPendingCount,
     getPendingObservations,
     removeSyncedObservations,
     clearPendingObservations,
-    reencryptWithTeacherKey,
     getSessionStats,
     reset,
 

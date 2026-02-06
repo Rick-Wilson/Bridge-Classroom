@@ -6,26 +6,33 @@ use sqlx::FromRow;
 #[derive(Debug, Clone, FromRow, Serialize)]
 pub struct User {
     pub id: String,
-    pub first_name_encrypted: Option<String>,
-    pub last_name_encrypted: Option<String>,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
     pub classroom: Option<String>,
-    pub public_key: String,
-    pub encrypted_private_key: Option<String>,
     pub data_consent: bool,
     pub created_at: String,
     pub updated_at: String,
 }
 
-/// Request to create a new user
+/// Request to create or update a user
 #[derive(Debug, Deserialize)]
 pub struct CreateUserRequest {
     pub user_id: String,
     pub first_name: String,
     pub last_name: String,
+    pub email: String,
     pub classroom: Option<String>,
-    pub public_key: String,
-    pub encrypted_private_key: Option<String>,
     pub data_consent: Option<bool>,
+    /// Optional: admin sharing grant to store on registration
+    pub admin_grant: Option<CreateGrantPayload>,
+}
+
+/// Payload for creating a sharing grant (embedded in user registration)
+#[derive(Debug, Deserialize)]
+pub struct CreateGrantPayload {
+    pub grantee_id: String,
+    pub encrypted_payload: String,
 }
 
 /// Response after creating a user
@@ -35,19 +42,13 @@ pub struct CreateUserResponse {
     pub user_id: String,
 }
 
-/// Public user info (returned in responses)
-#[derive(Debug, Serialize)]
-pub struct PublicUserInfo {
-    pub user_id: String,
-    pub public_key: String,
-}
-
 /// User info for teacher dashboard
 #[derive(Debug, Serialize)]
 pub struct UserInfo {
     pub id: String,
-    pub first_name: Option<String>,
-    pub last_name: Option<String>,
+    pub first_name: String,
+    pub last_name: String,
+    pub email: String,
     pub classroom: Option<String>,
     pub created_at: String,
 }
@@ -58,40 +59,33 @@ pub struct UsersListResponse {
     pub users: Vec<UserInfo>,
 }
 
-/// Request to update encrypted private key
-#[derive(Debug, Deserialize)]
-pub struct UpdateEncryptedKeyRequest {
-    pub encrypted_private_key: String,
-}
-
-/// Response containing encrypted private key for recovery
-#[derive(Debug, Serialize)]
-pub struct EncryptedKeyResponse {
-    pub user_id: String,
-    pub encrypted_private_key: Option<String>,
-    pub public_key: String,
-}
-
 impl User {
     /// Create a new user from a request
-    pub fn from_request(req: CreateUserRequest) -> Self {
+    pub fn from_request(req: &CreateUserRequest) -> Self {
         let now = Utc::now().to_rfc3339();
 
-        // Note: In a production system, you would encrypt the names here
-        // using a server-side key. For now, we store them as-is or hashed.
-        // The privacy model relies on the observation data being encrypted,
-        // not the user names (which the teacher needs to see).
-
         User {
-            id: req.user_id,
-            first_name_encrypted: Some(req.first_name),
-            last_name_encrypted: Some(req.last_name),
-            classroom: req.classroom,
-            public_key: req.public_key,
-            encrypted_private_key: req.encrypted_private_key,
+            id: req.user_id.clone(),
+            first_name: req.first_name.clone(),
+            last_name: req.last_name.clone(),
+            email: req.email.clone(),
+            classroom: req.classroom.clone(),
             data_consent: req.data_consent.unwrap_or(true),
             created_at: now.clone(),
             updated_at: now,
+        }
+    }
+}
+
+impl From<User> for UserInfo {
+    fn from(user: User) -> Self {
+        UserInfo {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            classroom: user.classroom,
+            created_at: user.created_at,
         }
     }
 }
