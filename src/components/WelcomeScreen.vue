@@ -454,7 +454,7 @@ async function handleRestoreFile(event) {
               </div>
             </div>
 
-            <!-- Data consent -->
+            <!-- Data preservation -->
             <div class="form-group consent-group">
               <label class="checkbox-label consent-label">
                 <input
@@ -462,7 +462,7 @@ async function handleRestoreFile(event) {
                   v-model="dataConsent"
                 />
                 <span>
-                  Share my practice results with {{ appConfig.teacherName.value || 'my teacher' }}
+                  Preserve my practice history
                 </span>
               </label>
 
@@ -471,22 +471,22 @@ async function handleRestoreFile(event) {
                 class="details-toggle"
                 @click="showConsentDetails = !showConsentDetails"
               >
-                {{ showConsentDetails ? 'Hide details' : 'What data is shared?' }}
+                {{ showConsentDetails ? 'Hide details' : 'What data is preserved?' }}
               </button>
 
               <div v-if="showConsentDetails" class="consent-details">
-                <p>This helps your teacher understand your progress and tailor lessons to your needs.</p>
-                <p><strong>We share:</strong></p>
+                <p>Your practice history is saved online so you can track your progress over time.</p>
+                <p><strong>How it works:</strong></p>
                 <ul>
-                  <li>Your name and class</li>
+                  <li>Your data is encrypted with your personal key</li>
+                  <li>Only you and people you authorize can view it</li>
+                  <li>The site administrator can also access your data</li>
+                </ul>
+                <p><strong>What's preserved:</strong></p>
+                <ul>
                   <li>Which hands you practiced</li>
                   <li>Your bidding choices (correct and incorrect)</li>
                   <li>When you practiced</li>
-                </ul>
-                <p><strong>We never share:</strong></p>
-                <ul>
-                  <li>Your data with other students</li>
-                  <li>Any data if you uncheck this box</li>
                 </ul>
                 <p class="consent-note">You can change this setting anytime in Settings.</p>
               </div>
