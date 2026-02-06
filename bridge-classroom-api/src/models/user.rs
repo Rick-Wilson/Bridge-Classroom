@@ -42,6 +42,9 @@ pub struct CreateGrantPayload {
 pub struct CreateUserResponse {
     pub success: bool,
     pub user_id: String,
+    /// True if this email was already registered (user should use recovery flow)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub existing_user: Option<bool>,
 }
 
 /// User info for teacher dashboard

@@ -40,8 +40,11 @@ export function useDealPractice() {
     wrongBidIndex: -1,
     correctBidIndex: -1,
     auctionComplete: false,
-    correctCount: 0,
-    wrongCount: 0
+    // Per-board counters (boards completed correctly vs with errors)
+    correctCount: 0,  // Boards with all bids correct
+    wrongCount: 0,    // Boards with at least one wrong bid
+    // Track if current board has any wrong answers
+    boardHadWrong: false
   })
 
   // Timing for observations
@@ -453,6 +456,14 @@ export function useDealPractice() {
       }
       biddingState.auctionComplete = true
       promptStartTime.value = null
+
+      // Update per-board counters now that the board is complete
+      if (biddingState.boardHadWrong) {
+        biddingState.wrongCount++
+      } else if (promptsList.length > 0) {
+        // Only count as correct if there were actually prompts to answer
+        biddingState.correctCount++
+      }
       return
     }
 
@@ -481,6 +492,14 @@ export function useDealPractice() {
     // Reached end of auction
     biddingState.auctionComplete = true
     promptStartTime.value = null
+
+    // Update per-board counters now that the board is complete
+    if (biddingState.boardHadWrong) {
+      biddingState.wrongCount++
+    } else if (promptsList.length > 0) {
+      // Only count as correct if there were actually prompts to answer
+      biddingState.correctCount++
+    }
   }
 
   function makeBid(bid) {
@@ -500,14 +519,14 @@ export function useDealPractice() {
     currentAttemptNumber.value = 1
 
     if (isCorrect) {
-      biddingState.correctCount++
       biddingState.wrongBid = null
       biddingState.correctBid = null
     } else {
       // Show feedback for wrong bid (but still advance)
       biddingState.wrongBid = bid
       biddingState.correctBid = expectedBid
-      biddingState.wrongCount++
+      // Mark this board as having a wrong answer
+      biddingState.boardHadWrong = true
     }
 
     advanceAuction()
@@ -608,6 +627,7 @@ export function useDealPractice() {
     biddingState.wrongBidIndex = -1
     biddingState.correctBidIndex = -1
     biddingState.auctionComplete = false
+    biddingState.boardHadWrong = false  // Reset for new board
     promptStartTime.value = null
     currentAttemptNumber.value = 1
 

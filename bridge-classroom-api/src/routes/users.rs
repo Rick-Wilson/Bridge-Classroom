@@ -38,12 +38,33 @@ pub async fn create_user(
         return Err((StatusCode::BAD_REQUEST, "last_name is required".to_string()));
     }
 
-    // Check if user already exists
-    let existing = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
+    // Check if user already exists by ID
+    let existing_by_id = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
         .bind(&req.user_id)
         .fetch_optional(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // Also check if email exists with a different user_id (e.g., user cleared localStorage)
+    let existing_by_email = sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = ? AND id != ?")
+        .bind(&req.email)
+        .bind(&req.user_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // If email exists with different ID, tell client to use recovery flow
+    if let Some(existing_user) = existing_by_email {
+        tracing::info!(
+            "Email {} already exists with user_id {}, client sent {} - needs recovery",
+            req.email, existing_user.id, req.user_id
+        );
+        return Ok(Json(CreateUserResponse {
+            success: false,
+            user_id: existing_user.id,
+            existing_user: Some(true),
+        }));
+    }
 
     // Encrypt secret key for recovery if provided and recovery is configured
     let recovery_encrypted_key = if let (Some(secret_key), Some(recovery_secret)) =
@@ -60,7 +81,7 @@ pub async fn create_user(
         None
     };
 
-    if existing.is_some() {
+    if existing_by_id.is_some() {
         // User already exists - update their info
         // Only update recovery key if a new one is provided
         if let Some(ref encrypted_key) = recovery_encrypted_key {
@@ -174,6 +195,7 @@ pub async fn create_user(
     Ok(Json(CreateUserResponse {
         success: true,
         user_id: req.user_id,
+        existing_user: None,
     }))
 }
 

@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
+import { useObservationStore } from './useObservationStore.js'
 import { decryptObservation } from '../utils/crypto.js'
 
 // API configuration
@@ -63,7 +64,35 @@ async function decryptSingleObservation(encrypted, secretKey) {
 }
 
 /**
+ * Get local pending observations as progress-compatible format
+ * Uses metadata stored with encrypted observations
+ * @returns {Array} Observations with metadata for display
+ */
+function getLocalObservations() {
+  const observationStore = useObservationStore()
+  const pending = observationStore.getPendingObservations()
+
+  return pending.map(obs => {
+    const meta = obs.metadata || {}
+    return {
+      id: meta.observation_id || 'local-' + Math.random().toString(36).slice(2),
+      timestamp: meta.timestamp || obs.queuedAt,
+      skill_path: meta.skill_path,
+      correct: meta.correct,
+      classroom: meta.classroom,
+      deal_subfolder: meta.deal_subfolder,
+      deal_number: meta.deal_number,
+      session_id: meta.session_id,
+      // Mark as local so we can identify them
+      _local: true,
+      _pending: true
+    }
+  })
+}
+
+/**
  * Fetch and decrypt all observations for current user
+ * Merges server data with local pending observations
  * @param {boolean} forceRefresh - Bypass cache
  * @returns {Promise<{success: boolean, error?: string}>}
  */
@@ -75,10 +104,15 @@ async function fetchProgress(forceRefresh = false) {
     return { success: false, error: 'No authenticated user' }
   }
 
-  // Check cache
+  // Always include local observations (they're always fresh)
+  const localObs = getLocalObservations()
+
+  // Check cache for server data
   if (!forceRefresh && lastFetchedAt.value) {
     const age = Date.now() - new Date(lastFetchedAt.value).getTime()
     if (age < CACHE_DURATION_MS && decryptedObservations.value.length > 0) {
+      // Merge local with cached server data
+      mergeLocalObservations(localObs)
       return { success: true, cached: true }
     }
   }
@@ -86,32 +120,47 @@ async function fetchProgress(forceRefresh = false) {
   loading.value = true
   error.value = null
 
+  let serverDecrypted = []
+
   try {
     // Fetch from server
     const encrypted = await fetchObservationsFromServer(user.id)
     observations.value = encrypted
 
-    // If no secret key, we can't decrypt
-    if (!user.secretKey) {
-      error.value = 'No secret key available for decryption'
-      return { success: false, error: error.value }
+    // If we have secret key, decrypt server observations
+    if (user.secretKey && encrypted.length > 0) {
+      const decryptPromises = encrypted.map(obs => decryptSingleObservation(obs, user.secretKey))
+      const decrypted = await Promise.all(decryptPromises)
+      serverDecrypted = decrypted.filter(obs => obs !== null)
     }
-
-    // Decrypt all observations using AES secret key
-    const decryptPromises = encrypted.map(obs => decryptSingleObservation(obs, user.secretKey))
-    const decrypted = await Promise.all(decryptPromises)
-
-    // Filter out failed decryptions
-    decryptedObservations.value = decrypted.filter(obs => obs !== null)
-    lastFetchedAt.value = new Date().toISOString()
-
-    return { success: true, count: decryptedObservations.value.length }
   } catch (err) {
-    console.error('Failed to fetch progress:', err)
-    error.value = err.message
-    return { success: false, error: err.message }
-  } finally {
-    loading.value = false
+    console.error('Failed to fetch from server (will use local data):', err)
+    // Don't set error if we have local data
+    if (localObs.length === 0) {
+      error.value = err.message
+    }
+  }
+
+  // Merge server and local observations, avoiding duplicates
+  const serverIds = new Set(serverDecrypted.map(obs => obs.id))
+  const uniqueLocal = localObs.filter(obs => !serverIds.has(obs.id))
+
+  decryptedObservations.value = [...serverDecrypted, ...uniqueLocal]
+  lastFetchedAt.value = new Date().toISOString()
+
+  loading.value = false
+  return { success: true, count: decryptedObservations.value.length }
+}
+
+/**
+ * Merge local observations with existing decrypted observations
+ * @param {Array} localObs - Local pending observations
+ */
+function mergeLocalObservations(localObs) {
+  const existingIds = new Set(decryptedObservations.value.map(obs => obs.id))
+  const newLocal = localObs.filter(obs => !existingIds.has(obs.id))
+  if (newLocal.length > 0) {
+    decryptedObservations.value = [...decryptedObservations.value, ...newLocal]
   }
 }
 

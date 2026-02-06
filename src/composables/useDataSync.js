@@ -74,6 +74,16 @@ async function registerUserWithServer(user) {
     }
 
     const result = await response.json()
+
+    // Check if email already exists (user should use recovery flow)
+    if (result.existing_user) {
+      return {
+        success: false,
+        error: 'email_exists',
+        existingUserId: result.user_id
+      }
+    }
+
     return { success: result.success, userId: result.user_id }
   } catch (err) {
     console.error('Failed to register user with server:', err)
