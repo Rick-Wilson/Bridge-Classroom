@@ -296,6 +296,7 @@ pub async fn request_recovery(
     let recovery_url = format!("{}?recover={}&user_id={}", base_url, token, user_id);
 
     // Send recovery email via Resend if API key is configured
+    let mut email_sent = false;
     if let Some(ref api_key) = state.config.resend_api_key {
         match send_recovery_email(
             api_key,
@@ -306,10 +307,19 @@ pub async fn request_recovery(
         ).await {
             Ok(_) => {
                 tracing::info!("Recovery email sent to {} for user {}", req.email, first_name);
+                email_sent = true;
             }
             Err(e) => {
+                // Log error but don't fail - still tell frontend the account exists
                 tracing::error!("Failed to send recovery email: {}", e);
-                return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to send recovery email: {}", e)));
+                // Log the recovery URL so it can be manually shared if needed
+                println!("\n{}", "=".repeat(70));
+                println!("RECOVERY LINK (email failed: {})", e);
+                println!("{}", "=".repeat(70));
+                println!("User: {} ({})", first_name, req.email);
+                println!("Link: {}", recovery_url);
+                println!("Expires: {}", expires_at.to_rfc3339());
+                println!("{}\n", "=".repeat(70));
             }
         }
     } else {
@@ -324,12 +334,18 @@ pub async fn request_recovery(
         println!("{}\n", "=".repeat(70));
     }
 
-    Ok(Json(RecoveryRequestResponse {
-        success: true,
-        message: format!(
-            "Recovery link sent to {}. Check your email.",
+    let message = if email_sent {
+        format!("Recovery link sent to {}. Check your email.", req.email)
+    } else {
+        format!(
+            "Account found for {}. Email delivery failed - please contact your teacher for a recovery link.",
             req.email
-        ),
+        )
+    };
+
+    Ok(Json(RecoveryRequestResponse {
+        success: true, // Account exists, even if email failed
+        message,
         user_id: Some(user_id),
     }))
 }
