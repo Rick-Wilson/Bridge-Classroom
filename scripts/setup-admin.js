@@ -10,7 +10,7 @@
  * SAVE THE PRIVATE KEY TO 1PASSWORD - you'll need it for the teacher dashboard!
  */
 
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 // Configuration
 const API_URL = process.env.API_URL || 'https://api.harmonicsystems.com/api';
