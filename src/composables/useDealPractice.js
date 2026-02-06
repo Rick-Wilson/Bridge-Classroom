@@ -456,19 +456,24 @@ export function useDealPractice() {
       return
     }
 
-    // Advance through non-student bids until it's the student's turn
+    // Advance through bids until we reach a prompted student bid
     while (biddingState.currentBidIndex < auction.length) {
       const currentSeat = getSeatForBid(biddingState.currentBidIndex, currentDeal.value.dealer)
+      const currentBid = auction[biddingState.currentBidIndex]
+      const currentPromptBid = promptsList[biddingState.currentPromptIndex]?.bid
 
-      // Is it the student's turn?
-      if (currentSeat === studentSeat.value) {
+      // Is this a prompted student bid?
+      // Only stop if: (1) it's student's turn AND (2) this bid matches the current prompt
+      if (currentSeat === studentSeat.value &&
+          currentPromptBid &&
+          normalizeBid(currentBid) === normalizeBid(currentPromptBid)) {
         // Stop here - wait for user input
         promptStartTime.value = Date.now()
         currentAttemptNumber.value = 1
         return
       }
 
-      // Not the student's turn - display this bid and continue
+      // Auto-play this bid (either not student's turn, or student bid without a prompt)
       biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
       biddingState.currentBidIndex++
     }
