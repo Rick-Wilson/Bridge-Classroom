@@ -372,28 +372,19 @@ async function createGrantForViewer(viewerPublicKey) {
  * @returns {Promise<{success: boolean, message: string, userId?: string}>}
  */
 async function requestRecovery(email, apiUrl) {
-  console.log('[DEBUG] requestRecovery() called')
-  console.log('[DEBUG] email:', email)
-  console.log('[DEBUG] apiUrl:', apiUrl)
-  const url = `${apiUrl}/recovery/request`
-  console.log('[DEBUG] Full URL:', url)
-
   try {
-    console.log('[DEBUG] Making fetch POST request...')
-    const response = await fetch(url, {
+    const response = await fetch(`${apiUrl}/recovery/request`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ email })
     })
-    console.log('[DEBUG] Fetch completed, status:', response.status)
 
     const data = await response.json()
-    console.log('[DEBUG] Response data:', JSON.stringify(data))
     return data
   } catch (err) {
-    console.error('[DEBUG] Recovery request failed with error:', err)
+    console.error('Recovery request failed:', err)
     return {
       success: false,
       message: 'Unable to connect to server. Please try again.'

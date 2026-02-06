@@ -136,35 +136,36 @@ function validateForm() {
  */
 async function checkEmailOnServer() {
   const emailToCheck = email.value.trim().toLowerCase()
-  console.log('[DEBUG] checkEmailOnServer() called with email:', emailToCheck)
-  console.log('[DEBUG] API_URL:', API_URL)
+
+  // If offline, skip server check and proceed with local registration
+  if (!navigator.onLine) {
+    console.log('[DEBUG] Offline - skipping server check')
+    return true
+  }
 
   try {
-    console.log('[DEBUG] Calling userStore.requestRecovery()...')
     // Try to request recovery - if successful, account exists
     const result = await userStore.requestRecovery(emailToCheck, API_URL)
-    console.log('[DEBUG] requestRecovery returned:', JSON.stringify(result))
 
     if (result.success) {
       // Account exists - recovery link sent
-      console.log('[DEBUG] Account exists - triggering recovery flow')
       recoveryEmail.value = emailToCheck
       recoveryMessage.value = result.message
       viewState.value = 'recovery-sent'
       return false
     } else if (result.message && result.message.includes('No account found')) {
       // No account found - proceed with registration
-      console.log('[DEBUG] No account found - proceeding with registration')
       return true
     } else {
-      // Some other error
-      console.warn('[DEBUG] Recovery check returned unexpected result:', result)
-      return true // Proceed anyway
+      // Online but got an unexpected error - show it to the user
+      errors.value.email = result.message || 'Unable to verify email. Please try again.'
+      return false
     }
   } catch (err) {
-    console.warn('[DEBUG] Failed to check email on server:', err)
-    // If we can't reach server, proceed with registration
-    return true
+    // Online but request failed (CORS, network error, etc.) - show error
+    console.error('Failed to check email on server:', err)
+    errors.value.email = 'Unable to connect to server. Please check your connection and try again.'
+    return false
   }
 }
 
@@ -229,29 +230,20 @@ async function handleRequestRecovery() {
 }
 
 async function handleSubmit() {
-  console.log('[DEBUG] handleSubmit() called')
-  if (!validateForm()) {
-    console.log('[DEBUG] Form validation failed')
-    return
-  }
-  console.log('[DEBUG] Form validated, email:', email.value)
+  if (!validateForm()) return
 
   // Show loading state while checking server
   isLoading.value = true
   loadingMessage.value = 'Checking account...'
 
-  console.log('[DEBUG] Calling checkEmailOnServer()...')
   // Check if email already exists on server
   const shouldProceed = await checkEmailOnServer()
-  console.log('[DEBUG] checkEmailOnServer returned:', shouldProceed)
   if (!shouldProceed) {
-    // Recovery flow was triggered
-    console.log('[DEBUG] Recovery flow triggered, stopping registration')
+    // Recovery flow was triggered or error occurred
     isLoading.value = false
     loadingMessage.value = ''
     return
   }
-  console.log('[DEBUG] Proceeding with user creation')
 
   // Determine classrooms
   let classrooms = []
