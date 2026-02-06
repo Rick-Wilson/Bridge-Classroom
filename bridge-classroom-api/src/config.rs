@@ -26,6 +26,12 @@ pub struct Config {
 
     /// Secret for encrypting recovery keys (optional)
     pub recovery_secret: Option<String>,
+
+    /// Resend API key for sending emails (optional)
+    pub resend_api_key: Option<String>,
+
+    /// From email address for recovery emails
+    pub from_email: String,
 }
 
 impl Config {
@@ -61,6 +67,9 @@ impl Config {
             .map_err(|_| ConfigError::InvalidPort)?;
 
         let recovery_secret = env::var("RECOVERY_SECRET").ok();
+        let resend_api_key = env::var("RESEND_API_KEY").ok();
+        let from_email = env::var("FROM_EMAIL")
+            .unwrap_or_else(|_| "Bridge Classroom <noreply@harmonicsystems.com>".to_string());
 
         Ok(Config {
             database_url,
@@ -71,6 +80,8 @@ impl Config {
             host,
             port,
             recovery_secret,
+            resend_api_key,
+            from_email,
         })
     }
 

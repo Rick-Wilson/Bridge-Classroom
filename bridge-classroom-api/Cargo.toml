@@ -43,6 +43,9 @@ sha2 = "0.10"
 base64 = "0.21"
 hex = "0.4"
 
+# HTTP client (for Resend API)
+reqwest = { version = "0.11", features = ["json"] }
+
 [dev-dependencies]
 # Testing
 tower = { version = "0.5", features = ["util"] }

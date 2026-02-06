@@ -129,7 +129,7 @@ ingress:
         <key>DATABASE_URL</key>
         <string>sqlite:./data/bridge_classroom.db</string>
         <key>API_KEY</key>
-        <string>a9b75f2dc0e10914975f34e06984a6984b95222bb285c693cd562a3383ce04a2</string>
+        <string>YOUR_API_KEY_HERE</string>
         <key>TEACHER_PUBLIC_KEY</key>
         <string>MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwEaflizTJt8N5ba6H3cGLn9Z1gd/j2JP5lEOJ1H8l/OC6AyjqaJqF7zIOHd2iQWirCQiIwdjMbm7BLIgxfvMq2fuSZQ5CtMbJ8GyVPCCS+7k63YjPlgHWpZ/YLZgZMSeFNEKi6QWo5zbbwjPxWqWQamJ8jNFutl/ffvQ7JDdasSP8GqsgKDW4Ad/fyfXepqoFCVe/jOkMpo6Qfg6KHsb7zXX/aafqi4u5Ke2aLyY9/i4gwWWMBMF9qNf0/YqaH4apOBsKGZiNG+5mlFgk0lqR3VvvCnTwORy63amrPC3qKRpuDMhRmg7ilp2urbkA65AvlGbeY+itg4SYM8VLvhf7QIDAQAB</string>
         <key>ALLOWED_ORIGINS</key>
@@ -138,6 +138,12 @@ ingress:
         <string>127.0.0.1</string>
         <key>PORT</key>
         <string>3000</string>
+        <key>RECOVERY_SECRET</key>
+        <string>YOUR_RECOVERY_SECRET_HERE</string>
+        <key>RESEND_API_KEY</key>
+        <string>YOUR_RESEND_API_KEY_HERE</string>
+        <key>FROM_EMAIL</key>
+        <string>Bridge Classroom &lt;noreply@harmonicsystems.com&gt;</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>
@@ -184,7 +190,7 @@ tail -f ~/Library/Logs/cloudflared-tunnel.log
 ```bash
 # Health check
 curl https://api.harmonicsystems.com/api/users \
-  -H "x-api-key: a9b75f2dc0e10914975f34e06984a6984b95222bb285c693cd562a3383ce04a2"
+  -H "x-api-key: YOUR_API_KEY_HERE"
 ```
 
 ---
@@ -203,7 +209,7 @@ curl https://api.harmonicsystems.com/api/users \
 `.env.production`:
 ```
 VITE_API_URL=https://api.harmonicsystems.com/api
-VITE_API_KEY=a9b75f2dc0e10914975f34e06984a6984b95222bb285c693cd562a3383ce04a2
+VITE_API_KEY=YOUR_API_KEY_HERE
 ```
 
 ---

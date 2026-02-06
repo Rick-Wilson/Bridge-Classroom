@@ -8,6 +8,7 @@ use ring::rand::{SecureRandom, SystemRandom};
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use reqwest::Client;
 
 use crate::AppState;
 
@@ -138,6 +139,85 @@ fn hash_token(token: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// Resend API request body
+#[derive(Debug, Serialize)]
+struct ResendEmailRequest {
+    from: String,
+    to: Vec<String>,
+    subject: String,
+    html: String,
+}
+
+/// Send recovery email via Resend API
+async fn send_recovery_email(
+    api_key: &str,
+    from_email: &str,
+    to_email: &str,
+    first_name: &str,
+    recovery_url: &str,
+) -> Result<(), String> {
+    let client = Client::new();
+
+    let html_body = format!(
+        r#"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+        .button {{ display: inline-block; background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }}
+        .button:hover {{ background-color: #1d4ed8; }}
+        .footer {{ margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; font-size: 14px; color: #666; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Account Recovery</h2>
+        <p>Hi {first_name},</p>
+        <p>You requested to recover your Bridge Classroom account. Click the button below to restore your practice history:</p>
+        <a href="{recovery_url}" class="button">Restore My Account</a>
+        <p>Or copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #666;">{recovery_url}</p>
+        <p><strong>This link expires in 1 hour.</strong></p>
+        <div class="footer">
+            <p>If you didn't request this, you can safely ignore this email.</p>
+            <p>— Bridge Classroom</p>
+        </div>
+    </div>
+</body>
+</html>"#,
+        first_name = first_name,
+        recovery_url = recovery_url,
+    );
+
+    let email_request = ResendEmailRequest {
+        from: from_email.to_string(),
+        to: vec![to_email.to_string()],
+        subject: "Restore your Bridge Classroom account".to_string(),
+        html: html_body,
+    };
+
+    let response = client
+        .post("https://api.resend.com/emails")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&email_request)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to send email request: {}", e))?;
+
+    if response.status().is_success() {
+        tracing::info!("Recovery email sent to {}", to_email);
+        Ok(())
+    } else {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        tracing::error!("Resend API error: {} - {}", status, error_text);
+        Err(format!("Email service error: {} - {}", status, error_text))
+    }
+}
+
 /// POST /api/recovery/request
 /// Request account recovery - creates token and logs recovery link (no email yet)
 pub async fn request_recovery(
@@ -210,32 +290,44 @@ pub async fn request_recovery(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    // Build recovery URL (for logging - in production, this would be emailed)
+    // Build recovery URL
     let base_url = std::env::var("FRONTEND_URL")
         .unwrap_or_else(|_| "https://practice.harmonicsystems.com".to_string());
     let recovery_url = format!("{}?recover={}&user_id={}", base_url, token, user_id);
 
-    // Log the recovery link (in production, this would send an email)
-    tracing::info!(
-        "RECOVERY LINK for {} ({}): {}",
-        first_name,
-        req.email,
-        recovery_url
-    );
-
-    // Also print to stdout for development
-    println!("\n{}", "=".repeat(70));
-    println!("RECOVERY LINK");
-    println!("{}", "=".repeat(70));
-    println!("User: {} ({})", first_name, req.email);
-    println!("Link: {}", recovery_url);
-    println!("Expires: {}", expires_at.to_rfc3339());
-    println!("{}\n", "=".repeat(70));
+    // Send recovery email via Resend if API key is configured
+    if let Some(ref api_key) = state.config.resend_api_key {
+        match send_recovery_email(
+            api_key,
+            &state.config.from_email,
+            &req.email,
+            &first_name,
+            &recovery_url,
+        ).await {
+            Ok(_) => {
+                tracing::info!("Recovery email sent to {} for user {}", req.email, first_name);
+            }
+            Err(e) => {
+                tracing::error!("Failed to send recovery email: {}", e);
+                return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to send recovery email: {}", e)));
+            }
+        }
+    } else {
+        // Fallback to logging if Resend not configured
+        tracing::warn!("RESEND_API_KEY not configured - logging recovery link instead");
+        println!("\n{}", "=".repeat(70));
+        println!("RECOVERY LINK (email not configured)");
+        println!("{}", "=".repeat(70));
+        println!("User: {} ({})", first_name, req.email);
+        println!("Link: {}", recovery_url);
+        println!("Expires: {}", expires_at.to_rfc3339());
+        println!("{}\n", "=".repeat(70));
+    }
 
     Ok(Json(RecoveryRequestResponse {
         success: true,
         message: format!(
-            "Recovery link sent to {}. Check your email (or server logs for now).",
+            "Recovery link sent to {}. Check your email.",
             req.email
         ),
         user_id: Some(user_id),
