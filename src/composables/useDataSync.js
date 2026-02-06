@@ -176,6 +176,13 @@ async function performSync() {
         userStore.updateUser(user.id, { serverRegistered: true })
         result.userRegistered = true
         console.log('User registered with server')
+      } else if (regResult.error === 'email_exists') {
+        // Email already registered with different user_id - need recovery
+        console.warn('Email already registered - user needs to recover account')
+        // Don't try to sync observations - user doesn't exist in server DB
+        syncState.value = 'idle'
+        lastError.value = 'Account already exists. Please use recovery.'
+        return result
       } else {
         console.warn('User registration failed:', regResult.error)
         // Continue anyway - user can be registered later
