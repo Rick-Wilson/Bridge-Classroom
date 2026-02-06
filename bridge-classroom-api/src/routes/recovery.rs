@@ -266,6 +266,10 @@ pub async fn request_recovery(
     let now = chrono::Utc::now();
     let expires_at = now + chrono::Duration::hours(1);
 
+    tracing::info!("========== Creating recovery token ==========");
+    tracing::info!("Generated token (first 20 chars): {}...", &token.chars().take(20).collect::<String>());
+    tracing::info!("Token hash (first 20 chars): {}...", &token_hash.chars().take(20).collect::<String>());
+
     // Delete any existing tokens for this user
     sqlx::query("DELETE FROM recovery_tokens WHERE user_id = ?")
         .bind(&user_id)
@@ -294,6 +298,8 @@ pub async fn request_recovery(
     let base_url = std::env::var("FRONTEND_URL")
         .unwrap_or_else(|_| "https://practice.harmonicsystems.com".to_string());
     let recovery_url = format!("{}?recover={}&user_id={}", base_url, token, user_id);
+    tracing::info!("Recovery URL token (first 20 chars): {}...", &token.chars().take(20).collect::<String>());
+    tracing::info!("Full recovery URL: {}", recovery_url);
 
     // Send recovery email via Resend if API key is configured
     let mut email_sent = false;
@@ -394,7 +400,7 @@ pub async fn claim_recovery(
             return Ok(Json(RecoveryClaimResponse {
                 success: false,
                 user: None,
-                error: Some("Invalid or expired recovery token".to_string()),
+                error: Some("This recovery link has expired or was already used. Please request a new recovery email.".to_string()),
             }));
         }
     };

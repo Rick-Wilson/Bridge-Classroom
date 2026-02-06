@@ -400,15 +400,8 @@ async function requestRecovery(email, apiUrl) {
  * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
  */
 async function claimRecovery(userId, token, apiUrl) {
-  console.log('[UserStore] claimRecovery called')
-  console.log('[UserStore] apiUrl:', apiUrl)
-  console.log('[UserStore] userId:', userId)
-
   try {
-    const url = `${apiUrl}/recovery/claim`
-    console.log('[UserStore] Fetching:', url)
-
-    const response = await fetch(url, {
+    const response = await fetch(`${apiUrl}/recovery/claim`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -416,14 +409,9 @@ async function claimRecovery(userId, token, apiUrl) {
       body: JSON.stringify({ user_id: userId, token })
     })
 
-    console.log('[UserStore] Response status:', response.status)
-    console.log('[UserStore] Response ok:', response.ok)
-
     const data = await response.json()
-    console.log('[UserStore] Response data:', JSON.stringify(data, null, 2))
 
     if (!data.success || !data.user) {
-      console.log('[UserStore] Recovery failed - success:', data.success, 'user:', !!data.user)
       return {
         success: false,
         error: data.error || 'Recovery failed'
@@ -431,11 +419,6 @@ async function claimRecovery(userId, token, apiUrl) {
     }
 
     // Restore user to local storage
-    console.log('[UserStore] Recovery successful! Building user object...')
-    console.log('[UserStore] data.user.id:', data.user.id)
-    console.log('[UserStore] data.user.first_name:', data.user.first_name)
-    console.log('[UserStore] data.user.secret_key:', data.user.secret_key ? 'present' : 'MISSING')
-
     const recoveredUser = {
       id: data.user.id,
       firstName: data.user.first_name,
@@ -450,11 +433,9 @@ async function claimRecovery(userId, token, apiUrl) {
       updatedAt: new Date().toISOString()
     }
 
-    console.log('[UserStore] Saving recovered user to localStorage...')
     users.value[recoveredUser.id] = recoveredUser
     currentUserId.value = recoveredUser.id
     saveToStorage()
-    console.log('[UserStore] User saved! Returning success.')
 
     return { success: true, user: recoveredUser }
   } catch (err) {
