@@ -41,7 +41,11 @@ const recoveryMessage = ref('')
 
 // Initialize
 onMounted(async () => {
-  console.log('[Recovery] onMounted starting')
+  console.log('[Recovery] ========== onMounted starting ==========')
+  console.log('[Recovery] Full URL:', window.location.href)
+  console.log('[Recovery] Search string:', window.location.search)
+  console.log('[Recovery] Pathname:', window.location.pathname)
+
   userStore.initialize()
   appConfig.initializeFromUrl()
 
@@ -49,7 +53,9 @@ onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search)
   const recoverToken = urlParams.get('recover')
   const recoverUserId = urlParams.get('user_id')
-  console.log('[Recovery] URL params - token:', recoverToken ? 'present' : 'missing', 'userId:', recoverUserId)
+  console.log('[Recovery] Parsed URL params:')
+  console.log('[Recovery]   - recover token:', recoverToken ? `"${recoverToken.substring(0, 10)}..."` : 'null')
+  console.log('[Recovery]   - user_id:', recoverUserId)
 
   if (recoverToken && recoverUserId) {
     console.log('[Recovery] Starting recovery claim...')
@@ -177,16 +183,24 @@ async function checkEmailOnServer() {
  * Handle recovery claim from magic link
  */
 async function handleRecoveryClaim(userId, token) {
-  console.log('[Recovery] handleRecoveryClaim called with userId:', userId)
+  console.log('[Recovery] ========== handleRecoveryClaim starting ==========')
+  console.log('[Recovery] userId:', userId)
+  console.log('[Recovery] token (first 10 chars):', token ? token.substring(0, 10) + '...' : 'null')
+  console.log('[Recovery] API_URL:', API_URL)
+
   viewState.value = 'recovery-claiming'
   isLoading.value = true
   loadingMessage.value = 'Recovering your account...'
   recoveryError.value = ''
 
   try {
-    console.log('[Recovery] Calling claimRecovery...')
+    console.log('[Recovery] Calling userStore.claimRecovery()...')
     const result = await userStore.claimRecovery(userId, token, API_URL)
-    console.log('[Recovery] claimRecovery result:', JSON.stringify(result))
+    console.log('[Recovery] claimRecovery returned!')
+    console.log('[Recovery] result.success:', result.success)
+    console.log('[Recovery] result.user:', result.user ? 'present' : 'null')
+    console.log('[Recovery] result.error:', result.error)
+    console.log('[Recovery] Full result:', JSON.stringify(result, null, 2))
 
     if (result.success && result.user) {
       // Success! User is logged in

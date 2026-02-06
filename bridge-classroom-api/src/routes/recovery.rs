@@ -356,13 +356,19 @@ pub async fn claim_recovery(
     State(state): State<AppState>,
     Json(req): Json<RecoveryClaimRequest>,
 ) -> Result<Json<RecoveryClaimResponse>, (StatusCode, String)> {
+    tracing::info!("========== Recovery claim request ==========");
+    tracing::info!("user_id: {}", req.user_id);
+    tracing::info!("token (first 10 chars): {}...", &req.token.chars().take(10).collect::<String>());
+
     // Validate request
     if req.user_id.is_empty() || req.token.is_empty() {
+        tracing::warn!("Invalid request: user_id or token empty");
         return Err((StatusCode::BAD_REQUEST, "user_id and token are required".to_string()));
     }
 
     let token_hash = hash_token(&req.token);
     let now = chrono::Utc::now().to_rfc3339();
+    tracing::info!("Looking for valid token with hash: {}...", &token_hash.chars().take(16).collect::<String>());
 
     // Find valid token
     let token_record = sqlx::query_as::<_, (String, String)>(
@@ -379,8 +385,12 @@ pub async fn claim_recovery(
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let (token_id, user_id) = match token_record {
-        Some(t) => t,
+        Some(t) => {
+            tracing::info!("Found valid token: {}", t.0);
+            t
+        },
         None => {
+            tracing::warn!("No valid token found for user_id: {}", req.user_id);
             return Ok(Json(RecoveryClaimResponse {
                 success: false,
                 user: None,
@@ -428,7 +438,10 @@ pub async fn claim_recovery(
             (StatusCode::INTERNAL_SERVER_ERROR, "Failed to decrypt recovery key".to_string())
         })?;
 
-    tracing::info!("Account recovered for user: {} ({})", first_name, email);
+    tracing::info!("========== Recovery claim SUCCESS ==========");
+    tracing::info!("Account recovered for user: {} {} ({})", first_name, last_name, email);
+    tracing::info!("Secret key length: {} chars", secret_key.len());
+    tracing::info!("Returning user data with id: {}", id);
 
     Ok(Json(RecoveryClaimResponse {
         success: true,
