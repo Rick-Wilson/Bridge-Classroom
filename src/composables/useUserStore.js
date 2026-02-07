@@ -381,8 +381,33 @@ async function requestRecovery(email, apiUrl) {
       body: JSON.stringify({ email })
     })
 
-    const data = await response.json()
-    return data
+    // Handle 404 - endpoint not found or email not registered
+    if (response.status === 404) {
+      return {
+        success: false,
+        message: 'No account found with this email address.'
+      }
+    }
+
+    // Try to parse JSON response
+    const text = await response.text()
+    if (!text) {
+      // Empty response - treat as no account found
+      return {
+        success: false,
+        message: 'No account found with this email address.'
+      }
+    }
+
+    try {
+      return JSON.parse(text)
+    } catch (parseErr) {
+      console.error('Failed to parse recovery response:', parseErr)
+      return {
+        success: false,
+        message: 'No account found with this email address.'
+      }
+    }
   } catch (err) {
     console.error('Recovery request failed:', err)
     return {

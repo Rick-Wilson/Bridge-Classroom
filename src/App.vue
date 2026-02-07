@@ -20,6 +20,9 @@
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
           Progress
         </button>
+        <button class="accomplishments-btn" @click="showAccomplishments = true" title="View Accomplishments">
+          Accomplishments
+        </button>
         <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + getCollection(currentCollection)?.name">
           {{ getCollection(currentCollection)?.name }}
         </button>
@@ -236,6 +239,11 @@
       <ProgressDashboard @close="showProgress = false" />
     </div>
 
+    <!-- Accomplishments Modal -->
+    <div v-if="showAccomplishments" class="modal-overlay" @click.self="showAccomplishments = false">
+      <AccomplishmentsView @close="showAccomplishments = false" />
+    </div>
+
   </div>
 </template>
 
@@ -261,6 +269,7 @@ import AssignmentBanner from './components/AssignmentBanner.vue'
 import KeyBackupModal from './components/KeyBackupModal.vue'
 import SyncStatus from './components/SyncStatus.vue'
 import ProgressDashboard from './components/ProgressDashboard.vue'
+import AccomplishmentsView from './components/AccomplishmentsView.vue'
 import TeacherDashboard from './components/teacher/TeacherDashboard.vue'
 import LessonBrowser from './components/LessonBrowser.vue'
 
@@ -276,6 +285,7 @@ const practice = useDealPractice()
 // UI state
 const showSettings = ref(false)
 const showProgress = ref(false)
+const showAccomplishments = ref(false)
 const isTeacherMode = ref(false)
 const instructionContainer = ref(null)
 const biddingNarrativeContainer = ref(null)
@@ -744,6 +754,23 @@ body {
 .progress-btn:hover {
   background: #e0e0e0;
   color: #333;
+}
+
+.accomplishments-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #e8f5e9;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #388e3c;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.accomplishments-btn:hover {
+  background: #c8e6c9;
+  color: #2e7d32;
 }
 
 .lessons-btn {

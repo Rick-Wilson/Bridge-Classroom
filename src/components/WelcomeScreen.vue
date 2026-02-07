@@ -73,6 +73,9 @@ onMounted(async () => {
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Detect Safari browser (has known issues with cross-origin requests)
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+
 // Computed
 const isFormValid = computed(() => {
   return (
@@ -164,7 +167,11 @@ async function checkEmailOnServer() {
   } catch (err) {
     // Online but request failed (CORS, network error, etc.) - show error
     console.error('Failed to check email on server:', err)
-    errors.value.email = 'Unable to connect to server. Please check your connection and try again.'
+    if (isSafari) {
+      errors.value.email = 'Safari is blocking the connection. Please try Chrome or Firefox, or enable Safari Developer Tools (Settings → Advanced → Show features for web developers).'
+    } else {
+      errors.value.email = 'Unable to connect to server. Please check your connection and try again. If using a VPN, try disabling it.'
+    }
     return false
   }
 }
