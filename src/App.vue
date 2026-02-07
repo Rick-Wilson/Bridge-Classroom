@@ -58,7 +58,7 @@
             <span class="collection-desc">{{ collection.description }}</span>
           </button>
         </div>
-        <div class="load-file-section">
+        <div v-if="appConfig.showLoadPbnOption.value" class="load-file-section">
           <p>Or load your own PBN file:</p>
           <input
             type="file"

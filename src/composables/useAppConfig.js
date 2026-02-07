@@ -1,12 +1,18 @@
 import { ref, computed } from 'vue'
 
 const STORAGE_KEY = 'bridgePractice'
+const UI_PREFS_KEY = 'bridgePracticeUIPrefs'
 
 // Singleton state (shared across all component instances)
 const appConfig = ref({
   teacherName: null,
   availableClassrooms: [],
   configuredAt: null
+})
+
+// UI preferences (local-only, not synced to server)
+const uiPrefs = ref({
+  showLoadPbnOption: false  // Hidden by default - confuses new users
 })
 
 const initialized = ref(false)
@@ -125,6 +131,40 @@ function loadFromStorage() {
 }
 
 /**
+ * Load UI preferences from localStorage
+ */
+function loadUIPrefs() {
+  try {
+    const stored = localStorage.getItem(UI_PREFS_KEY)
+    if (stored) {
+      const data = JSON.parse(stored)
+      uiPrefs.value = { ...uiPrefs.value, ...data }
+    }
+  } catch (err) {
+    console.error('Failed to load UI prefs from storage:', err)
+  }
+}
+
+/**
+ * Save UI preferences to localStorage
+ */
+function saveUIPrefs() {
+  try {
+    localStorage.setItem(UI_PREFS_KEY, JSON.stringify(uiPrefs.value))
+  } catch (err) {
+    console.error('Failed to save UI prefs to storage:', err)
+  }
+}
+
+/**
+ * Set a UI preference
+ */
+function setUIPref(key, value) {
+  uiPrefs.value[key] = value
+  saveUIPrefs()
+}
+
+/**
  * Save config to localStorage (merged with existing data)
  */
 function saveToStorage() {
@@ -162,6 +202,7 @@ function initializeFromUrl() {
 
   // Load existing config first
   loadFromStorage()
+  loadUIPrefs()
 
   // Parse URL parameters
   const { teacher, classrooms } = parseUrlParams()
@@ -240,11 +281,13 @@ export function useAppConfig() {
 
   const teacherName = computed(() => appConfig.value.teacherName)
   const availableClassrooms = computed(() => appConfig.value.availableClassrooms)
+  const showLoadPbnOption = computed(() => uiPrefs.value.showLoadPbnOption)
 
   return {
     // State
     appConfig,
     initialized,
+    uiPrefs,
 
     // Computed
     isAdHoc,
@@ -253,6 +296,7 @@ export function useAppConfig() {
     singleClassroom,
     teacherName,
     availableClassrooms,
+    showLoadPbnOption,
 
     // Methods
     initializeFromUrl,
@@ -264,6 +308,7 @@ export function useAppConfig() {
     setCollectionInUrl,
     getLessonFromUrl,
     setLessonInUrl,
+    setUIPref,
 
     // Constants
     COLLECTIONS,

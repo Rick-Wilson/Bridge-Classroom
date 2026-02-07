@@ -234,6 +234,21 @@ function formatDate(isoString) {
           </template>
         </section>
 
+        <!-- Display Options -->
+        <section class="settings-section">
+          <h3>Display Options</h3>
+          <div class="toggle-row">
+            <label class="toggle-label">
+              <input
+                type="checkbox"
+                :checked="appConfig.showLoadPbnOption.value"
+                @change="appConfig.setUIPref('showLoadPbnOption', $event.target.checked)"
+              />
+              <span>Show "Load your own PBN" option in lobby</span>
+            </label>
+          </div>
+        </section>
+
         <!-- Key Backup Section (Placeholder for Stage 2) -->
         <section class="settings-section">
           <h3>Data & Privacy</h3>
@@ -494,6 +509,24 @@ function formatDate(isoString) {
   font-size: 14px;
   color: #666;
   font-style: italic;
+}
+
+.toggle-row {
+  padding: 10px 0;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #444;
+}
+
+.toggle-label input {
+  width: 16px;
+  height: 16px;
 }
 
 @media (max-width: 480px) {
