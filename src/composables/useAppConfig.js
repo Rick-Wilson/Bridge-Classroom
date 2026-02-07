@@ -96,8 +96,15 @@ const COLLECTIONS = [
     icon: '♠',
     tocUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Baker-Bridge/main/Package/toc.json',
     baseUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Baker-Bridge/main/Package'
+  },
+  {
+    id: 'andrew-rowberg',
+    name: 'Rowberg Collection',
+    description: 'Precision with transfer positive responses to strong 1C opening bids',
+    icon: '♣',
+    tocUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Bridge-Lessons-by-Andrew-Rowberg/main/Lock-Step%20Lessons/toc.json',
+    baseUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Bridge-Lessons-by-Andrew-Rowberg/main/Lock-Step%20Lessons'
   }
-  // Future collections can be added here
 ]
 
 /**
