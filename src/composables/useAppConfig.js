@@ -100,7 +100,7 @@ const COLLECTIONS = [
   {
     id: 'andrew-rowberg',
     name: 'Rowberg Collection',
-    description: 'Precision with transfer positive responses to strong 1C opening bids',
+    description: 'Precision with transfer positive responses to strong 1♣ opening bids',
     icon: '♣',
     tocUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Bridge-Lessons-by-Andrew-Rowberg/main/Lock-Step%20Lessons/toc.json',
     baseUrl: 'https://raw.githubusercontent.com/Rick-Wilson/Bridge-Lessons-by-Andrew-Rowberg/main/Lock-Step%20Lessons'
