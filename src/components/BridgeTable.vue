@@ -1,12 +1,14 @@
 <template>
   <div class="bridge-table" :class="{ compact: compact }">
-    <!-- North - spans all columns, centered -->
-    <div v-if="!hiddenSeats.includes('N') && hands.N" class="position north">
-      <HandDisplay
-        :hand="hands.N"
-        seat="N"
-        :showHcp="showHcp"
-      />
+    <!-- North - spans all columns -->
+    <div class="ns-column north-row">
+      <div v-if="!hiddenSeats.includes('N') && hands.N" class="position north">
+        <HandDisplay
+          :hand="hands.N"
+          seat="N"
+          :showHcp="showHcp"
+        />
+      </div>
     </div>
 
     <!-- West -->
@@ -32,13 +34,15 @@
       />
     </div>
 
-    <!-- South - spans all columns, centered -->
-    <div v-if="!hiddenSeats.includes('S') && hands.S" class="position south">
-      <HandDisplay
-        :hand="hands.S"
-        seat="S"
-        :showHcp="showHcp"
-      />
+    <!-- South - spans all columns -->
+    <div class="ns-column south-row">
+      <div v-if="!hiddenSeats.includes('S') && hands.S" class="position south">
+        <HandDisplay
+          :hand="hands.S"
+          seat="S"
+          :showHcp="showHcp"
+        />
+      </div>
     </div>
   </div>
 </template>
@@ -77,10 +81,15 @@ defineProps({
   min-width: 320px;
 }
 
-/* North spans all columns, centered */
-.position.north {
+/* N/S column containers - centered but contents left-aligned */
+.ns-column {
   grid-column: 1 / -1;
-  justify-self: center;
+  display: flex;
+  justify-content: center;
+}
+
+.ns-column .position {
+  /* Hands are left-aligned within the centered container */
 }
 
 /* West in left column, aligned right */
@@ -107,10 +116,13 @@ defineProps({
   justify-self: start;
 }
 
-/* South spans all columns, centered */
-.position.south {
-  grid-column: 1 / -1;
-  justify-self: center;
+/* North row is grid row 1, South row is grid row 3 */
+.north-row {
+  grid-row: 1;
+}
+
+.south-row {
+  grid-row: 3;
 }
 
 /* Compact mode for desktop two-column layout */

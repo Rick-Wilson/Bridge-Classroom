@@ -110,7 +110,7 @@ function formatSuitCards(suit) {
   background: #f5f5f5;
   border-radius: 8px;
   padding: 12px;
-  min-width: 120px;
+  min-width: 220px;  /* Wide enough to align N/S hands consistently */
 }
 
 .seat-label {
@@ -184,7 +184,7 @@ function formatSuitCards(suit) {
 /* Compact mode - smaller padding and fonts */
 .hand.compact {
   padding: 8px;
-  min-width: 100px;
+  min-width: 180px;
 }
 
 .hand.compact .seat-label {
