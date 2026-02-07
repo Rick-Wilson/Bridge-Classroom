@@ -16,7 +16,7 @@ A comprehensive convention card management system integrated with Bridge Classro
 
 ### Convention Card Editor (Standalone Webapp)
 ```
-cards.harmonicsystems.com
+cards.bridge-classroom.com
 ```
 - Create and edit convention cards
 - Multiple view modes (full, simplified, form-based)
@@ -26,7 +26,7 @@ cards.harmonicsystems.com
 
 ### Bridge Classroom Integration
 ```
-practice.harmonicsystems.com
+bridge-classroom.com
 ```
 - Link convention cards to student profile
 - Filter proficiency view by "conventions I play"
