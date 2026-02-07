@@ -122,11 +122,13 @@ export function parsePbn(pbnContent) {
       continue
     }
 
-    // Parse auction line (bids after [Auction "X"])
-    if (currentDeal && currentDeal.auctionDealer && !currentDeal.auction.length) {
+    // Parse auction lines (bids after [Auction "X"]) - can span multiple lines
+    if (currentDeal && currentDeal.auctionDealer) {
       const trimmed = line.trim()
-      if (trimmed && !trimmed.startsWith('[')) {
-        currentDeal.auction = parseAuctionString(trimmed)
+      if (trimmed && !trimmed.startsWith('[') && !trimmed.startsWith('{')) {
+        // Append bids from this line to the auction
+        const bids = parseAuctionString(trimmed)
+        currentDeal.auction.push(...bids)
       }
     }
   }
@@ -534,6 +536,8 @@ function parseAuctionString(auctionString) {
   return auctionString
     .split(/\s+/)
     .filter(bid => bid.length > 0)
+    // Filter out PBN annotation markers like =1=, =2=, etc.
+    .filter(bid => !/^=\d+=?$/.test(bid))
     .map(bid => normalizeBid(bid))
 }
 
