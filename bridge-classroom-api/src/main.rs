@@ -85,6 +85,16 @@ async fn main() -> anyhow::Result<()> {
         // Recovery routes
         .route("/api/recovery/request", post(routes::request_recovery))
         .route("/api/recovery/claim", post(routes::claim_recovery))
+        // Convention card routes
+        .route("/api/cards", get(routes::list_cards))
+        .route("/api/cards", post(routes::create_card))
+        .route("/api/cards/:card_id", get(routes::get_card))
+        .route("/api/users/:user_id/cards", get(routes::get_user_cards))
+        .route("/api/users/:user_id/cards", post(routes::link_card_to_user))
+        .route(
+            "/api/users/:user_id/cards/:card_id",
+            axum::routing::delete(routes::unlink_card_from_user),
+        )
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
@@ -107,7 +117,7 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
         // Allow any origin (for development)
         CorsLayer::new()
             .allow_origin(Any)
-            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
             .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
     } else {
         // Specific origins
@@ -118,7 +128,7 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
 
         CorsLayer::new()
             .allow_origin(allowed)
-            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
             .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
     }
 }

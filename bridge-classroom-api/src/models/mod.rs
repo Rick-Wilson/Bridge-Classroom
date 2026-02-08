@@ -1,8 +1,10 @@
+mod convention_card;
 mod grant;
 mod observation;
 mod user;
 mod viewer;
 
+pub use convention_card::*;
 pub use grant::*;
 pub use observation::*;
 pub use user::*;

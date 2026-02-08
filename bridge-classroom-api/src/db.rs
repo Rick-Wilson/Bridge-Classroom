@@ -242,6 +242,132 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         tracing::info!("Added recovery_encrypted_key column to users table");
     }
 
+    // Convention cards table - stores card definitions
+    // owner_id is NULL for system cards (templates/samples)
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS convention_cards (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            format TEXT NOT NULL DEFAULT 'bridge_classroom',
+            owner_id TEXT REFERENCES users(id),
+            card_data TEXT NOT NULL,
+            visibility TEXT NOT NULL DEFAULT 'private',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // User-card links - many-to-many relationship between users and convention cards
+    // Partners can share a card (multiple users linked to same card)
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS user_convention_cards (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id),
+            card_id TEXT NOT NULL REFERENCES convention_cards(id),
+            is_primary INTEGER NOT NULL DEFAULT 0,
+            label TEXT,
+            linked_at TEXT NOT NULL,
+            UNIQUE(user_id, card_id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // Indexes for convention cards
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_cards_owner ON convention_cards(owner_id)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_cards_visibility ON convention_cards(visibility)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_user_cards_user ON user_convention_cards(user_id)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_user_cards_card ON user_convention_cards(card_id)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // Seed the "2/1 Intermediate" system card if it doesn't exist
+    let system_card_id = "system-21-intermediate";
+    let card_exists: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM convention_cards WHERE id = ?"#,
+    )
+    .bind(system_card_id)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !card_exists {
+        let now = chrono::Utc::now().to_rfc3339();
+        let card_data = include_str!("../seed_data/21_intermediate_card.json");
+
+        sqlx::query(
+            r#"
+            INSERT INTO convention_cards (id, name, description, format, owner_id, card_data, visibility, created_at, updated_at)
+            VALUES (?, ?, ?, ?, NULL, ?, 'public', ?, ?)
+            "#,
+        )
+        .bind(system_card_id)
+        .bind("2/1 Intermediate")
+        .bind("Standard 2/1 Game Force system with common conventions for intermediate players")
+        .bind("bridge_classroom")
+        .bind(card_data)
+        .bind(&now)
+        .bind(&now)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+        tracing::info!("Created system convention card: 2/1 Intermediate");
+
+        // Assign to all existing users as their primary card
+        let users: Vec<(String,)> = sqlx::query_as("SELECT id FROM users")
+            .fetch_all(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+
+        for (user_id,) in users {
+            let link_id = uuid::Uuid::new_v4().to_string();
+            sqlx::query(
+                r#"
+                INSERT OR IGNORE INTO user_convention_cards (id, user_id, card_id, is_primary, label, linked_at)
+                VALUES (?, ?, ?, 1, NULL, ?)
+                "#,
+            )
+            .bind(&link_id)
+            .bind(&user_id)
+            .bind(system_card_id)
+            .bind(&now)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        }
+
+        tracing::info!("Assigned 2/1 Intermediate card to all existing users");
+    }
+
     tracing::info!("Database migrations completed successfully");
     Ok(())
 }
