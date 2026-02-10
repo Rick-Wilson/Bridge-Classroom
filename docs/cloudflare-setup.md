@@ -7,7 +7,7 @@
 │                         INTERNET                                 │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  practice.harmonicsystems.com     api.harmonicsystems.com       │
+│  bridge-classroom.com           api.bridge-classroom.com        │
 │           │                              │                       │
 │           ▼                              ▼                       │
 │  ┌─────────────────┐            ┌─────────────────┐             │
@@ -26,14 +26,14 @@
 ## Components
 
 ### 1. Frontend (Vue.js App)
-- **URL**: https://practice.harmonicsystems.com
+- **URL**: https://bridge-classroom.com
 - **Hosting**: GitHub Pages
 - **Repo**: Rick-Wilson/Bridge-Classroom
 - **Build**: Vite (`npm run build`)
 - **Deploy**: GitHub Actions (`.github/workflows/deploy.yml`)
 
 ### 2. Backend API (Rust)
-- **URL**: https://api.harmonicsystems.com
+- **URL**: https://api.bridge-classroom.com
 - **Hosting**: Mac mini via Cloudflare Tunnel
 - **Local Port**: 3000
 - **Database**: SQLite at `bridge-classroom-api/data/bridge_classroom.db`
@@ -42,13 +42,13 @@
 
 ## Cloudflare Configuration
 
-### DNS Records (harmonicsystems.com)
+### DNS Records (bridge-classroom.com)
 
 | Type | Name | Target | Proxy Status |
 |------|------|--------|--------------|
-| CNAME | practice | rick-wilson.github.io | DNS only (grey) |
+| CNAME | @ | rick-wilson.github.io | DNS only (grey) |
+| CNAME | www | rick-wilson.github.io | DNS only (grey) |
 | CNAME | api | f1fae255-82da-4016-ab0e-de93365574e1.cfargotunnel.com | Proxied (orange) |
-| CNAME | bba | 7d3ab3db-0a42-4422-8017-2542f18a15a2.cfargotunnel.com | Proxied (orange) |
 
 **Note**: GitHub Pages requires "DNS only" (grey cloud) for SSL to work properly.
 
@@ -65,6 +65,8 @@ tunnel: f1fae255-82da-4016-ab0e-de93365574e1
 credentials-file: /Users/rick/.cloudflared/f1fae255-82da-4016-ab0e-de93365574e1.json
 
 ingress:
+  - hostname: api.bridge-classroom.com
+    service: http://localhost:3000
   - hostname: api.harmonicsystems.com
     service: http://localhost:3000
   - service: http_status:404
@@ -133,7 +135,9 @@ ingress:
         <key>TEACHER_PUBLIC_KEY</key>
         <string>MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwEaflizTJt8N5ba6H3cGLn9Z1gd/j2JP5lEOJ1H8l/OC6AyjqaJqF7zIOHd2iQWirCQiIwdjMbm7BLIgxfvMq2fuSZQ5CtMbJ8GyVPCCS+7k63YjPlgHWpZ/YLZgZMSeFNEKi6QWo5zbbwjPxWqWQamJ8jNFutl/ffvQ7JDdasSP8GqsgKDW4Ad/fyfXepqoFCVe/jOkMpo6Qfg6KHsb7zXX/aafqi4u5Ke2aLyY9/i4gwWWMBMF9qNf0/YqaH4apOBsKGZiNG+5mlFgk0lqR3VvvCnTwORy63amrPC3qKRpuDMhRmg7ilp2urbkA65AvlGbeY+itg4SYM8VLvhf7QIDAQAB</string>
         <key>ALLOWED_ORIGINS</key>
-        <string>http://localhost:5173,http://localhost:4173,https://practice.harmonicsystems.com</string>
+        <string>http://localhost:5173,http://localhost:4173,https://bridge-classroom.com,https://www.bridge-classroom.com</string>
+        <key>FRONTEND_URL</key>
+        <string>https://bridge-classroom.com</string>
         <key>HOST</key>
         <string>127.0.0.1</string>
         <key>PORT</key>
@@ -189,7 +193,10 @@ tail -f ~/Library/Logs/cloudflared-tunnel.log
 ### Test API
 ```bash
 # Health check
-curl https://api.harmonicsystems.com/api/users \
+curl https://api.bridge-classroom.com/health
+
+# Users (requires API key)
+curl https://api.bridge-classroom.com/api/users \
   -H "x-api-key: YOUR_API_KEY_HERE"
 ```
 
@@ -199,8 +206,8 @@ curl https://api.harmonicsystems.com/api/users \
 
 ### Repository Settings
 - **Source**: GitHub Actions
-- **Custom Domain**: practice.harmonicsystems.com
-- **CNAME file**: `public/CNAME` contains `practice.harmonicsystems.com`
+- **Custom Domain**: bridge-classroom.com
+- **CNAME file**: `public/CNAME` contains `bridge-classroom.com`
 
 ### Workflow File
 `.github/workflows/deploy.yml` - Builds and deploys on push to main
@@ -208,7 +215,7 @@ curl https://api.harmonicsystems.com/api/users \
 ### Environment Variables (Production)
 `.env.production`:
 ```
-VITE_API_URL=https://api.harmonicsystems.com/api
+VITE_API_URL=https://api.bridge-classroom.com/api
 VITE_API_KEY=YOUR_API_KEY_HERE
 ```
 
@@ -216,7 +223,7 @@ VITE_API_KEY=YOUR_API_KEY_HERE
 
 ## Troubleshooting
 
-### "Not Secure" Warning on practice.harmonicsystems.com
+### "Not Secure" Warning on bridge-classroom.com
 - Ensure DNS record uses "DNS only" (grey cloud), not "Proxied"
 - Wait for GitHub Pages to provision SSL certificate (can take up to 24 hours)
 - Verify in GitHub repo Settings → Pages that certificate is active
