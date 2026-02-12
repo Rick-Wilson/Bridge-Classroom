@@ -92,8 +92,7 @@
               :boardNumbers="deals.map(d => d.boardNumber)"
               :lessonSubfolder="currentDeal?.subfolder || currentDeal?.category || ''"
               :currentIndex="currentDealIndex"
-              :incompleteBoardNumber="practice.isComplete.value ? null : currentDeal?.boardNumber"
-              :currentSessionId="practice.observationStore.currentSessionId.value"
+              :forceRedBoard="forceRedBoard"
               :introUrl="introUrl"
               @goto="gotoDeal"
               @open-intro="handleOpenIntro"
@@ -314,6 +313,9 @@ const completionNarrativeContainer = ref(null)
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 
+// Local mastery override: force a board circle to red during mid-board wrong bid
+const forceRedBoard = ref(null)
+
 // Intro PDF state
 const introUrl = ref(null)
 const showIntroPdf = ref(false)
@@ -482,6 +484,13 @@ watch(() => practice.observationStore.pendingCount.value, (newCount, oldCount) =
   }
 })
 
+// Clear force-red override when deal completes (real computed status takes over)
+watch(() => practice.isComplete.value, (isComplete) => {
+  if (isComplete) {
+    forceRedBoard.value = null
+  }
+})
+
 // File handling
 async function onFileSelect(event) {
   const file = event.target.files[0]
@@ -562,7 +571,9 @@ function handleLessonLoad({ subfolder, name, category, content }) {
 // Bidding
 function onBid(bid) {
   const correct = practice.makeBid(bid)
-  // Feedback is handled via reactive state
+  if (!correct && currentDeal.value) {
+    forceRedBoard.value = currentDeal.value.boardNumber
+  }
 }
 
 // Navigation
@@ -574,16 +585,16 @@ function prevDeal() {
 
 function nextDeal() {
   if (currentDealIndex.value < deals.value.length - 1) {
+    forceRedBoard.value = null
     currentDealIndex.value++
-    // Call loadDeal directly - don't rely on watch timing
     practice.loadDeal(deals.value[currentDealIndex.value])
   }
 }
 
 function gotoDeal(index) {
   if (index >= 0 && index < deals.value.length) {
+    forceRedBoard.value = null
     currentDealIndex.value = index
-    // Always call loadDeal directly to ensure deal restarts
     practice.loadDeal(deals.value[index])
   }
 }

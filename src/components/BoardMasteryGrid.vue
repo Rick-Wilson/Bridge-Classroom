@@ -149,6 +149,12 @@ function formatRelativeTime(timestamp) {
   border: 1px solid #ffe082;
 }
 
+.board-card.status-orange {
+  background: #fff3e0;
+  color: #e65100;
+  border: 1px solid #ffcc80;
+}
+
 .board-card.status-green {
   background: #e8f5e9;
   color: #2e7d32;
@@ -189,6 +195,10 @@ function formatRelativeTime(timestamp) {
 
 .board-card.has-medal.status-yellow {
   box-shadow: inset 0 0 0 2px #ffc107;
+}
+
+.board-card.has-medal.status-orange {
+  box-shadow: inset 0 0 0 2px #ff9800;
 }
 
 .card-stats {

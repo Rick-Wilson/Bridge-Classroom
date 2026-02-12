@@ -52,12 +52,8 @@ const props = defineProps({
     type: Number,
     default: 0
   },
-  incompleteBoardNumber: {
+  forceRedBoard: {
     type: Number,
-    default: null
-  },
-  currentSessionId: {
-    type: String,
     default: null
   },
   introUrl: {
@@ -70,20 +66,26 @@ const emit = defineEmits(['goto', 'open-intro'])
 
 const mastery = useBoardMastery()
 
-const boardMastery = computed(() =>
-  mastery.computeBoardMastery(
+const boardMastery = computed(() => {
+  const results = mastery.computeBoardMastery(
     mastery.getObservations(),
     props.lessonSubfolder,
-    props.boardNumbers,
-    { excludeSessionBoard: props.incompleteBoardNumber, excludeSessionId: props.currentSessionId }
+    props.boardNumbers
   )
-)
+  // Local override: force a board to show as red during mid-board wrong bid
+  if (props.forceRedBoard != null) {
+    const board = results.find(b => b.boardNumber === props.forceRedBoard)
+    if (board) board.status = 'red'
+  }
+  return results
+})
 
 function getTooltip(board) {
   const statusLabels = {
     grey: 'Not attempted',
     red: 'Incorrect',
     yellow: 'Corrected today',
+    orange: 'Ready to retry',
     green: 'Correct'
   }
   const achievementLabels = {
@@ -163,6 +165,11 @@ function getTooltip(board) {
   color: #333;
 }
 
+.status-orange {
+  background: #ff9800;
+  color: white;
+}
+
 .status-green {
   background: #4caf50;
   color: white;
@@ -201,6 +208,10 @@ function getTooltip(board) {
 
 .has-medal.status-yellow {
   box-shadow: 0 0 0 2px white, 0 0 0 4px #ffc107;
+}
+
+.has-medal.status-orange {
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #ff9800;
 }
 
 /* Board number text */

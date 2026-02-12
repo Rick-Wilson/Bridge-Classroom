@@ -7,6 +7,7 @@ const STATUS = {
   GREY: 'grey',
   RED: 'red',
   YELLOW: 'yellow',
+  ORANGE: 'orange',
   GREEN: 'green'
 }
 
@@ -17,19 +18,8 @@ const ACHIEVEMENT = {
   GOLD: 'gold'
 }
 
-/**
- * Get ISO week string "YYYY-Www" for a timestamp
- * @param {string} dateStr - ISO8601 timestamp
- * @returns {string} e.g. "2026-W07"
- */
-function getISOWeek(dateStr) {
-  const date = new Date(dateStr)
-  const thursday = new Date(date)
-  thursday.setDate(date.getDate() + (4 - (date.getDay() || 7)))
-  const yearStart = new Date(thursday.getFullYear(), 0, 1)
-  const weekNum = Math.ceil(((thursday - yearStart) / 86400000 + 1) / 7)
-  return `${thursday.getFullYear()}-W${String(weekNum).padStart(2, '0')}`
-}
+// Achievement spacing: minimum days between qualifying green days
+const ACHIEVEMENT_SPACING_DAYS = 6
 
 /**
  * Get date string "YYYY-MM-DD" from a timestamp
@@ -38,6 +28,15 @@ function getISOWeek(dateStr) {
  */
 function getDateStr(dateStr) {
   return dateStr.slice(0, 10)
+}
+
+/**
+ * Get the number of days between two "YYYY-MM-DD" date strings
+ */
+function daysBetween(dateStr1, dateStr2) {
+  const d1 = new Date(dateStr1 + 'T00:00:00Z')
+  const d2 = new Date(dateStr2 + 'T00:00:00Z')
+  return Math.round(Math.abs(d2 - d1) / 86400000)
 }
 
 /**
@@ -72,127 +71,89 @@ function groupIntoBoardAttempts(observations) {
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
 }
 
+// How long after a corrected attempt before it becomes eligible for retry (orange)
+const YELLOW_TO_ORANGE_MS = 60 * 60 * 1000 // 1 hour
+
 /**
- * Calculate current status for a board based on its attempts.
+ * Calculate current status for a board based on its observations.
  *
- * @param {Array} boardAttempts - Sorted ascending by timestamp
+ * @param {Array} observations - All observations for this board, sorted ascending by timestamp
  * @returns {string} STATUS value
  */
-function calculateCurrentStatus(boardAttempts) {
-  if (boardAttempts.length === 0) return STATUS.GREY
+function calculateCurrentStatus(observations) {
+  if (observations.length === 0) return STATUS.GREY
 
-  const mostRecent = boardAttempts[boardAttempts.length - 1]
+  const mostRecent = observations[observations.length - 1]
   if (!mostRecent.correct) return STATUS.RED
 
   // Most recent was correct. Check if there were failures earlier today.
   const todayStr = new Date().toISOString().slice(0, 10)
-  const todayAttempts = boardAttempts.filter(a => a.timestamp.startsWith(todayStr))
-  const hadFailureToday = todayAttempts.some(a => !a.correct)
+  const todayObs = observations.filter(o => o.timestamp.startsWith(todayStr))
+  const hadFailureToday = todayObs.some(o => !o.correct)
 
-  return hadFailureToday ? STATUS.YELLOW : STATUS.GREEN
+  if (!hadFailureToday) return STATUS.GREEN
+
+  // Had failure today but corrected. Check if enough time has passed for retry.
+  const elapsed = Date.now() - new Date(mostRecent.timestamp).getTime()
+  return elapsed >= YELLOW_TO_ORANGE_MS ? STATUS.ORANGE : STATUS.YELLOW
 }
 
 /**
  * Check if a board had a "green day" on a given date.
- * A green day means: the board was practiced AND all attempts that day were correct.
+ * A green day means: the board was practiced AND all observations that day were correct.
  *
- * @param {Array} boardAttempts - All attempts for this board, sorted ascending
+ * @param {Array} observations - All observations for this board
  * @param {string} dateStr - "YYYY-MM-DD"
  * @returns {boolean}
  */
-function hasGreenDay(boardAttempts, dateStr) {
-  const dayAttempts = boardAttempts.filter(a => a.timestamp.startsWith(dateStr))
-  if (dayAttempts.length === 0) return false
-  return dayAttempts.every(a => a.correct)
+function hasGreenDay(observations, dateStr) {
+  const dayObs = observations.filter(o => o.timestamp.startsWith(dateStr))
+  if (dayObs.length === 0) return false
+  return dayObs.every(o => o.correct)
 }
 
 /**
  * Calculate achievement for a board.
- * A week qualifies if the board had at least one "green day" during that week.
- * Silver = 2 consecutive qualifying weeks, Gold = 3+.
+ * Collects "green days" (dates where all observations were correct) and finds
+ * the longest chain where each consecutive pair is at least ACHIEVEMENT_SPACING_DAYS apart.
+ * Silver = chain of 2, Gold = chain of 3+.
  *
- * @param {Array} boardAttempts - Sorted ascending by timestamp
+ * @param {Array} observations - All observations for this board, sorted ascending by timestamp
  * @returns {string} ACHIEVEMENT value
  */
-function calculateAchievement(boardAttempts) {
-  if (boardAttempts.length === 0) return ACHIEVEMENT.NONE
+function calculateAchievement(observations) {
+  if (observations.length === 0) return ACHIEVEMENT.NONE
 
-  // Collect all unique dates with attempts
+  // Collect all unique dates with observations
   const dateSet = new Set()
-  for (const attempt of boardAttempts) {
-    dateSet.add(getDateStr(attempt.timestamp))
+  for (const obs of observations) {
+    dateSet.add(getDateStr(obs.timestamp))
   }
 
-  // For each date, check if it's a green day. Map green days to their ISO weeks.
-  const greenWeeks = new Set()
-  for (const dateStr of dateSet) {
-    if (hasGreenDay(boardAttempts, dateStr)) {
-      greenWeeks.add(getISOWeek(dateStr + 'T00:00:00Z'))
+  // Find green days (all observations on that date were correct) and sort them
+  const greenDays = [...dateSet]
+    .filter(dateStr => hasGreenDay(observations, dateStr))
+    .sort()
+
+  if (greenDays.length < 2) return ACHIEVEMENT.NONE
+
+  // Find the longest chain of green days where each pair is >= ACHIEVEMENT_SPACING_DAYS apart
+  let maxChain = 1
+  let currentChain = 1
+  let lastQualifying = greenDays[0]
+
+  for (let i = 1; i < greenDays.length; i++) {
+    const gap = daysBetween(lastQualifying, greenDays[i])
+    if (gap >= ACHIEVEMENT_SPACING_DAYS) {
+      currentChain++
+      lastQualifying = greenDays[i]
+      if (currentChain > maxChain) maxChain = currentChain
     }
   }
 
-  if (greenWeeks.size < 2) return ACHIEVEMENT.NONE
-
-  // Sort the qualifying weeks and find the longest consecutive streak
-  const sortedWeeks = [...greenWeeks].sort()
-
-  let maxStreak = 1
-  let currentStreak = 1
-
-  for (let i = 1; i < sortedWeeks.length; i++) {
-    if (areConsecutiveWeeks(sortedWeeks[i - 1], sortedWeeks[i])) {
-      currentStreak++
-      if (currentStreak > maxStreak) maxStreak = currentStreak
-    } else {
-      currentStreak = 1
-    }
-  }
-
-  if (maxStreak >= 3) return ACHIEVEMENT.GOLD
-  if (maxStreak >= 2) return ACHIEVEMENT.SILVER
+  if (maxChain >= 3) return ACHIEVEMENT.GOLD
+  if (maxChain >= 2) return ACHIEVEMENT.SILVER
   return ACHIEVEMENT.NONE
-}
-
-/**
- * Check if two ISO week strings are consecutive.
- * @param {string} w1 - e.g. "2026-W06"
- * @param {string} w2 - e.g. "2026-W07"
- * @returns {boolean}
- */
-function areConsecutiveWeeks(w1, w2) {
-  // Parse year and week number
-  const [y1, wk1] = parseWeek(w1)
-  const [y2, wk2] = parseWeek(w2)
-
-  // Same year, consecutive weeks
-  if (y1 === y2 && wk2 === wk1 + 1) return true
-
-  // Year boundary: last week of y1 followed by W01 of y1+1
-  if (y2 === y1 + 1 && wk2 === 1) {
-    // ISO years can have 52 or 53 weeks
-    const maxWeek = getISOWeeksInYear(y1)
-    if (wk1 === maxWeek) return true
-  }
-
-  return false
-}
-
-/**
- * Parse "YYYY-Www" into [year, weekNum]
- */
-function parseWeek(weekStr) {
-  const parts = weekStr.split('-W')
-  return [parseInt(parts[0], 10), parseInt(parts[1], 10)]
-}
-
-/**
- * Get the number of ISO weeks in a year (52 or 53)
- */
-function getISOWeeksInYear(year) {
-  // A year has 53 ISO weeks if Jan 1 is Thursday, or Dec 31 is Thursday
-  const jan1 = new Date(year, 0, 1)
-  const dec31 = new Date(year, 11, 31)
-  return (jan1.getDay() === 4 || dec31.getDay() === 4) ? 53 : 52
 }
 
 /**
@@ -238,40 +199,30 @@ function getAllObservationsIncludingLocal(accomplishments) {
  * @param {Array} allObservations - All observations to search through
  * @param {string} lessonSubfolder - The deal_subfolder value (e.g. "Negative")
  * @param {Array<number>} boardNumbers - Board numbers in the lesson
- * @param {Object} [options] - Optional filters
- * @param {number} [options.excludeSessionBoard] - Board number currently in progress (exclude its current session)
- * @param {string} [options.excludeSessionId] - Session ID to exclude for the in-progress board
  * @returns {Array<{boardNumber, status, achievement, attemptCount, lastAttemptTime}>}
  */
-function computeBoardMastery(allObservations, lessonSubfolder, boardNumbers, options) {
+function computeBoardMastery(allObservations, lessonSubfolder, boardNumbers) {
   if (!lessonSubfolder || !boardNumbers || boardNumbers.length === 0) return []
 
   const lessonObs = allObservations.filter(
     o => (o.deal_subfolder || o.deal?.subfolder) === lessonSubfolder
   )
 
-  const excludeBoard = options?.excludeSessionBoard
-  const excludeSession = options?.excludeSessionId
-
   return boardNumbers.map(bn => {
-    let boardObs = lessonObs.filter(o =>
-      (o.deal_number ?? o.deal?.deal_number) === bn
-    )
+    const boardObs = lessonObs
+      .filter(o => (o.deal_number ?? o.deal?.deal_number) === bn)
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
 
-    // Exclude in-progress session observations for the board being practiced
-    if (excludeBoard != null && excludeSession && bn === excludeBoard) {
-      boardObs = boardObs.filter(o => o.session_id !== excludeSession)
-    }
-
+    // Group by session for attempt count display only
     const attempts = groupIntoBoardAttempts(boardObs)
 
     return {
       boardNumber: bn,
-      status: calculateCurrentStatus(attempts),
-      achievement: calculateAchievement(attempts),
+      status: calculateCurrentStatus(boardObs),
+      achievement: calculateAchievement(boardObs),
       attemptCount: attempts.length,
-      lastAttemptTime: attempts.length > 0
-        ? attempts[attempts.length - 1].timestamp
+      lastAttemptTime: boardObs.length > 0
+        ? boardObs[boardObs.length - 1].timestamp
         : null
     }
   })
@@ -322,7 +273,6 @@ export function useBoardMastery() {
     calculateCurrentStatus,
     calculateAchievement,
     hasGreenDay,
-    getISOWeek,
-    areConsecutiveWeeks
+    daysBetween
   }
 }
