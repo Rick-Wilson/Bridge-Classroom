@@ -11,14 +11,16 @@
         <button class="viewer-btn close" @click="$emit('close')" title="Close">&times;</button>
       </div>
     </div>
-    <iframe :src="url" class="viewer-iframe"></iframe>
+    <div v-if="loading" class="viewer-loading">Loading PDF...</div>
+    <div v-else-if="error" class="viewer-error">{{ error }}</div>
+    <iframe v-else-if="blobUrl" :src="blobUrl" class="viewer-iframe"></iframe>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch, onBeforeUnmount } from 'vue'
 
-defineProps({
+const props = defineProps({
   url: {
     type: String,
     required: true
@@ -36,8 +38,54 @@ const size = reactive({ w: 550, h: 700 })
 const dragging = ref(false)
 const dragOffset = reactive({ x: 0, y: 0 })
 
+// PDF blob state
+const blobUrl = ref(null)
+const loading = ref(false)
+const error = ref(null)
+
+// Fetch PDF as blob and create object URL with correct MIME type
+// (raw.githubusercontent.com serves as application/octet-stream which causes download)
+async function fetchPdf(url) {
+  cleanup()
+  if (!url) return
+
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error('Failed to load PDF')
+    const blob = await response.blob()
+    const pdfBlob = new Blob([blob], { type: 'application/pdf' })
+    blobUrl.value = URL.createObjectURL(pdfBlob)
+  } catch (err) {
+    error.value = 'Could not load PDF'
+    console.error('Failed to fetch intro PDF:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+function cleanup() {
+  if (blobUrl.value) {
+    URL.revokeObjectURL(blobUrl.value)
+    blobUrl.value = null
+  }
+}
+
+// Fetch when visible and URL changes
+watch(() => [props.visible, props.url], ([visible, url]) => {
+  if (visible && url) {
+    fetchPdf(url)
+  } else if (!visible) {
+    cleanup()
+  }
+}, { immediate: true })
+
+onBeforeUnmount(cleanup)
+
+// Drag logic
 function startDrag(e) {
-  // Don't drag if clicking a button/link
   if (e.target.closest('a, button')) return
 
   dragging.value = true
@@ -125,5 +173,20 @@ function stopDrag() {
   flex: 1;
   border: none;
   width: 100%;
+}
+
+.viewer-loading,
+.viewer-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #666;
+  padding: 20px;
+}
+
+.viewer-error {
+  color: #d32f2f;
 }
 </style>
