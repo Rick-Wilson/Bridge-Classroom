@@ -7,18 +7,23 @@
     <div class="viewer-titlebar" @pointerdown="startDrag">
       <span class="viewer-title">Lesson Introduction</span>
       <div class="viewer-controls">
-        <a :href="url" target="_blank" class="viewer-btn" title="Open in new tab">&#8599;</a>
+        <button class="viewer-btn" @click="openInNewTab" title="Open in new tab">&#8599;</button>
         <button class="viewer-btn close" @click="$emit('close')" title="Close">&times;</button>
       </div>
     </div>
-    <div v-if="loading" class="viewer-loading">Loading PDF...</div>
-    <div v-else-if="error" class="viewer-error">{{ error }}</div>
-    <iframe v-else-if="blobUrl" :src="blobUrl" class="viewer-iframe"></iframe>
+    <div class="viewer-body">
+      <!-- Overlay to capture pointer events during drag/resize (iframe steals them) -->
+      <div v-if="interacting" class="interaction-overlay"></div>
+      <div v-if="loading" class="viewer-loading">Loading PDF...</div>
+      <div v-else-if="error" class="viewer-error">{{ error }}</div>
+      <iframe v-else-if="iframeSrc" :src="iframeSrc" class="viewer-iframe"></iframe>
+    </div>
+    <div class="resize-handle" @pointerdown="startResize">&#8943;</div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, watch, onBeforeUnmount } from 'vue'
+import { reactive, ref, computed, watch, onBeforeUnmount } from 'vue'
 
 const props = defineProps({
   url: {
@@ -35,7 +40,7 @@ defineEmits(['close'])
 
 const pos = reactive({ x: 80, y: 80 })
 const size = reactive({ w: 550, h: 700 })
-const dragging = ref(false)
+const interacting = ref(false)
 const dragOffset = reactive({ x: 0, y: 0 })
 
 // PDF blob state
@@ -43,8 +48,12 @@ const blobUrl = ref(null)
 const loading = ref(false)
 const error = ref(null)
 
+// Hide sidebar and toolbar in the browser PDF viewer
+const iframeSrc = computed(() =>
+  blobUrl.value ? blobUrl.value + '#navpanes=0&toolbar=0' : null
+)
+
 // Fetch PDF as blob and create object URL with correct MIME type
-// (raw.githubusercontent.com serves as application/octet-stream which causes download)
 async function fetchPdf(url) {
   cleanup()
   if (!url) return
@@ -73,6 +82,12 @@ function cleanup() {
   }
 }
 
+function openInNewTab() {
+  if (blobUrl.value) {
+    window.open(blobUrl.value, '_blank')
+  }
+}
+
 // Fetch when visible and URL changes
 watch(() => [props.visible, props.url], ([visible, url]) => {
   if (visible && url) {
@@ -86,25 +101,41 @@ onBeforeUnmount(cleanup)
 
 // Drag logic
 function startDrag(e) {
-  if (e.target.closest('a, button')) return
+  if (e.target.closest('button')) return
 
-  dragging.value = true
+  interacting.value = true
   dragOffset.x = e.clientX - pos.x
   dragOffset.y = e.clientY - pos.y
   document.addEventListener('pointermove', onDrag)
-  document.addEventListener('pointerup', stopDrag)
+  document.addEventListener('pointerup', stopInteraction)
 }
 
 function onDrag(e) {
-  if (!dragging.value) return
   pos.x = Math.max(0, e.clientX - dragOffset.x)
   pos.y = Math.max(0, e.clientY - dragOffset.y)
 }
 
-function stopDrag() {
-  dragging.value = false
+// Resize logic
+function startResize(e) {
+  interacting.value = true
+  dragOffset.x = e.clientX
+  dragOffset.y = e.clientY
+  dragOffset.startW = size.w
+  dragOffset.startH = size.h
+  document.addEventListener('pointermove', onResize)
+  document.addEventListener('pointerup', stopInteraction)
+}
+
+function onResize(e) {
+  size.w = Math.max(320, dragOffset.startW + (e.clientX - dragOffset.x))
+  size.h = Math.max(300, dragOffset.startH + (e.clientY - dragOffset.y))
+}
+
+function stopInteraction() {
+  interacting.value = false
   document.removeEventListener('pointermove', onDrag)
-  document.removeEventListener('pointerup', stopDrag)
+  document.removeEventListener('pointermove', onResize)
+  document.removeEventListener('pointerup', stopInteraction)
 }
 </script>
 
@@ -169,15 +200,29 @@ function stopDrag() {
   font-size: 22px;
 }
 
-.viewer-iframe {
+.viewer-body {
   flex: 1;
-  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.interaction-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  cursor: grabbing;
+}
+
+.viewer-iframe {
   width: 100%;
+  height: 100%;
+  border: none;
 }
 
 .viewer-loading,
 .viewer-error {
-  flex: 1;
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -188,5 +233,27 @@ function stopDrag() {
 
 .viewer-error {
   color: #d32f2f;
+}
+
+.resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #999;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 4px 0 8px 0;
+  user-select: none;
+}
+
+.resize-handle:hover {
+  color: #666;
+  background: rgba(240, 240, 240, 0.9);
 }
 </style>
