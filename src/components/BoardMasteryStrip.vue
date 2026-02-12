@@ -1,5 +1,13 @@
 <template>
   <div class="board-mastery-strip" v-if="boardNumbers.length > 0">
+    <button
+      v-if="introUrl"
+      class="intro-btn"
+      @click="emit('open-intro', introUrl)"
+      title="View lesson introduction"
+    >
+      Intro
+    </button>
     <div
       v-for="(board, index) in boardMastery"
       :key="board.boardNumber"
@@ -51,10 +59,14 @@ const props = defineProps({
   currentSessionId: {
     type: String,
     default: null
+  },
+  introUrl: {
+    type: String,
+    default: null
   }
 })
 
-const emit = defineEmits(['goto'])
+const emit = defineEmits(['goto', 'open-intro'])
 
 const mastery = useBoardMastery()
 
@@ -92,6 +104,27 @@ function getTooltip(board) {
   border-radius: 8px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.intro-btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s, box-shadow 0.15s;
+  user-select: none;
+  letter-spacing: 0.3px;
+}
+
+.intro-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
 }
 
 .board-indicator {
@@ -186,6 +219,13 @@ function getTooltip(board) {
   .board-indicator {
     width: 28px;
     height: 28px;
+    font-size: 11px;
+  }
+
+  .intro-btn {
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 14px;
     font-size: 11px;
   }
 

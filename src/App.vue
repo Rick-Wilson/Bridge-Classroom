@@ -94,7 +94,9 @@
               :currentIndex="currentDealIndex"
               :incompleteBoardNumber="practice.isComplete.value ? null : currentDeal?.boardNumber"
               :currentSessionId="practice.observationStore.currentSessionId.value"
+              :introUrl="introUrl"
               @goto="gotoDeal"
+              @open-intro="handleOpenIntro"
             />
 
             <DealInfo
@@ -253,6 +255,13 @@
       <AccomplishmentsView @close="showAccomplishments = false" />
     </div>
 
+    <!-- Floating Intro PDF Viewer (non-modal) -->
+    <IntroPdfViewer
+      :visible="showIntroPdf"
+      :url="introPdfUrl || ''"
+      @close="showIntroPdf = false"
+    />
+
   </div>
 </template>
 
@@ -283,6 +292,7 @@ import AccomplishmentsView from './components/AccomplishmentsView.vue'
 import TeacherDashboard from './components/teacher/TeacherDashboard.vue'
 import LessonBrowser from './components/LessonBrowser.vue'
 import BoardMasteryStrip from './components/BoardMasteryStrip.vue'
+import IntroPdfViewer from './components/IntroPdfViewer.vue'
 
 // Composables
 const appConfig = useAppConfig()
@@ -303,6 +313,11 @@ const biddingNarrativeContainer = ref(null)
 const completionNarrativeContainer = ref(null)
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
+
+// Intro PDF state
+const introUrl = ref(null)
+const showIntroPdf = ref(false)
+const introPdfUrl = ref(null)
 
 // Auto-scroll to show current element (keep its first line visible)
 function scrollToCurrentElement(container, selector = '.current') {
@@ -537,6 +552,8 @@ function handleLessonLoad({ subfolder, name, category, content }) {
     // Store lesson metadata and update URL
     currentLesson.value = { id: subfolder, name, category }
     appConfig.setLessonInUrl(subfolder)
+    showIntroPdf.value = false
+    checkIntroAvailability()
   } else {
     alert('No deals found in the lesson file')
   }
@@ -578,6 +595,8 @@ function returnToLessons() {
   deals.value = []
   currentDealIndex.value = 0
   practice.resetStats()
+  showIntroPdf.value = false
+  introUrl.value = null
 }
 
 // Return to lobby (exit collection and clear deals)
@@ -589,6 +608,40 @@ function returnToLobby() {
   deals.value = []
   currentDealIndex.value = 0
   practice.resetStats()
+  showIntroPdf.value = false
+  introUrl.value = null
+}
+
+// Check if an intro PDF exists for the current lesson
+async function checkIntroAvailability() {
+  introUrl.value = null
+  if (!currentCollection.value || !currentLesson.value) return
+
+  const collection = getCollection(currentCollection.value)
+  if (!collection) return
+
+  const lessonId = currentLesson.value.id
+  const filename = lessonId.includes('/') ? lessonId.split('/').pop() : lessonId
+  const url = `${collection.baseUrl}/${filename}_Intro.pdf`
+
+  try {
+    const response = await fetch(url, { method: 'HEAD' })
+    if (response.ok) {
+      introUrl.value = url
+    }
+  } catch {
+    // Network error or CORS issue - silently hide button
+  }
+}
+
+// Open intro PDF (floating viewer on desktop, new tab on mobile)
+function handleOpenIntro(url) {
+  if (window.innerWidth < 600) {
+    window.open(url, '_blank')
+  } else {
+    introPdfUrl.value = url
+    showIntroPdf.value = true
+  }
 }
 
 // Select a lesson collection (updates URL and shows inline lesson browser)
@@ -668,6 +721,7 @@ async function loadLessonFromUrl(collectionId, lessonId) {
         name: foundLesson.name,
         category: foundCategory.name
       }
+      checkIntroAvailability()
       return true
     }
     return false
