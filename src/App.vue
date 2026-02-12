@@ -563,7 +563,12 @@ function nextDeal() {
 
 function gotoDeal(index) {
   if (index >= 0 && index < deals.value.length) {
-    currentDealIndex.value = index
+    if (index === currentDealIndex.value) {
+      // Same deal - force reload to restart practice
+      practice.loadDeal(deals.value[index])
+    } else {
+      currentDealIndex.value = index
+    }
   }
 }
 

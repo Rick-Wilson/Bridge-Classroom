@@ -208,17 +208,19 @@ async function performSync() {
             .slice(0, syncResult.synced)
             .map(obs => obs.metadata?.observation_id)
 
-          observationStore.removeSyncedObservations(syncedIds)
           result.observationsSynced = syncResult.synced
           console.log(`Synced ${syncResult.synced} observations`)
 
-          // Refresh accomplishments so synced observations appear in mastery calculations
+          // Refresh accomplishments BEFORE removing pending so mastery strip
+          // always has at least one data source (no grey flash)
           try {
             const accomplishments = useAccomplishments()
             await accomplishments.loadAccomplishments(true)
           } catch (e) {
             // Non-critical - mastery will update on next refresh
           }
+
+          observationStore.removeSyncedObservations(syncedIds)
         }
 
         if (syncResult.errors?.length > 0) {
