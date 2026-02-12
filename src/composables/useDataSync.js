@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
 import { useObservationStore } from './useObservationStore.js'
+import { useAccomplishments } from './useAccomplishments.js'
 
 // API configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
@@ -210,6 +211,14 @@ async function performSync() {
           observationStore.removeSyncedObservations(syncedIds)
           result.observationsSynced = syncResult.synced
           console.log(`Synced ${syncResult.synced} observations`)
+
+          // Refresh accomplishments so synced observations appear in mastery calculations
+          try {
+            const accomplishments = useAccomplishments()
+            await accomplishments.loadAccomplishments(true)
+          } catch (e) {
+            // Non-critical - mastery will update on next refresh
+          }
         }
 
         if (syncResult.errors?.length > 0) {

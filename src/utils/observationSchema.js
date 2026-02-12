@@ -155,6 +155,7 @@ export function extractMetadata(observation, classroom) {
   return {
     observation_id: observation.observation_id,
     user_id: observation.user_id,
+    session_id: observation.session_id,
     timestamp: observation.timestamp,
     skill_path: observation.skill_path,
     correct: observation.result.correct,
