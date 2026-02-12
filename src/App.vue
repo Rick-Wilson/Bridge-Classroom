@@ -14,7 +14,7 @@
   <!-- Main App (shown when user is authenticated) -->
   <div v-else class="app">
     <header class="app-header">
-      <h1>{{ appTitle }}</h1>
+      <h1>{{ deals.length ? dealTitle : appTitle }}</h1>
       <div class="header-right">
         <SyncStatus />
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
@@ -87,6 +87,16 @@
         <div class="practice-layout">
           <!-- Left column: Deal info + Bridge table -->
           <div class="practice-left">
+            <BoardMasteryStrip
+              v-if="deals.length > 1"
+              :boardNumbers="deals.map(d => d.boardNumber)"
+              :lessonSubfolder="currentDeal?.subfolder || currentDeal?.category || ''"
+              :currentIndex="currentDealIndex"
+              :incompleteBoardNumber="practice.isComplete.value ? null : currentDeal?.boardNumber"
+              :currentSessionId="practice.observationStore.currentSessionId.value"
+              @goto="gotoDeal"
+            />
+
             <DealInfo
               :boardNumber="currentDeal?.boardNumber"
               :dealer="currentDeal?.dealer"
@@ -95,7 +105,6 @@
               :declarer="currentDeal?.declarer"
               :showContract="practice.biddingState.auctionComplete || practice.showOpeningLead.value"
               :openingLead="practice.showOpeningLead.value ? currentDeal?.openingLead : ''"
-              :title="dealTitle"
               :totalDeals="deals.length"
               :currentIndex="currentDealIndex"
               :dealBoardNumbers="deals.map(d => d.boardNumber)"
@@ -211,7 +220,7 @@
               <!-- Non-bidding lessons: show full commentary -->
               <div v-else-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
               </div>
-              <button class="next-deal-btn" @click="nextDeal">
+              <button v-if="currentDealIndex < deals.length - 1" class="next-deal-btn" @click="nextDeal">
                 Next Deal →
               </button>
             </div>
@@ -256,6 +265,7 @@ import { useAppConfig } from './composables/useAppConfig.js'
 import { useUserStore } from './composables/useUserStore.js'
 import { useAssignmentStore } from './composables/useAssignmentStore.js'
 import { useDataSync } from './composables/useDataSync.js'
+import { useAccomplishments } from './composables/useAccomplishments.js'
 
 import BridgeTable from './components/BridgeTable.vue'
 import BiddingBox from './components/BiddingBox.vue'
@@ -272,6 +282,7 @@ import ProgressDashboard from './components/ProgressDashboard.vue'
 import AccomplishmentsView from './components/AccomplishmentsView.vue'
 import TeacherDashboard from './components/teacher/TeacherDashboard.vue'
 import LessonBrowser from './components/LessonBrowser.vue'
+import BoardMasteryStrip from './components/BoardMasteryStrip.vue'
 
 // Composables
 const appConfig = useAppConfig()
@@ -393,6 +404,9 @@ onMounted(async () => {
   // Initialize data sync (fetches teacher key, registers user, syncs pending data)
   if (userStore.isAuthenticated.value) {
     await dataSync.initialize()
+    // Load accomplishments data so board mastery strip can show prior observations
+    const accomplishments = useAccomplishments()
+    accomplishments.initialize()
   }
 })
 
@@ -403,6 +417,9 @@ async function handleUserReady(user) {
 
   // Initialize data sync for the new user (register with server, fetch teacher key)
   await dataSync.initialize()
+  // Load accomplishments data for board mastery strip
+  const accomplishments = useAccomplishments()
+  accomplishments.initialize()
 }
 
 function handleSwitchUser() {
@@ -426,12 +443,13 @@ const bundledFiles = ref([
 const currentDeal = computed(() => deals.value[currentDealIndex.value] || null)
 
 const dealTitle = computed(() => {
+  const collection = getCollection(currentCollection.value)
+  const prefix = collection?.name ? `${collection.name} - ` : ''
+  // Use the TOC lesson name if available (e.g., "Negative Doubles")
+  if (currentLesson.value?.name) return prefix + currentLesson.value.name
   if (!currentDeal.value) return ''
   const name = currentDeal.value.subfolder || currentDeal.value.category || ''
-  if (!name) return ''
-  // Prefix with collection name if available
-  const collection = getCollection(currentCollection.value)
-  return collection?.name ? `${collection.name} ${name}` : name
+  return name ? prefix + name : ''
 })
 
 // Load deal when index changes

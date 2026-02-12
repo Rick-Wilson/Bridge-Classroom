@@ -511,6 +511,9 @@ export function useDealPractice() {
 
     recordBidObservation(bid, expectedBid, isCorrect, timeTakenMs)
 
+    // Capture bid position before advancing
+    const bidPosition = biddingState.currentBidIndex
+
     // Always advance the auction after any bid
     biddingState.displayedBids.push(currentDeal.value.auction[biddingState.currentBidIndex])
     biddingState.currentBidIndex++
@@ -521,10 +524,12 @@ export function useDealPractice() {
     if (isCorrect) {
       biddingState.wrongBid = null
       biddingState.correctBid = null
+      biddingState.wrongBidIndex = -1
     } else {
       // Show feedback for wrong bid (but still advance)
       biddingState.wrongBid = bid
       biddingState.correctBid = expectedBid
+      biddingState.wrongBidIndex = bidPosition
       // Mark this board as having a wrong answer
       biddingState.boardHadWrong = true
     }
@@ -536,6 +541,8 @@ export function useDealPractice() {
   function clearFeedback() {
     biddingState.wrongBid = null
     biddingState.correctBid = null
+    biddingState.wrongBidIndex = -1
+    biddingState.correctBidIndex = -1
   }
 
   // Can we go back? True if we've made progress (answered a bid or advanced a step)

@@ -108,6 +108,18 @@
           :show-filter-hint="!accomplishments.onlyWithObservations.value"
           @select="onItemSelect"
         />
+
+        <!-- Board mastery drill-down (shown when a lesson is selected) -->
+        <div v-if="selectedLesson" class="board-drill-down">
+          <div class="drill-down-header">
+            <h3>{{ selectedLesson.displayName }} - Board Mastery</h3>
+            <button class="close-drill-down" @click="selectedLesson = null">&times;</button>
+          </div>
+          <BoardMasteryGrid
+            :lessonSubfolder="selectedLesson.lesson"
+            :observations="selectedLesson.observations"
+          />
+        </div>
       </div>
 
       <!-- Actions -->
@@ -129,22 +141,26 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
 import { generateLessonFocusedObservations, generateTaxonFocusedObservations } from '../utils/accomplishmentsTestData.js'
+import { generateBoardMasteryTestData } from '../utils/boardMasteryTestData.js'
 import AccomplishmentsTable from './AccomplishmentsTable.vue'
+import BoardMasteryGrid from './BoardMasteryGrid.vue'
 
 const emit = defineEmits(['close', 'select-item'])
 
 const accomplishments = useAccomplishments()
 
-// Check URL for test mode flag (e.g., ?test=accomplishments)
+// Check URL for test mode flag (e.g., ?test=accomplishments or ?test=mastery)
 const urlParams = new URLSearchParams(window.location.search)
-const useTestMode = urlParams.get('test') === 'accomplishments'
+const testParam = urlParams.get('test')
+const useTestMode = testParam === 'accomplishments' || testParam === 'mastery'
 
 onMounted(async () => {
-  if (useTestMode) {
-    // Load with test data - combine lesson and taxon focused data for variety
+  if (testParam === 'mastery') {
+    accomplishments.enableTestMode(generateBoardMasteryTestData())
+  } else if (testParam === 'accomplishments') {
     const testData = [
       ...generateLessonFocusedObservations(),
       ...generateTaxonFocusedObservations()
@@ -170,10 +186,19 @@ async function onUserChange(userId) {
 }
 
 /**
- * Handle item selection (for future drill-down)
+ * Handle item selection - toggle board mastery drill-down for lessons
  */
+const selectedLesson = ref(null)
+
 function onItemSelect(item) {
-  emit('select-item', item)
+  // Only drill-down for lessons tab (lessons have .lesson property)
+  if (accomplishments.activeTab.value === 'lessons' && item.lesson) {
+    if (selectedLesson.value?.lesson === item.lesson) {
+      selectedLesson.value = null
+    } else {
+      selectedLesson.value = item
+    }
+  }
 }
 
 /**
@@ -439,6 +464,42 @@ const uniqueItemCount = computed(() => {
   padding: 4px 8px;
   font-size: 12px;
   font-weight: 500;
+}
+
+/* Board mastery drill-down */
+.board-drill-down {
+  margin-top: 16px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+}
+
+.drill-down-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.drill-down-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
+.close-drill-down {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-drill-down:hover {
+  color: #333;
 }
 
 /* Responsive adjustments */

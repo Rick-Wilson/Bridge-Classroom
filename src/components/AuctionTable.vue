@@ -128,11 +128,13 @@ function isCurrentTurn(roundIdx, colIdx) {
 }
 
 function isWrongBid(roundIdx, colIdx) {
+  if (props.wrongBidIndex < 0) return false
   const bidIdx = getBidIndexFromPosition(roundIdx, colIdx)
   return bidIdx === props.wrongBidIndex
 }
 
 function isCorrectBid(roundIdx, colIdx) {
+  if (props.correctBidIndex < 0) return false
   const bidIdx = getBidIndexFromPosition(roundIdx, colIdx)
   return bidIdx === props.correctBidIndex
 }
@@ -226,10 +228,11 @@ function formatBidHtml(bid) {
 }
 
 .wrong-bid {
-  background: #ffebee;
+  background: #ffcdd2;
+  box-shadow: inset 0 0 0 2px #ef5350;
 }
 
 .correct-bid {
-  background: #e8f5e9;
+  background: #c8e6c9;
 }
 </style>

@@ -72,6 +72,7 @@ export function parsePbn(pbnContent) {
           currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
           currentDeal.initialShowcards = parseInitialShowcards(currentCommentary)
           currentDeal.mode = detectDealMode(currentCommentary)
+          currentDeal.auction = trimAuction(currentDeal.auction)
           deals.push(currentDeal)
         }
         // Start new deal
@@ -141,6 +142,7 @@ export function parsePbn(pbnContent) {
     currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
     currentDeal.initialShowcards = parseInitialShowcards(currentCommentary)
     currentDeal.mode = detectDealMode(currentCommentary)
+    currentDeal.auction = trimAuction(currentDeal.auction)
     deals.push(currentDeal)
   }
 
@@ -525,6 +527,28 @@ function parseHandString(handString) {
 function parseCards(cardString) {
   if (!cardString) return []
   return cardString.split('')
+}
+
+/**
+ * Trim auction to end after the correct number of closing passes.
+ * In bridge, 3 consecutive passes after a non-pass bid end the auction.
+ * If no non-pass bid was made, 4 passes (all pass) ends it.
+ * @param {Array} bids - Array of normalized bid strings
+ * @returns {Array} Trimmed array
+ */
+function trimAuction(bids) {
+  let lastNonPassIndex = -1
+  for (let i = 0; i < bids.length; i++) {
+    if (bids[i] !== 'Pass') lastNonPassIndex = i
+  }
+
+  if (lastNonPassIndex === -1) {
+    // All passes - keep at most 4
+    return bids.slice(0, 4)
+  }
+
+  // Keep 3 passes after the last non-pass bid
+  return bids.slice(0, lastNonPassIndex + 4)
 }
 
 /**
