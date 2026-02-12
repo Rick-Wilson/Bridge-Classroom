@@ -175,10 +175,14 @@ function getTooltip(board) {
   color: white;
 }
 
-/* Active board highlight */
-.board-indicator.active {
-  outline: 3px solid #1976d2;
-  outline-offset: 2px;
+/* Active board highlight — pseudo-element ring avoids outline layout quirks */
+.board-indicator.active::before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 3px solid #1976d2;
+  pointer-events: none;
 }
 
 /* Medal overlay */
@@ -238,6 +242,11 @@ function getTooltip(board) {
     padding: 0 10px;
     border-radius: 14px;
     font-size: 11px;
+  }
+
+  .board-indicator.active::before {
+    inset: -4px;
+    border-width: 2px;
   }
 
   .medal {
