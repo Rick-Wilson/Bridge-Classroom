@@ -77,25 +77,52 @@ const YELLOW_TO_ORANGE_MS = 60 * 60 * 1000 // 1 hour
 /**
  * Calculate current status for a board based on its observations.
  *
+ * State machine: GREY → RED → YELLOW → (1hr) → ORANGE → GREEN
+ * - GREY: no attempts
+ * - RED: most recent attempt was incorrect
+ * - YELLOW: corrected after a failure today, cooling down
+ * - ORANGE: cooldown elapsed, eligible for retry
+ * - GREEN: no failures today, OR successful retry after cooldown
+ *
  * @param {Array} observations - All observations for this board, sorted ascending by timestamp
  * @returns {string} STATUS value
  */
 function calculateCurrentStatus(observations) {
   if (observations.length === 0) return STATUS.GREY
 
-  const mostRecent = observations[observations.length - 1]
-  if (!mostRecent.correct) return STATUS.RED
+  // Work with board attempts (grouped by session) rather than raw observations
+  const attempts = groupIntoBoardAttempts(observations)
+  const mostRecentAttempt = attempts[attempts.length - 1]
 
-  // Most recent was correct. Check if there were failures earlier today.
+  if (!mostRecentAttempt.correct) return STATUS.RED
+
+  // Most recent attempt was correct. Check if there were failures earlier today.
   const todayStr = new Date().toISOString().slice(0, 10)
-  const todayObs = observations.filter(o => o.timestamp.startsWith(todayStr))
-  const hadFailureToday = todayObs.some(o => !o.correct)
+  const todayAttempts = attempts.filter(a => a.timestamp.startsWith(todayStr))
+  const hadFailureToday = todayAttempts.some(a => !a.correct)
 
   if (!hadFailureToday) return STATUS.GREEN
 
-  // Had failure today but corrected. Check if enough time has passed for retry.
-  const elapsed = Date.now() - new Date(mostRecent.timestamp).getTime()
-  return elapsed >= YELLOW_TO_ORANGE_MS ? STATUS.ORANGE : STATUS.YELLOW
+  // Had failure today but corrected. Find the first correct attempt after the last failure.
+  const lastFailure = todayAttempts.filter(a => !a.correct).pop()
+  const firstCorrection = todayAttempts.find(
+    a => a.correct && a.timestamp > lastFailure.timestamp
+  )
+
+  if (!firstCorrection) return STATUS.YELLOW
+
+  // Check if enough time has passed since the first correction for retry eligibility.
+  const elapsed = Date.now() - new Date(firstCorrection.timestamp).getTime()
+
+  if (elapsed < YELLOW_TO_ORANGE_MS) return STATUS.YELLOW
+
+  // Cooldown has elapsed. If the most recent attempt is a different attempt
+  // than the first correction, the user has successfully retried → GREEN.
+  if (mostRecentAttempt.sessionId !== firstCorrection.sessionId) {
+    return STATUS.GREEN
+  }
+
+  return STATUS.ORANGE
 }
 
 /**
