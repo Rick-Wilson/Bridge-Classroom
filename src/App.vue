@@ -917,7 +917,7 @@ body {
 /* Two-column practice layout for desktop */
 .practice-layout {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: minmax(0, 1fr) 500px;
   gap: 32px;
   align-items: start;
   justify-content: center;
