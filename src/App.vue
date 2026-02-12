@@ -452,12 +452,12 @@ const dealTitle = computed(() => {
   return name ? prefix + name : ''
 })
 
-// Load deal when index changes
+// Load deal when index changes (safety net - primary calls are in nextDeal/gotoDeal)
 watch(currentDealIndex, () => {
   if (currentDeal.value) {
     practice.loadDeal(currentDeal.value)
   }
-})
+}, { flush: 'sync' })
 
 // Trigger sync when new observations are recorded
 watch(() => practice.observationStore.pendingCount.value, (newCount, oldCount) => {
@@ -558,17 +558,16 @@ function prevDeal() {
 function nextDeal() {
   if (currentDealIndex.value < deals.value.length - 1) {
     currentDealIndex.value++
+    // Call loadDeal directly - don't rely on watch timing
+    practice.loadDeal(deals.value[currentDealIndex.value])
   }
 }
 
 function gotoDeal(index) {
   if (index >= 0 && index < deals.value.length) {
-    if (index === currentDealIndex.value) {
-      // Same deal - force reload to restart practice
-      practice.loadDeal(deals.value[index])
-    } else {
-      currentDealIndex.value = index
-    }
+    currentDealIndex.value = index
+    // Always call loadDeal directly to ensure deal restarts
+    practice.loadDeal(deals.value[index])
   }
 }
 
