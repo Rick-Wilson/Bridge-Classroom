@@ -251,9 +251,18 @@
               <!-- Non-bidding lessons: show full commentary -->
               <div v-else-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
               </div>
-              <button v-if="currentDealIndex < deals.length - 1" class="next-deal-btn" @click="nextDeal">
-                Next Deal →
-              </button>
+              <div class="completion-controls">
+                <button
+                  v-if="practice.canGoBack.value"
+                  class="instruction-btn secondary"
+                  @click="onStepBack"
+                >
+                  ← Back
+                </button>
+                <button v-if="currentDealIndex < deals.length - 1" class="next-deal-btn" @click="nextDeal">
+                  Next Deal →
+                </button>
+              </div>
             </div>
 
           </div>
@@ -723,6 +732,8 @@ function returnToLessons() {
   practice.resetStats()
   showIntroPdf.value = false
   introUrl.value = null
+  showTeacherView.value = false
+  selectedStudentId.value = null
 }
 
 // Return to lobby (exit collection and clear deals)
@@ -736,6 +747,8 @@ function returnToLobby() {
   practice.resetStats()
   showIntroPdf.value = false
   introUrl.value = null
+  showTeacherView.value = false
+  selectedStudentId.value = null
 }
 
 // Check if an intro PDF exists for the current lesson
@@ -1227,6 +1240,13 @@ body {
   margin-bottom: 16px;
   max-height: 350px;
   overflow-y: auto;
+}
+
+.completion-controls {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  align-items: center;
 }
 
 .next-deal-btn {
