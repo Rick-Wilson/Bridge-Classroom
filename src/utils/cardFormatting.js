@@ -190,6 +190,26 @@ export function formatCardCode(code) {
 }
 
 /**
+ * Flow PBN text for display: collapse single newlines to spaces (like HTML),
+ * preserve paragraph breaks (double+ newlines).
+ * PBN files wrap lines at ~80 chars, so single newlines are just word wrapping.
+ * @param {string} text Raw PBN text
+ * @returns {string} Flowed text with only paragraph breaks preserved
+ */
+export function flowText(text) {
+  if (!text) return ''
+  // Normalize: sequences with 2+ newlines (with optional whitespace between) → \n\n
+  let result = text.replace(/(\s*\n\s*){2,}/g, '\n\n')
+  // Split into paragraphs on double newlines
+  const paragraphs = result.split('\n\n')
+  // Within each paragraph, collapse single newlines (and surrounding whitespace) to a single space
+  return paragraphs
+    .map(p => p.replace(/\s*\n\s*/g, ' ').replace(/\s+/g, ' ').trim())
+    .filter(p => p.length > 0)
+    .join('\n\n')
+}
+
+/**
  * Strip PBN control directives from text for display
  * Removes [BID xxx], [NEXT], [ROTATE], [PLAY ...], [SHOW ...] and similar markers
  * @param {string} text

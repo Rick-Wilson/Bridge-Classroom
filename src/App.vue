@@ -174,13 +174,13 @@
                 <!-- Previous prompts (greyed out) -->
                 <template v-for="(prompt, idx) in practice.prompts.value.slice(0, practice.biddingState.currentPromptIndex)" :key="'prev-' + idx">
                   <!-- Only show promptText for first prompt (subsequent prompts duplicate previous explanation) -->
-                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
+                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(flowText(prompt.promptText))"></span>
                   <!-- Show explanationText in grey only if it's not the most recent answer (that goes in black below) -->
-                  <span v-if="prompt.explanationText && idx < practice.biddingState.currentPromptIndex - 1" class="narrative-text previous" v-html="colorizeSuits(prompt.explanationText)"></span>
+                  <span v-if="prompt.explanationText && idx < practice.biddingState.currentPromptIndex - 1" class="narrative-text previous" v-html="colorizeSuits(flowText(prompt.explanationText))"></span>
                 </template>
                 <!-- Current text (black) - first prompt shows promptText, subsequent show previous explanation -->
-                <span v-if="practice.biddingState.currentPromptIndex === 0 && practice.currentPrompt.value?.promptText" class="narrative-text current" v-html="colorizeSuits(practice.currentPrompt.value.promptText)"></span>
-                <span v-else-if="practice.biddingState.currentPromptIndex > 0 && practice.prompts.value[practice.biddingState.currentPromptIndex - 1]?.explanationText" class="narrative-text current" v-html="colorizeSuits(practice.prompts.value[practice.biddingState.currentPromptIndex - 1].explanationText)"></span>
+                <span v-if="practice.biddingState.currentPromptIndex === 0 && practice.currentPrompt.value?.promptText" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentPrompt.value.promptText))"></span>
+                <span v-else-if="practice.biddingState.currentPromptIndex > 0 && practice.prompts.value[practice.biddingState.currentPromptIndex - 1]?.explanationText" class="narrative-text current" v-html="colorizeSuits(flowText(practice.prompts.value[practice.biddingState.currentPromptIndex - 1].explanationText))"></span>
               </div>
 
               <!-- Bidding box -->
@@ -209,10 +209,10 @@
               <div class="instruction-text-container" ref="instructionContainer">
                 <!-- Previous steps (greyed out) -->
                 <template v-for="(step, idx) in practice.steps.value.slice(0, practice.stepState.currentStepIndex)" :key="idx">
-                  <div class="instruction-text previous" v-html="colorizeSuits(step.text)"></div>
+                  <div class="instruction-text previous" v-html="colorizeSuits(flowText(step.text))"></div>
                 </template>
                 <!-- Current step (active) -->
-                <div class="instruction-text current" v-html="colorizeSuits(practice.currentStepText.value)"></div>
+                <div class="instruction-text current" v-html="colorizeSuits(flowText(practice.currentStepText.value))"></div>
               </div>
               <div class="instruction-controls">
                 <button
@@ -243,13 +243,13 @@
               <div v-if="practice.hasPrompts.value && !practice.hasSteps.value" class="full-narrative" ref="completionNarrativeContainer">
                 <template v-for="(prompt, idx) in practice.prompts.value" :key="'final-' + idx">
                   <!-- Only show promptText for first prompt (subsequent prompts duplicate previous explanation) -->
-                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(prompt.promptText)"></span>
+                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(flowText(prompt.promptText))"></span>
                   <!-- Show explanationText - last one is "current" (black), rest are "previous" (grey) -->
-                  <span v-if="prompt.explanationText" :class="['narrative-text', idx === practice.prompts.value.length - 1 ? 'current' : 'previous']" v-html="colorizeSuits(prompt.explanationText)"></span>
+                  <span v-if="prompt.explanationText" :class="['narrative-text', idx === practice.prompts.value.length - 1 ? 'current' : 'previous']" v-html="colorizeSuits(flowText(prompt.explanationText))"></span>
                 </template>
               </div>
               <!-- Non-bidding lessons: show full commentary -->
-              <div v-else-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(stripControlDirectives(currentDeal.commentary))">
+              <div v-else-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(flowText(stripControlDirectives(currentDeal.commentary)))">
               </div>
               <div class="completion-controls">
                 <button
@@ -306,7 +306,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { parsePbn, getDealTitle } from './utils/pbnParser.js'
-import { stripControlDirectives, colorizeSuits } from './utils/cardFormatting.js'
+import { stripControlDirectives, colorizeSuits, flowText } from './utils/cardFormatting.js'
 import { useDealPractice } from './composables/useDealPractice.js'
 import { useAppConfig } from './composables/useAppConfig.js'
 import { useUserStore } from './composables/useUserStore.js'
