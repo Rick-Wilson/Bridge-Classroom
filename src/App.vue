@@ -23,6 +23,9 @@
         <button class="accomplishments-btn" @click="showAccomplishments = true" title="View Accomplishments">
           Accomplishments
         </button>
+        <button v-if="teacherRole.isTeacher.value" class="teacher-btn" @click="showTeacherView = true; selectedStudentId = null; selectedStudentName = ''" title="View Students">
+          Students
+        </button>
         <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + getCollection(currentCollection)?.name">
           {{ getCollection(currentCollection)?.name }}
         </button>
@@ -42,8 +45,20 @@
     <main class="app-main">
       <!-- Assignment Banner -->
       <AssignmentBanner />
+      <!-- Teacher student view -->
+      <TeacherStudentList
+        v-if="showTeacherView && !selectedStudentId"
+        @close="showTeacherView = false"
+        @select-student="(id, name) => { selectedStudentId = id; selectedStudentName = name }"
+      />
+      <TeacherStudentDetail
+        v-else-if="showTeacherView && selectedStudentId"
+        :studentId="selectedStudentId"
+        :studentName="selectedStudentName"
+        @back="selectedStudentId = null"
+      />
       <!-- Lobby when no deals and no collection selected -->
-      <div v-if="!deals.length && !currentCollection" class="lobby">
+      <div v-else-if="!deals.length && !currentCollection" class="lobby">
         <h2>Choose a Lesson Collection</h2>
         <p>Select a collection to browse lessons:</p>
         <div class="collection-cards">
@@ -277,6 +292,7 @@ import { useAccomplishments } from './composables/useAccomplishments.js'
 import { useStudentProgress } from './composables/useStudentProgress.js'
 import { useObservationStore } from './composables/useObservationStore.js'
 import { useBoardMastery } from './composables/useBoardMastery.js'
+import { useTeacherRole } from './composables/useTeacherRole.js'
 
 import BridgeTable from './components/BridgeTable.vue'
 import BiddingBox from './components/BiddingBox.vue'
@@ -292,6 +308,8 @@ import SyncStatus from './components/SyncStatus.vue'
 import ProgressDashboard from './components/ProgressDashboard.vue'
 import AccomplishmentsView from './components/AccomplishmentsView.vue'
 import TeacherDashboard from './components/teacher/TeacherDashboard.vue'
+import TeacherStudentList from './components/TeacherStudentList.vue'
+import TeacherStudentDetail from './components/TeacherStudentDetail.vue'
 import LessonBrowser from './components/LessonBrowser.vue'
 import BoardMasteryStrip from './components/BoardMasteryStrip.vue'
 import IntroPdfViewer from './components/IntroPdfViewer.vue'
@@ -301,6 +319,7 @@ const appConfig = useAppConfig()
 const userStore = useUserStore()
 const assignmentStore = useAssignmentStore()
 const dataSync = useDataSync()
+const teacherRole = useTeacherRole()
 
 // Unified practice state - tag-driven, no modes
 const practice = useDealPractice()
@@ -310,6 +329,9 @@ const showSettings = ref(false)
 const showProgress = ref(false)
 const showAccomplishments = ref(false)
 const isTeacherMode = ref(false)
+const showTeacherView = ref(false)
+const selectedStudentId = ref(null)
+const selectedStudentName = ref('')
 const instructionContainer = ref(null)
 const biddingNarrativeContainer = ref(null)
 const completionNarrativeContainer = ref(null)
@@ -427,6 +449,8 @@ onMounted(async () => {
     // Load accomplishments data so board mastery strip can show prior observations
     const accomplishments = useAccomplishments()
     accomplishments.initialize()
+    // Check if this user is a teacher
+    teacherRole.checkTeacherStatus()
   }
 })
 
@@ -440,6 +464,8 @@ async function handleUserReady(user) {
   // Load accomplishments data for board mastery strip
   const accomplishments = useAccomplishments()
   accomplishments.initialize()
+  // Check if this user is a teacher
+  teacherRole.checkTeacherStatus()
 }
 
 function handleSwitchUser() {
@@ -447,10 +473,13 @@ function handleSwitchUser() {
   useAccomplishments().reset()
   useStudentProgress().clearCache()
   useObservationStore().reset()
+  teacherRole.reset()
 
   // Clear current user to show welcome screen
   userStore.currentUserId.value = null
   showSettings.value = false
+  showTeacherView.value = false
+  selectedStudentId.value = null
 }
 
 // Deals data
@@ -911,6 +940,23 @@ body {
 .accomplishments-btn:hover {
   background: #c8e6c9;
   color: #2e7d32;
+}
+
+.teacher-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #e8eaf6;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #3949ab;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.teacher-btn:hover {
+  background: #c5cae9;
+  color: #283593;
 }
 
 .lessons-btn {
