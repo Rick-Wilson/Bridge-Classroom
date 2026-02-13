@@ -274,6 +274,8 @@ import { useUserStore } from './composables/useUserStore.js'
 import { useAssignmentStore } from './composables/useAssignmentStore.js'
 import { useDataSync } from './composables/useDataSync.js'
 import { useAccomplishments } from './composables/useAccomplishments.js'
+import { useStudentProgress } from './composables/useStudentProgress.js'
+import { useObservationStore } from './composables/useObservationStore.js'
 import { useBoardMastery } from './composables/useBoardMastery.js'
 
 import BridgeTable from './components/BridgeTable.vue'
@@ -441,6 +443,11 @@ async function handleUserReady(user) {
 }
 
 function handleSwitchUser() {
+  // Clear all cached per-user data before switching
+  useAccomplishments().reset()
+  useStudentProgress().clearCache()
+  useObservationStore().reset()
+
   // Clear current user to show welcome screen
   userStore.currentUserId.value = null
   showSettings.value = false

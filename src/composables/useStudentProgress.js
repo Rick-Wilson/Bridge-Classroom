@@ -184,6 +184,7 @@ function clearCache() {
   observations.value = []
   decryptedObservations.value = []
   lastFetchedAt.value = null
+  initialized.value = false
 }
 
 /**

@@ -60,6 +60,8 @@ onMounted(async () => {
   // Determine initial view
   if (userStore.hasUsers.value && userStore.currentUser.value) {
     viewState.value = 'returning'
+  } else if (userStore.hasUsers.value) {
+    viewState.value = 'switcher'
   } else {
     viewState.value = 'form'
   }
