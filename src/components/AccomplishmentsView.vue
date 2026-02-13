@@ -84,6 +84,7 @@
               :boardNumbers="lesson.boardNumbers"
               :lessonSubfolder="lesson.subfolder"
               :currentIndex="-1"
+              :alignLeft="true"
               @goto="(boardIndex) => onBoardClick(lesson.subfolder, lesson.boardNumbers[boardIndex])"
             />
           </div>

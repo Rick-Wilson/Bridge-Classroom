@@ -1,5 +1,5 @@
 <template>
-  <div class="board-mastery-strip" v-if="boardNumbers.length > 0">
+  <div class="board-mastery-strip" :class="{ 'justify-start': alignLeft }" v-if="boardNumbers.length > 0">
     <button
       v-if="introUrl"
       class="intro-btn"
@@ -59,6 +59,10 @@ const props = defineProps({
   introUrl: {
     type: String,
     default: null
+  },
+  alignLeft: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -106,6 +110,10 @@ function getTooltip(board) {
   border-radius: 8px;
   flex-wrap: wrap;
   justify-content: center;
+}
+
+.board-mastery-strip.justify-start {
+  justify-content: flex-start;
 }
 
 .intro-btn {

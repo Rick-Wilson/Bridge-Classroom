@@ -47,6 +47,8 @@
               :boardNumbers="lesson.boardNumbers"
               :lessonSubfolder="lesson.subfolder"
               :currentIndex="-1"
+              :alignLeft="true"
+              @goto="(boardIndex) => onBoardClick(lesson.subfolder, lesson.boardNumbers[boardIndex])"
             />
           </div>
         </div>
@@ -90,7 +92,7 @@ import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
 import BoardMasteryStrip from './BoardMasteryStrip.vue'
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'navigate-to-deal'])
 
 const progress = useStudentProgress()
 const mastery = useBoardMastery()
@@ -162,6 +164,10 @@ const recentSkills = computed(() => {
     }
   })
 })
+
+function onBoardClick(subfolder, dealNumber) {
+  emit('navigate-to-deal', { subfolder, dealNumber })
+}
 
 function formatLessonName(folderName) {
   return accomplishments.formatLessonName(folderName)

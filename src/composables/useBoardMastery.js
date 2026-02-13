@@ -283,11 +283,17 @@ function extractLessonsFromObservations(observations) {
       lessons[subfolder].lastActivity = obs.timestamp
     }
   }
-  return Object.entries(lessons).map(([subfolder, data]) => ({
-    subfolder,
-    boardNumbers: [...data.boards].sort((a, b) => a - b),
-    lastActivity: data.lastActivity
-  }))
+  return Object.entries(lessons).map(([subfolder, data]) => {
+    // Generate full range 1..max so unattempted boards show as grey
+    const maxBoard = Math.max(...data.boards)
+    const allBoards = []
+    for (let i = 1; i <= maxBoard; i++) allBoards.push(i)
+    return {
+      subfolder,
+      boardNumbers: allBoards,
+      lastActivity: data.lastActivity
+    }
+  })
 }
 
 export function useBoardMastery() {

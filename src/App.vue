@@ -246,7 +246,7 @@
 
     <!-- Progress Dashboard Modal -->
     <div v-if="showProgress" class="modal-overlay" @click.self="showProgress = false">
-      <ProgressDashboard @close="showProgress = false" />
+      <ProgressDashboard @close="showProgress = false" @navigate-to-deal="handleNavigateFromProgress" />
     </div>
 
     <!-- Accomplishments Modal -->
@@ -599,10 +599,8 @@ function gotoDeal(index) {
   }
 }
 
-// Navigate to a specific deal from accomplishments view
-async function handleNavigateToDeal({ subfolder, dealNumber }) {
-  showAccomplishments.value = false
-
+// Navigate to a specific deal from a modal view
+async function navigateToDeal({ subfolder, dealNumber }) {
   // If the current lesson matches, just navigate to the deal
   if (currentLesson.value?.id === subfolder && deals.value.length > 0) {
     const index = deals.value.findIndex(d => d.boardNumber === dealNumber)
@@ -635,6 +633,16 @@ async function handleNavigateToDeal({ subfolder, dealNumber }) {
       // Try next collection
     }
   }
+}
+
+function handleNavigateToDeal(payload) {
+  showAccomplishments.value = false
+  navigateToDeal(payload)
+}
+
+function handleNavigateFromProgress(payload) {
+  showProgress.value = false
+  navigateToDeal(payload)
 }
 
 // Return to lesson browser (keep collection, clear deals)
