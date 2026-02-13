@@ -7,6 +7,8 @@
           :hand="hands.N"
           seat="N"
           :showHcp="showHcp"
+          :clickable="clickableSeat === 'N'"
+          @card-click="(payload) => $emit('card-click', { seat: 'N', ...payload })"
         />
       </div>
     </div>
@@ -17,6 +19,8 @@
         :hand="hands.W"
         seat="W"
         :showHcp="showHcp"
+        :clickable="clickableSeat === 'W'"
+        @card-click="(payload) => $emit('card-click', { seat: 'W', ...payload })"
       />
     </div>
 
@@ -31,6 +35,8 @@
         :hand="hands.E"
         seat="E"
         :showHcp="showHcp"
+        :clickable="clickableSeat === 'E'"
+        @card-click="(payload) => $emit('card-click', { seat: 'E', ...payload })"
       />
     </div>
 
@@ -41,6 +47,8 @@
           :hand="hands.S"
           seat="S"
           :showHcp="showHcp"
+          :clickable="clickableSeat === 'S'"
+          @card-click="(payload) => $emit('card-click', { seat: 'S', ...payload })"
         />
       </div>
     </div>
@@ -67,8 +75,14 @@ defineProps({
   compact: {
     type: Boolean,
     default: false
+  },
+  clickableSeat: {
+    type: String,
+    default: null
   }
 })
+
+defineEmits(['card-click'])
 </script>
 
 <style scoped>

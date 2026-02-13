@@ -384,6 +384,21 @@ function parseStepContent(text, action) {
   // Check for [RESET] tag - resets played cards to show original deal
   const reset = /\[RESET\]/i.test(text)
 
+  // Extract [choose-card ...] tags - card selection for defense lessons
+  let chooseCard = null
+  const chooseCardMatch = text.match(/\[choose-card\s+([^\]]+)\]/i)
+  if (chooseCardMatch) {
+    const value = chooseCardMatch[1].trim()
+    if (value.toLowerCase().startsWith('any:')) {
+      // Multiple correct answers: [choose-card any:DK,DA]
+      const cards = value.substring(4).split(',').map(c => normalizeCardCode(c.trim()))
+      chooseCard = { cards, anyOf: true }
+    } else {
+      // Single correct answer: [choose-card HK]
+      chooseCard = { card: normalizeCardCode(value) }
+    }
+  }
+
   // Check for [AUCTION off/on] - controls auction table visibility
   let showAuction = null  // null = no change, true = show, false = hide
   const auctionOffMatch = /\[AUCTION\s+off\]/i.test(text)
@@ -419,6 +434,7 @@ function parseStepContent(text, action) {
     .replace(/\[AUCTION\s+(?:on|off)\]/gi, '')
     .replace(/\[SHOW_LEAD\]/gi, '')
     .replace(/\[showcards\s+[^\]]*\]/gi, '')
+    .replace(/\[choose-card\s+[^\]]*\]/gi, '')
     // Strip deal title lines (e.g., "Stayman 1", "Entries 2") - matches "Word(s) Number" at start of line
     .replace(/^[A-Z][a-zA-Z-]*(?:\s+[A-Z][a-zA-Z-]*)?\s+\d+\s*$/gim, '')
     .trim()
@@ -431,7 +447,8 @@ function parseStepContent(text, action) {
     reset,        // true if [RESET] tag present - show original hands
     showAuction,  // null = no change, true = show, false = hide
     showLead,     // true if [SHOW_LEAD] tag present
-    showcards     // null = no change, object = { seat: [cards] } to show
+    showcards,    // null = no change, object = { seat: [cards] } to show
+    chooseCard    // null = no card choice, object = { card } or { cards, anyOf: true }
   }
 }
 
@@ -463,6 +480,18 @@ function createEmptyDeal() {
     category: null,       // Category (e.g., "Bidding Conventions")
     difficulty: null      // Difficulty level (beginner, intermediate, advanced, mixed)
   }
+}
+
+/**
+ * Normalize a card code to internal format
+ * Converts suit+rank like "HK", "D10" to uppercase with T for 10
+ * @param {string} code e.g., "HK", "D10", "s4"
+ * @returns {string} Normalized code e.g., "HK", "DT", "S4"
+ */
+function normalizeCardCode(code) {
+  const upper = code.toUpperCase()
+  // Replace "10" with "T" for internal consistency
+  return upper.replace('10', 'T')
 }
 
 /**

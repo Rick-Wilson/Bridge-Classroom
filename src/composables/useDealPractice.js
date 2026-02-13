@@ -49,6 +49,17 @@ export function useDealPractice() {
     wrongPromptIndices: {}
   })
 
+  // ==================== CARD CHOICE STATE ====================
+  const cardChoiceState = reactive({
+    answered: {},         // { stepIndex: true } — tracks which steps have been answered
+    wrongCard: null,      // student's wrong card code (for feedback)
+    correctCard: null,    // expected correct card code (for feedback)
+    boardHadWrong: false,
+    correctCount: 0,      // Boards with all card choices correct
+    wrongCount: 0,        // Boards with at least one wrong card choice
+    wrongStepIndices: {}  // for back-up-fix detection
+  })
+
   // Timing for observations
   const promptStartTime = ref(null)
   const currentAttemptNumber = ref(1)
@@ -155,6 +166,21 @@ export function useDealPractice() {
       return false
     }
     return false
+  })
+
+  // ==================== COMPUTED: Card Choice (from [choose-card] tags) ====================
+  // Does current step have an unanswered [choose-card] prompt?
+  const hasCardChoice = computed(() => {
+    if (!hasSteps.value) return false
+    const step = currentStep.value
+    if (!step?.chooseCard) return false
+    return !cardChoiceState.answered[stepState.currentStepIndex]
+  })
+
+  // The choose-card object from current step (if any)
+  const currentChooseCard = computed(() => {
+    if (!hasSteps.value) return null
+    return currentStep.value?.chooseCard || null
   })
 
   // ==================== COMPUTED: Hand Visibility ====================
@@ -364,6 +390,8 @@ export function useDealPractice() {
   // ==================== COMPUTED: Completion State ====================
   const isComplete = computed(() => {
     if (hasSteps.value) {
+      // If on last step and it has an unanswered card choice, not complete yet
+      if (hasCardChoice.value) return false
       return stepState.instructionComplete || (!hasNextStep.value && stepState.currentStepIndex === steps.value.length - 1)
     }
     if (hasPrompts.value) {
@@ -424,13 +452,34 @@ export function useDealPractice() {
   }
 
   function nextStep() {
+    // Block advancement if current step has unanswered card choice
+    if (hasCardChoice.value) return false
+
     if (stepState.currentStepIndex < steps.value.length - 1) {
       stepState.currentStepIndex++
       updateStepState()
       return true
     }
     stepState.instructionComplete = true
+    // Record card choice board completion if this lesson had card choices
+    onCardChoiceBoardComplete()
     return false
+  }
+
+  function onCardChoiceBoardComplete() {
+    // Check if this lesson had any card choice steps
+    const instructionSteps = currentDeal.value?.instructionSteps || []
+    const hasAnyCardChoice = instructionSteps.some(s => s.chooseCard)
+    if (!hasAnyCardChoice) return
+
+    if (cardChoiceState.boardHadWrong) {
+      cardChoiceState.wrongCount++
+      const allFixed = Object.keys(cardChoiceState.wrongStepIndices).length === 0
+      recordBoardObservation(allFixed)
+    } else {
+      cardChoiceState.correctCount++
+      recordBoardObservation(true)
+    }
   }
 
   function prevStep() {
@@ -568,6 +617,60 @@ export function useDealPractice() {
     biddingState.correctBidIndex = -1
   }
 
+  // ==================== METHODS: Card Choice ====================
+  function makeCardChoice(suitLetter, rank) {
+    if (!currentDeal.value || !hasCardChoice.value) return false
+
+    const chooseCard = currentChooseCard.value
+    if (!chooseCard) return false
+
+    const chosen = (suitLetter + rank).toUpperCase()
+    const stepIdx = stepState.currentStepIndex
+
+    // Check if the chosen card matches expected card(s)
+    let isCorrect = false
+    let expectedDisplay = ''
+    if (chooseCard.anyOf) {
+      isCorrect = chooseCard.cards.includes(chosen)
+      expectedDisplay = chooseCard.cards[0] // Show first acceptable card in feedback
+    } else {
+      isCorrect = chosen === chooseCard.card
+      expectedDisplay = chooseCard.card
+    }
+
+    // Record observations (mirrors bidding pattern)
+    if (!isCorrect) {
+      recordBoardObservation(false)
+      cardChoiceState.wrongStepIndices[stepIdx] = true
+      cardChoiceState.boardHadWrong = true
+    } else if (stepIdx in cardChoiceState.wrongStepIndices) {
+      // Student backed up and fixed this step
+      delete cardChoiceState.wrongStepIndices[stepIdx]
+      recordBoardObservation(true)
+    }
+
+    // Mark step as answered
+    cardChoiceState.answered[stepIdx] = true
+
+    if (isCorrect) {
+      cardChoiceState.wrongCard = null
+      cardChoiceState.correctCard = null
+    } else {
+      cardChoiceState.wrongCard = chosen
+      cardChoiceState.correctCard = expectedDisplay
+    }
+
+    // Advance to next step (shows the explanation/reveal)
+    nextStep()
+
+    return isCorrect
+  }
+
+  function clearCardFeedback() {
+    cardChoiceState.wrongCard = null
+    cardChoiceState.correctCard = null
+  }
+
   // Can we go back? True if we've made progress (answered a bid or advanced a step)
   const canGoBack = computed(() => {
     // Can go back in bidding if we've answered at least one prompt
@@ -581,6 +684,7 @@ export function useDealPractice() {
   function goBack() {
     // Clear any feedback first
     clearFeedback()
+    clearCardFeedback()
 
     // If we have prompts and have answered at least one, go back to previous prompt
     if (hasPrompts.value && biddingState.currentPromptIndex > 0) {
@@ -613,6 +717,11 @@ export function useDealPractice() {
 
     // If we have steps and are past the first, go back a step
     if (hasSteps.value && stepState.currentStepIndex > 0) {
+      // If the previous step had a card choice, clear its answered state so it can be retried
+      const prevIdx = stepState.currentStepIndex - 1
+      if (cardChoiceState.answered[prevIdx]) {
+        delete cardChoiceState.answered[prevIdx]
+      }
       return prevStep()
     }
 
@@ -648,6 +757,13 @@ export function useDealPractice() {
     showAllTriggered.value = false
     playedCards.value = { N: [], E: [], S: [], W: [] }
 
+    // Reset card choice state
+    cardChoiceState.answered = {}
+    cardChoiceState.wrongCard = null
+    cardChoiceState.correctCard = null
+    cardChoiceState.boardHadWrong = false
+    cardChoiceState.wrongStepIndices = {}
+
     // Reset bidding state
     biddingState.displayedBids = []
     biddingState.currentBidIndex = 0
@@ -674,6 +790,8 @@ export function useDealPractice() {
   function resetStats() {
     biddingState.correctCount = 0
     biddingState.wrongCount = 0
+    cardChoiceState.correctCount = 0
+    cardChoiceState.wrongCount = 0
   }
 
   function normalizeBid(bid) {
@@ -692,6 +810,7 @@ export function useDealPractice() {
     currentDeal,
     stepState,
     biddingState,
+    cardChoiceState,
 
     // Computed: Steps
     steps,
@@ -715,6 +834,10 @@ export function useDealPractice() {
     canRedouble,
     canGoBack,
 
+    // Computed: Card Choice
+    hasCardChoice,
+    currentChooseCard,
+
     // Computed: Display
     hiddenSeats: effectiveHiddenSeats,
     hands,
@@ -734,6 +857,10 @@ export function useDealPractice() {
     makeBid,
     clearFeedback,
     goBack,
+
+    // Methods: Card Choice
+    makeCardChoice,
+    clearCardFeedback,
 
     // Methods: General
     loadDeal,

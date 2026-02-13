@@ -32,9 +32,9 @@
         <button v-if="currentCollection" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
           Lobby
         </button>
-        <div class="stats" v-if="practice.biddingState.correctCount + practice.biddingState.wrongCount > 0">
-          <span class="correct">{{ practice.biddingState.correctCount }}</span>
-          <span class="wrong">{{ practice.biddingState.wrongCount }}</span>
+        <div class="stats" v-if="totalCorrect + totalWrong > 0">
+          <span class="correct">{{ totalCorrect }}</span>
+          <span class="wrong">{{ totalWrong }}</span>
         </div>
         <button class="user-btn" @click="showSettings = true" :title="userName">
           {{ userInitials }}
@@ -119,7 +119,7 @@
               :vulnerable="currentDeal?.vulnerable"
               :contract="currentDeal?.contract"
               :declarer="currentDeal?.declarer"
-              :showContract="practice.biddingState.auctionComplete || practice.showOpeningLead.value"
+              :showContract="practice.biddingState.auctionComplete || practice.showOpeningLead.value || practice.hasSteps.value"
               :openingLead="practice.showOpeningLead.value ? currentDeal?.openingLead : ''"
               :totalDeals="deals.length"
               :currentIndex="currentDealIndex"
@@ -132,6 +132,8 @@
               :hiddenSeats="practice.hiddenSeats.value"
               :showHcp="practice.showHcp.value"
               :compact="true"
+              :clickableSeat="practice.hasCardChoice.value ? practice.studentSeat.value : null"
+              @card-click="onCardClick"
             />
           </div>
 
@@ -154,6 +156,15 @@
               type="wrong"
               :wrongBid="practice.biddingState.wrongBid"
               :correctBid="practice.biddingState.correctBid"
+              :showContinue="false"
+            />
+
+            <!-- Card choice feedback panel - shown after wrong card selection -->
+            <FeedbackPanel
+              :visible="!!practice.cardChoiceState.wrongCard"
+              type="wrong"
+              :wrongCardCode="practice.cardChoiceState.wrongCard"
+              :correctCardCode="practice.cardChoiceState.correctCard"
               :showContinue="false"
             />
 
@@ -207,12 +218,16 @@
                 <button
                   v-if="practice.stepState.currentStepIndex > 0"
                   class="instruction-btn secondary"
-                  @click="practice.prevStep()"
+                  @click="onStepBack"
                 >
                   ← Back
                 </button>
+                <!-- Card choice prompt replaces Next button -->
+                <div v-if="practice.hasCardChoice.value" class="card-choice-prompt">
+                  Click on the card you would choose
+                </div>
                 <button
-                  v-if="practice.hasNextStep.value"
+                  v-else-if="practice.hasNextStep.value"
                   class="instruction-btn primary"
                   @click="practice.nextStep()"
                 >
@@ -609,12 +624,30 @@ function handleLessonLoad({ subfolder, name, category, content }) {
   }
 }
 
+// Combined stats (bidding + card choice — never both active in same lesson)
+const totalCorrect = computed(() => practice.biddingState.correctCount + practice.cardChoiceState.correctCount)
+const totalWrong = computed(() => practice.biddingState.wrongCount + practice.cardChoiceState.wrongCount)
+
 // Bidding
 function onBid(bid) {
   const correct = practice.makeBid(bid)
   if (!correct && currentDeal.value) {
     forceRedBoard.value = currentDeal.value.boardNumber
   }
+}
+
+// Card choice
+function onCardClick({ seat, suit, rank }) {
+  const correct = practice.makeCardChoice(suit, rank)
+  if (!correct && currentDeal.value) {
+    forceRedBoard.value = currentDeal.value.boardNumber
+  }
+}
+
+// Step back (clears card feedback before going back)
+function onStepBack() {
+  practice.clearCardFeedback()
+  practice.goBack()
 }
 
 // Navigation
@@ -1331,6 +1364,15 @@ body {
 
 .instruction-btn.secondary:hover {
   background: #d0d0d0;
+}
+
+.card-choice-prompt {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1976d2;
+  padding: 10px 20px;
+  background: #e3f2fd;
+  border-radius: 4px;
 }
 
 /* Display mode styles */

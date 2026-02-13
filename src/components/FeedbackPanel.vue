@@ -6,6 +6,7 @@
       <span class="title">{{ title }}</span>
     </div>
 
+    <!-- Bid comparison feedback -->
     <div v-if="wrongBid" class="feedback-content">
       <div class="bid-comparison">
         <div class="bid-item your-bid">
@@ -15,6 +16,20 @@
         <div class="bid-item correct-bid">
           <span class="label">Correct bid:</span>
           <span class="bid" v-html="formatBidHtml(correctBid)"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card comparison feedback -->
+    <div v-if="wrongCardCode" class="feedback-content">
+      <div class="bid-comparison">
+        <div class="bid-item your-bid">
+          <span class="label">Your card:</span>
+          <span class="bid" v-html="formatCardHtml(wrongCardCode)"></span>
+        </div>
+        <div class="bid-item correct-bid">
+          <span class="label">Correct card:</span>
+          <span class="bid" v-html="formatCardHtml(correctCardCode)"></span>
         </div>
       </div>
     </div>
@@ -32,7 +47,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { formatBid, colorizeSuits } from '../utils/cardFormatting.js'
+import { formatBid, formatCardCode, colorizeSuits } from '../utils/cardFormatting.js'
 
 const props = defineProps({
   visible: {
@@ -49,6 +64,14 @@ const props = defineProps({
     default: ''
   },
   correctBid: {
+    type: String,
+    default: ''
+  },
+  wrongCardCode: {
+    type: String,
+    default: ''
+  },
+  correctCardCode: {
     type: String,
     default: ''
   },
@@ -72,6 +95,10 @@ const title = computed(() => {
 
 function formatBidHtml(bid) {
   return formatBid(bid).html
+}
+
+function formatCardHtml(code) {
+  return formatCardCode(code).html
 }
 </script>
 
@@ -148,6 +175,14 @@ function formatBidHtml(bid) {
 
 .bid-item .bid :deep(.red) {
   color: #d32f2f;
+}
+
+.bid-item .bid :deep(.suit-red) {
+  color: #d32f2f;
+}
+
+.bid-item .bid :deep(.suit-black) {
+  color: #1a1a1a;
 }
 
 .your-bid .bid {

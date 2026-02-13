@@ -1,5 +1,5 @@
 <template>
-  <div class="hand" :class="{ hidden: hidden, compact: compact, minimal: minimal }">
+  <div class="hand" :class="{ hidden: hidden, compact: compact, minimal: minimal, clickable: clickable }">
     <!-- Minimal mode: just suit symbols in a row (for hidden E/W on desktop) -->
     <template v-if="minimal && hidden">
       <div class="minimal-hand">
@@ -16,7 +16,17 @@
         <template v-for="suit in suits" :key="suit">
           <div v-if="!isPartialHand || hasSuitCards(suit)" class="suit-row">
             <span class="suit-symbol" :class="suitClass(suit)">{{ suitSymbol(suit) }}</span>
-            <span class="cards">{{ formatSuitCards(suit) }}</span>
+            <!-- Clickable mode: render each card as a separate clickable span -->
+            <span v-if="clickable" class="cards clickable-cards">
+              <span
+                v-for="card in hand[suit]"
+                :key="card"
+                class="card-clickable"
+                @click="$emit('card-click', { suit: suitLetter(suit), rank: card })"
+              >{{ formatCard(card) }}</span>
+            </span>
+            <!-- Non-clickable mode: plain text -->
+            <span v-else class="cards">{{ formatSuitCards(suit) }}</span>
           </div>
         </template>
       </div>
@@ -66,8 +76,14 @@ const props = defineProps({
   minimal: {
     type: Boolean,
     default: false
+  },
+  clickable: {
+    type: Boolean,
+    default: false
   }
 })
+
+defineEmits(['card-click'])
 
 const suits = SUIT_ORDER
 
@@ -95,6 +111,12 @@ function suitSymbol(suit) {
 
 function suitClass(suit) {
   return getSuitClass(suit)
+}
+
+// Map suit name to single letter for card-click events
+const SUIT_LETTERS = { spades: 'S', hearts: 'H', diamonds: 'D', clubs: 'C' }
+function suitLetter(suit) {
+  return SUIT_LETTERS[suit] || suit
 }
 
 function formatSuitCards(suit) {
@@ -152,6 +174,35 @@ function formatSuitCards(suit) {
 .cards {
   font-weight: 500;
   letter-spacing: 1px;
+}
+
+/* Clickable cards mode */
+.hand.clickable {
+  background: #e3f2fd;
+  border: 2px solid #2196f3;
+}
+
+.clickable-cards {
+  display: flex;
+  gap: 2px;
+}
+
+.card-clickable {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s, transform 0.1s;
+  user-select: none;
+}
+
+.card-clickable:hover {
+  background: #bbdefb;
+  transform: scale(1.1);
+}
+
+.card-clickable:active {
+  background: #90caf9;
+  transform: scale(0.95);
 }
 
 .hidden-hand {

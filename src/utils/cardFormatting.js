@@ -169,6 +169,27 @@ export function getDistribution(hand) {
 }
 
 /**
+ * Format a card code (e.g., "HK") for display
+ * @param {string} code Card code like "HK", "DT", "S4"
+ * @returns {Object} { text, html } formatted card
+ */
+export function formatCardCode(code) {
+  if (!code) return { text: '', html: '' }
+
+  const suit = code[0].toUpperCase()
+  let rank = code.slice(1).toUpperCase()
+  if (rank === 'T') rank = '10'
+
+  const symbol = SUIT_SYMBOLS[suit] || suit
+  const colorClass = suit === 'H' || suit === 'D' ? 'suit-red' : 'suit-black'
+
+  return {
+    text: `${symbol}${rank}`,
+    html: `<span class="${colorClass}">${symbol}</span>${rank}`
+  }
+}
+
+/**
  * Strip PBN control directives from text for display
  * Removes [BID xxx], [NEXT], [ROTATE], [PLAY ...], [SHOW ...] and similar markers
  * @param {string} text
@@ -182,6 +203,7 @@ export function stripControlDirectives(text) {
     .replace(/\[ROTATE\]/gi, '')
     .replace(/\[PLAY\s+[^\]]*\]/gi, '')
     .replace(/\[SHOW\s+[^\]]*\]/gi, '')
+    .replace(/\[choose-card\s+[^\]]*\]/gi, '')
     .replace(/\n{3,}/g, '\n\n')  // Collapse multiple newlines
     .trim()
 }
