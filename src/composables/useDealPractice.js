@@ -663,6 +663,15 @@ export function useDealPractice() {
     // Advance to next step (shows the explanation/reveal)
     nextStep()
 
+    // If we've landed on the last step with no more card choices, complete the board.
+    // nextStep() only calls onCardChoiceBoardComplete() when it can't advance,
+    // but here it successfully advanced to the final step — and since hasNextStep
+    // is false, the "Next" button won't appear, so nextStep() won't be called again.
+    if (!hasNextStep.value && !hasCardChoice.value) {
+      stepState.instructionComplete = true
+      onCardChoiceBoardComplete()
+    }
+
     return isCorrect
   }
 
