@@ -194,7 +194,7 @@ const lessonMasteryList = computed(() => {
 // Fetch board counts from GitHub for any lessons not in cache
 watch(lessonMasteryList, (lessons) => {
   mastery.fetchMissingBoardCounts(lessons.map(l => l.subfolder))
-})
+}, { immediate: true })
 
 function formatLessonName(folderName) {
   return accomplishments.formatLessonName(folderName)

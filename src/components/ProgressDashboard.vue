@@ -132,7 +132,7 @@ const lessonMasteryList = computed(() => {
 // Fetch board counts from GitHub for any lessons not in cache
 watch(lessonMasteryList, (lessons) => {
   mastery.fetchMissingBoardCounts(lessons.map(l => l.subfolder))
-})
+}, { immediate: true })
 
 /**
  * Last 5 most recently practiced lessons with status counts
