@@ -274,6 +274,7 @@ import { useUserStore } from './composables/useUserStore.js'
 import { useAssignmentStore } from './composables/useAssignmentStore.js'
 import { useDataSync } from './composables/useDataSync.js'
 import { useAccomplishments } from './composables/useAccomplishments.js'
+import { useBoardMastery } from './composables/useBoardMastery.js'
 
 import BridgeTable from './components/BridgeTable.vue'
 import BiddingBox from './components/BiddingBox.vue'
@@ -557,6 +558,10 @@ function handleLessonLoad({ subfolder, name, category, content }) {
     currentDealIndex.value = 0
     practice.loadDeal(dealsWithCategory[0])
     practice.resetStats()
+
+    // Cache board numbers for progress/accomplishments views
+    const boardMastery = useBoardMastery()
+    boardMastery.saveLessonBoardNumbers(subfolder, dealsWithCategory.map(d => d.boardNumber))
 
     // Store lesson metadata and update URL
     currentLesson.value = { id: subfolder, name, category }

@@ -264,8 +264,45 @@ function computeLessonAchievement(boardMasteryList) {
   return { achievement: ACHIEVEMENT.NONE }
 }
 
+// Cache key for lesson board numbers in localStorage
+const LESSON_BOARDS_KEY = 'bridgeLessonBoards'
+
+/**
+ * Save the board numbers for a lesson (called when a PBN is loaded for practice).
+ * @param {string} subfolder - Lesson subfolder identifier
+ * @param {number[]} boardNumbers - All board numbers in the lesson
+ */
+function saveLessonBoardNumbers(subfolder, boardNumbers) {
+  try {
+    const stored = localStorage.getItem(LESSON_BOARDS_KEY)
+    const cache = stored ? JSON.parse(stored) : {}
+    cache[subfolder] = boardNumbers
+    localStorage.setItem(LESSON_BOARDS_KEY, JSON.stringify(cache))
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+/**
+ * Get cached board numbers for a lesson.
+ * @param {string} subfolder - Lesson subfolder identifier
+ * @returns {number[]|null} Board numbers or null if not cached
+ */
+function getCachedLessonBoardNumbers(subfolder) {
+  try {
+    const stored = localStorage.getItem(LESSON_BOARDS_KEY)
+    if (!stored) return null
+    const cache = JSON.parse(stored)
+    return cache[subfolder] || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Extract unique lessons and their board numbers from observations.
+ * Uses cached board counts from practiced lessons to show all boards (including grey).
+ * Falls back to 1..max(observed) if no cache exists for a lesson.
  * @param {Array} observations - All observations
  * @returns {Array<{subfolder: string, boardNumbers: number[], lastActivity: string}>}
  */
@@ -284,7 +321,16 @@ function extractLessonsFromObservations(observations) {
     }
   }
   return Object.entries(lessons).map(([subfolder, data]) => {
-    // Generate full range 1..max so unattempted boards show as grey
+    // Use cached board list if available (from when the lesson was practiced)
+    const cached = getCachedLessonBoardNumbers(subfolder)
+    if (cached) {
+      return {
+        subfolder,
+        boardNumbers: cached,
+        lastActivity: data.lastActivity
+      }
+    }
+    // Fallback: generate range 1..max from observed boards
     const maxBoard = Math.max(...data.boards)
     const allBoards = []
     for (let i = 1; i <= maxBoard; i++) allBoards.push(i)
@@ -314,6 +360,7 @@ export function useBoardMastery() {
     computeBoardMastery,
     computeLessonAchievement,
     extractLessonsFromObservations,
+    saveLessonBoardNumbers,
     // Exposed for testing
     groupIntoBoardAttempts,
     calculateCurrentStatus,
