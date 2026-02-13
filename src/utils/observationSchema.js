@@ -192,21 +192,19 @@ export function validateObservation(obs) {
     if (!obs.deal.hands) errors.push('Missing deal.hands')
   }
 
-  // Bid prompt validation
+  // Bid prompt validation (relaxed for board-level observations where prompt_index === -1)
   if (!obs.bid_prompt) {
     errors.push('Missing bid_prompt object')
   } else {
     if (obs.bid_prompt.prompt_index === undefined) errors.push('Missing bid_prompt.prompt_index')
-    if (!obs.bid_prompt.expected_bid) errors.push('Missing bid_prompt.expected_bid')
+    if (obs.bid_prompt.prompt_index !== -1 && !obs.bid_prompt.expected_bid) errors.push('Missing bid_prompt.expected_bid')
   }
 
-  // Result validation
+  // Result validation (relaxed for board-level observations)
   if (!obs.result) {
     errors.push('Missing result object')
   } else {
-    if (!obs.result.student_bid) errors.push('Missing result.student_bid')
     if (obs.result.correct === undefined) errors.push('Missing result.correct')
-    if (!obs.result.attempt_number) errors.push('Missing result.attempt_number')
   }
 
   // Skill path

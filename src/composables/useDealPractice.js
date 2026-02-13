@@ -44,7 +44,9 @@ export function useDealPractice() {
     correctCount: 0,  // Boards with all bids correct
     wrongCount: 0,    // Boards with at least one wrong bid
     // Track if current board has any wrong answers
-    boardHadWrong: false
+    boardHadWrong: false,
+    // Track which prompt indices have unresolved wrong answers (for back-up-and-fix detection)
+    wrongPromptIndices: {}
   })
 
   // Timing for observations
@@ -456,14 +458,7 @@ export function useDealPractice() {
       }
       biddingState.auctionComplete = true
       promptStartTime.value = null
-
-      // Update per-board counters now that the board is complete
-      if (biddingState.boardHadWrong) {
-        biddingState.wrongCount++
-      } else if (promptsList.length > 0) {
-        // Only count as correct if there were actually prompts to answer
-        biddingState.correctCount++
-      }
+      onBoardComplete(promptsList)
       return
     }
 
@@ -492,13 +487,31 @@ export function useDealPractice() {
     // Reached end of auction
     biddingState.auctionComplete = true
     promptStartTime.value = null
+    onBoardComplete(promptsList)
+  }
 
-    // Update per-board counters now that the board is complete
+  /**
+   * Called when a board's auction is complete. Records wrap-up observation
+   * and updates per-board counters.
+   */
+  function onBoardComplete(promptsList) {
+    // Update per-board counters
     if (biddingState.boardHadWrong) {
       biddingState.wrongCount++
     } else if (promptsList.length > 0) {
-      // Only count as correct if there were actually prompts to answer
       biddingState.correctCount++
+    }
+
+    // Record board-level observation
+    if (promptsList.length > 0) {
+      if (biddingState.boardHadWrong) {
+        // Wrap-up: record overall board result (all fixed = true, else false)
+        const allFixed = Object.keys(biddingState.wrongPromptIndices).length === 0
+        recordBoardObservation(allFixed)
+      } else {
+        // Clean completion
+        recordBoardObservation(true)
+      }
     }
   }
 
@@ -507,9 +520,21 @@ export function useDealPractice() {
 
     const expectedBid = currentDeal.value.auction[biddingState.currentBidIndex]
     const isCorrect = normalizeBid(bid) === normalizeBid(expectedBid)
-    const timeTakenMs = promptStartTime.value ? Date.now() - promptStartTime.value : 0
+    const promptIdx = biddingState.currentPromptIndex
 
-    recordBidObservation(bid, expectedBid, isCorrect, timeTakenMs)
+    // Record observations per-board (not per-bid):
+    // - Wrong bid: record failure immediately
+    // - Correct bid on a previously-wrong prompt (back-up fix): record success
+    // - Correct bid on a never-wrong prompt: no recording (wait for board completion)
+    if (!isCorrect) {
+      recordBoardObservation(false)
+      biddingState.wrongPromptIndices[promptIdx] = true
+      biddingState.boardHadWrong = true
+    } else if (promptIdx in biddingState.wrongPromptIndices) {
+      // Student backed up and fixed this prompt
+      delete biddingState.wrongPromptIndices[promptIdx]
+      recordBoardObservation(true)
+    }
 
     // Capture bid position before advancing
     const bidPosition = biddingState.currentBidIndex
@@ -530,8 +555,6 @@ export function useDealPractice() {
       biddingState.wrongBid = bid
       biddingState.correctBid = expectedBid
       biddingState.wrongBidIndex = bidPosition
-      // Mark this board as having a wrong answer
-      biddingState.boardHadWrong = true
     }
 
     advanceAuction()
@@ -596,21 +619,21 @@ export function useDealPractice() {
     return false
   }
 
-  async function recordBidObservation(studentBid, expectedBid, correct, timeTakenMs) {
+  async function recordBoardObservation(correct) {
     if (!currentDeal.value) return
     try {
       await observationStore.recordObservation({
         deal: currentDeal.value,
-        promptIndex: biddingState.currentPromptIndex,
+        promptIndex: -1,
         auctionSoFar: [...biddingState.displayedBids],
-        expectedBid,
-        studentBid,
+        expectedBid: 'BOARD',
+        studentBid: correct ? 'PASS' : 'FAIL',
         correct,
-        attemptNumber: currentAttemptNumber.value,
-        timeTakenMs
+        attemptNumber: 1,
+        timeTakenMs: 0
       })
     } catch (err) {
-      console.error('Failed to record observation:', err)
+      console.error('Failed to record board observation:', err)
     }
   }
 
@@ -634,7 +657,8 @@ export function useDealPractice() {
     biddingState.wrongBidIndex = -1
     biddingState.correctBidIndex = -1
     biddingState.auctionComplete = false
-    biddingState.boardHadWrong = false  // Reset for new board
+    biddingState.boardHadWrong = false
+    biddingState.wrongPromptIndices = {}
     promptStartTime.value = null
     currentAttemptNumber.value = 1
 

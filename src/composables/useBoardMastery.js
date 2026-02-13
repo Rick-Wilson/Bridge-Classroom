@@ -71,18 +71,18 @@ function groupIntoBoardAttempts(observations) {
     .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
 }
 
-// How long after a corrected attempt before it becomes eligible for retry (orange)
-const YELLOW_TO_ORANGE_MS = 60 * 60 * 1000 // 1 hour
+// Cooldown period: failures within this window affect status
+const COOLDOWN_MS = 60 * 60 * 1000 // 1 hour
 
 /**
  * Calculate current status for a board based on its observations.
  *
- * State machine: GREY → RED → YELLOW → (1hr) → ORANGE → GREEN
- * - GREY: no attempts
- * - RED: most recent attempt was incorrect
- * - YELLOW: corrected after a failure today, cooling down
- * - ORANGE: cooldown elapsed, eligible for retry
- * - GREEN: no failures today, OR successful retry after cooldown
+ * Rules (evaluated in order):
+ * 1. No observations → GREY
+ * 2. Most recent not correct → RED
+ * 3. Any failure within past hour → YELLOW
+ * 4. Most recent success within 1hr after most recent failure → ORANGE
+ * 5. Else → GREEN
  *
  * @param {Array} observations - All observations for this board, sorted ascending by timestamp
  * @returns {string} STATUS value
@@ -90,39 +90,25 @@ const YELLOW_TO_ORANGE_MS = 60 * 60 * 1000 // 1 hour
 function calculateCurrentStatus(observations) {
   if (observations.length === 0) return STATUS.GREY
 
-  // Work with board attempts (grouped by session) rather than raw observations
-  const attempts = groupIntoBoardAttempts(observations)
-  const mostRecentAttempt = attempts[attempts.length - 1]
+  const mostRecent = observations[observations.length - 1]
+  if (!mostRecent.correct) return STATUS.RED
 
-  if (!mostRecentAttempt.correct) return STATUS.RED
-
-  // Most recent attempt was correct. Check if there were failures earlier today.
-  const todayStr = new Date().toISOString().slice(0, 10)
-  const todayAttempts = attempts.filter(a => a.timestamp.startsWith(todayStr))
-  const hadFailureToday = todayAttempts.some(a => !a.correct)
-
-  if (!hadFailureToday) return STATUS.GREEN
-
-  // Had failure today but corrected. Find the first correct attempt after the last failure.
-  const lastFailure = todayAttempts.filter(a => !a.correct).pop()
-  const firstCorrection = todayAttempts.find(
-    a => a.correct && a.timestamp > lastFailure.timestamp
+  // Any failure within the past hour?
+  const oneHourAgo = Date.now() - COOLDOWN_MS
+  const hasRecentFailure = observations.some(
+    o => !o.correct && new Date(o.timestamp).getTime() > oneHourAgo
   )
+  if (hasRecentFailure) return STATUS.YELLOW
 
-  if (!firstCorrection) return STATUS.YELLOW
+  // Most recent success within 1hr after most recent failure?
+  const lastFailure = observations.filter(o => !o.correct).pop()
+  if (!lastFailure) return STATUS.GREEN // No failures ever
 
-  // Check if enough time has passed since the first correction for retry eligibility.
-  const elapsed = Date.now() - new Date(firstCorrection.timestamp).getTime()
+  const lastFailureTime = new Date(lastFailure.timestamp).getTime()
+  const mostRecentTime = new Date(mostRecent.timestamp).getTime()
+  if (mostRecentTime - lastFailureTime <= COOLDOWN_MS) return STATUS.ORANGE
 
-  if (elapsed < YELLOW_TO_ORANGE_MS) return STATUS.YELLOW
-
-  // Cooldown has elapsed. If the most recent attempt is a different attempt
-  // than the first correction, the user has successfully retried → GREEN.
-  if (mostRecentAttempt.sessionId !== firstCorrection.sessionId) {
-    return STATUS.GREEN
-  }
-
-  return STATUS.ORANGE
+  return STATUS.GREEN
 }
 
 /**
