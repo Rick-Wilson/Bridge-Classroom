@@ -130,7 +130,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
 import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { generateBoardMasteryTestData } from '../utils/boardMasteryTestData.js'
@@ -189,6 +189,11 @@ const lessonMasteryList = computed(() => {
       }
     })
     .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
+})
+
+// Fetch board counts from GitHub for any lessons not in cache
+watch(lessonMasteryList, (lessons) => {
+  mastery.fetchMissingBoardCounts(lessons.map(l => l.subfolder))
 })
 
 function formatLessonName(folderName) {

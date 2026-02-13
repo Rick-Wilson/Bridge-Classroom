@@ -1,6 +1,7 @@
-import { computed } from 'vue'
+import { ref } from 'vue'
 import { useAccomplishments } from './useAccomplishments.js'
 import { useObservationStore } from './useObservationStore.js'
+import { useAppConfig } from './useAppConfig.js'
 
 // Current status values
 const STATUS = {
@@ -264,49 +265,106 @@ function computeLessonAchievement(boardMasteryList) {
   return { achievement: ACHIEVEMENT.NONE }
 }
 
-// Cache key for lesson board numbers in localStorage
+// Reactive cache of lesson board numbers (singleton)
 const LESSON_BOARDS_KEY = 'bridgeLessonBoards'
+const boardCountCache = ref(loadBoardCacheFromStorage())
+const fetchesInFlight = new Set()
 
-/**
- * Save the board numbers for a lesson (called when a PBN is loaded for practice).
- * @param {string} subfolder - Lesson subfolder identifier
- * @param {number[]} boardNumbers - All board numbers in the lesson
- */
-function saveLessonBoardNumbers(subfolder, boardNumbers) {
+function loadBoardCacheFromStorage() {
   try {
     const stored = localStorage.getItem(LESSON_BOARDS_KEY)
-    const cache = stored ? JSON.parse(stored) : {}
-    cache[subfolder] = boardNumbers
-    localStorage.setItem(LESSON_BOARDS_KEY, JSON.stringify(cache))
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+function persistBoardCache() {
+  try {
+    localStorage.setItem(LESSON_BOARDS_KEY, JSON.stringify(boardCountCache.value))
   } catch {
     // localStorage unavailable
   }
 }
 
 /**
- * Get cached board numbers for a lesson.
+ * Save the board numbers for a lesson (called when a PBN is loaded for practice).
+ * Updates both the reactive cache and localStorage.
  * @param {string} subfolder - Lesson subfolder identifier
- * @returns {number[]|null} Board numbers or null if not cached
+ * @param {number[]} boardNumbers - All board numbers in the lesson
  */
-function getCachedLessonBoardNumbers(subfolder) {
-  try {
-    const stored = localStorage.getItem(LESSON_BOARDS_KEY)
-    if (!stored) return null
-    const cache = JSON.parse(stored)
-    return cache[subfolder] || null
-  } catch {
-    return null
+function saveLessonBoardNumbers(subfolder, boardNumbers) {
+  boardCountCache.value = { ...boardCountCache.value, [subfolder]: boardNumbers }
+  persistBoardCache()
+}
+
+/**
+ * Parse board numbers from raw PBN content without full parse.
+ * @param {string} content - PBN file content
+ * @returns {number[]} Sorted board numbers
+ */
+function parseBoardNumbersFromPbn(content) {
+  const numbers = []
+  const regex = /\[Board\s+"?(\d+)"?\]/g
+  let match
+  while ((match = regex.exec(content)) !== null) {
+    numbers.push(parseInt(match[1], 10))
   }
+  return numbers.sort((a, b) => a - b)
+}
+
+/**
+ * Fetch board numbers for uncached lessons from GitHub.
+ * Tries each collection's baseUrl until a PBN is found.
+ * Updates the reactive cache, causing components to re-render.
+ * @param {string[]} subfolders - Lesson subfolders to resolve
+ */
+async function fetchMissingBoardCounts(subfolders) {
+  const appConfig = useAppConfig()
+  const missing = subfolders.filter(
+    sf => !boardCountCache.value[sf] && !fetchesInFlight.has(sf)
+  )
+  if (missing.length === 0) return
+
+  for (const subfolder of missing) {
+    fetchesInFlight.add(subfolder)
+  }
+
+  await Promise.all(missing.map(async (subfolder) => {
+    try {
+      for (const collection of appConfig.COLLECTIONS) {
+        const filename = subfolder.includes('/') ? subfolder.split('/').pop() : subfolder
+        const url = `${collection.baseUrl}/${filename}.pbn`
+        try {
+          const response = await fetch(url)
+          if (!response.ok) continue
+          const content = await response.text()
+          const boardNumbers = parseBoardNumbersFromPbn(content)
+          if (boardNumbers.length > 0) {
+            saveLessonBoardNumbers(subfolder, boardNumbers)
+            break
+          }
+        } catch {
+          continue
+        }
+      }
+    } finally {
+      fetchesInFlight.delete(subfolder)
+    }
+  }))
 }
 
 /**
  * Extract unique lessons and their board numbers from observations.
- * Uses cached board counts from practiced lessons to show all boards (including grey).
- * Falls back to 1..max(observed) if no cache exists for a lesson.
+ * Uses the reactive board cache to show all boards (including grey).
+ * Falls back to 1..max(observed) if not yet cached.
  * @param {Array} observations - All observations
  * @returns {Array<{subfolder: string, boardNumbers: number[], lastActivity: string}>}
  */
 function extractLessonsFromObservations(observations) {
+  // Read the reactive ref so Vue tracks this dependency
+  const cache = boardCountCache.value
+
   const lessons = {}
   for (const obs of observations) {
     const subfolder = obs.deal_subfolder || obs.deal?.subfolder
@@ -321,8 +379,7 @@ function extractLessonsFromObservations(observations) {
     }
   }
   return Object.entries(lessons).map(([subfolder, data]) => {
-    // Use cached board list if available (from when the lesson was practiced)
-    const cached = getCachedLessonBoardNumbers(subfolder)
+    const cached = cache[subfolder]
     if (cached) {
       return {
         subfolder,
@@ -361,6 +418,7 @@ export function useBoardMastery() {
     computeLessonAchievement,
     extractLessonsFromObservations,
     saveLessonBoardNumbers,
+    fetchMissingBoardCounts,
     // Exposed for testing
     groupIntoBoardAttempts,
     calculateCurrentStatus,
