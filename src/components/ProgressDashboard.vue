@@ -26,51 +26,21 @@
 
     <!-- Dashboard content -->
     <div v-else class="dashboard-content">
-      <!-- Lesson Mastery Strips -->
-      <section class="mastery-section">
-        <h3>Lesson Mastery</h3>
-        <div v-if="lessonMasteryList.length === 0" class="no-data">
-          No lesson data available yet.
+      <div v-for="day in dailyProgress" :key="day.date" class="day-card">
+        <div class="day-header">
+          <span class="day-date">{{ formatDate(day.date) }}</span>
+          <span class="day-summary">{{ day.totalBoards }} board{{ day.totalBoards !== 1 ? 's' : '' }} practiced</span>
         </div>
-        <div v-else class="lesson-list">
-          <div v-for="lesson in lessonMasteryList" :key="lesson.subfolder" class="lesson-row">
-            <div class="lesson-header">
-              <span class="lesson-name">{{ formatLessonName(lesson.subfolder) }}</span>
-              <span
-                v-if="lesson.achievement !== 'none'"
-                :class="['achievement-badge', lesson.achievement]"
-              >
-                &#9733; {{ lesson.achievement === 'gold' ? 'Gold' : 'Silver' }}
-              </span>
+        <div class="day-lessons">
+          <div v-for="lesson in day.lessons" :key="lesson.subfolder" class="day-lesson-row">
+            <span class="day-lesson-name">{{ formatLessonName(lesson.subfolder) }}</span>
+            <div class="day-lesson-counts">
+              <span v-if="lesson.correctCount" class="count count-correct">{{ lesson.correctCount }}</span>
+              <span v-if="lesson.incorrectCount" class="count count-incorrect">{{ lesson.incorrectCount }}</span>
             </div>
-            <BoardMasteryStrip
-              :boardNumbers="lesson.boardNumbers"
-              :lessonSubfolder="lesson.subfolder"
-              :currentIndex="-1"
-              :alignLeft="true"
-              @goto="(boardIndex) => onBoardClick(lesson.subfolder, lesson.boardNumbers[boardIndex])"
-            />
           </div>
         </div>
-      </section>
-
-      <!-- Recent Skills -->
-      <section class="recent-section" v-if="recentSkills.length > 0">
-        <h3>Recent Skills</h3>
-        <div class="recent-skills">
-          <div v-for="skill in recentSkills" :key="skill.subfolder" class="skill-card">
-            <div class="skill-name">{{ formatLessonName(skill.subfolder) }}</div>
-            <div class="skill-counts">
-              <span v-if="skill.greenCount" class="count count-green">{{ skill.greenCount }}</span>
-              <span v-if="skill.orangeCount" class="count count-orange">{{ skill.orangeCount }}</span>
-              <span v-if="skill.yellowCount" class="count count-yellow">{{ skill.yellowCount }}</span>
-              <span v-if="skill.redCount" class="count count-red">{{ skill.redCount }}</span>
-              <span v-if="skill.greyCount" class="count count-grey">{{ skill.greyCount }}</span>
-            </div>
-            <div class="skill-time">{{ formatRelativeTime(skill.lastActivity) }}</div>
-          </div>
-        </div>
-      </section>
+      </div>
 
       <!-- Actions -->
       <div class="dashboard-actions">
@@ -86,16 +56,13 @@
 </template>
 
 <script setup>
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useStudentProgress } from '../composables/useStudentProgress.js'
-import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
-import BoardMasteryStrip from './BoardMasteryStrip.vue'
 
-const emit = defineEmits(['close', 'navigate-to-deal'])
+const emit = defineEmits(['close'])
 
 const progress = useStudentProgress()
-const mastery = useBoardMastery()
 const accomplishments = useAccomplishments()
 
 onMounted(async () => {
@@ -107,90 +74,78 @@ async function refresh() {
 }
 
 /**
- * All lessons with mastery data, sorted alphabetically
+ * Day-by-day progress: for each practice day, show lessons and per-board correct/incorrect.
+ * Only counts each board once per day (correct if all observations for that board that day were correct).
+ * Limited to 10 most recent practice days.
  */
-const lessonMasteryList = computed(() => {
-  const observations = mastery.getObservations()
-  const lessons = mastery.extractLessonsFromObservations(observations)
+const dailyProgress = computed(() => {
+  const byDate = progress.getObservationsByDate()
+  const dates = Object.keys(byDate).sort().reverse().slice(0, 10)
 
-  return lessons
-    .map(lesson => {
-      const boardMasteryResults = mastery.computeBoardMastery(
-        observations,
-        lesson.subfolder,
-        lesson.boardNumbers
-      )
-      const lessonAchievement = mastery.computeLessonAchievement(boardMasteryResults)
-      return {
-        ...lesson,
-        achievement: lessonAchievement.achievement
+  return dates.map(date => {
+    const dayObs = byDate[date]
+
+    // Group by subfolder, then by board number
+    const lessonMap = {}
+    for (const obs of dayObs) {
+      const subfolder = obs.deal_subfolder || obs.deal?.subfolder
+      const boardNum = obs.deal_number ?? obs.deal?.deal_number
+      if (!subfolder || boardNum == null) continue
+
+      if (!lessonMap[subfolder]) {
+        lessonMap[subfolder] = {}
       }
-    })
-    .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
-})
-
-// Fetch board counts from GitHub for any lessons not in cache
-watch(lessonMasteryList, (lessons) => {
-  mastery.fetchMissingBoardCounts(lessons.map(l => l.subfolder))
-}, { immediate: true })
-
-/**
- * Last 5 most recently practiced lessons with status counts
- */
-const recentSkills = computed(() => {
-  const observations = mastery.getObservations()
-  const lessons = mastery.extractLessonsFromObservations(observations)
-
-  // Sort by most recent activity, take 5
-  const recent = lessons
-    .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity))
-    .slice(0, 5)
-
-  return recent.map(lesson => {
-    const boardMasteryResults = mastery.computeBoardMastery(
-      observations,
-      lesson.subfolder,
-      lesson.boardNumbers
-    )
-
-    const counts = { green: 0, orange: 0, yellow: 0, red: 0, grey: 0 }
-    for (const board of boardMasteryResults) {
-      counts[board.status] = (counts[board.status] || 0) + 1
+      if (!lessonMap[subfolder][boardNum]) {
+        lessonMap[subfolder][boardNum] = []
+      }
+      lessonMap[subfolder][boardNum].push(obs)
     }
 
-    return {
-      subfolder: lesson.subfolder,
-      lastActivity: lesson.lastActivity,
-      greenCount: counts.green,
-      orangeCount: counts.orange,
-      yellowCount: counts.yellow,
-      redCount: counts.red,
-      greyCount: counts.grey
-    }
+    // For each lesson, count boards correct vs incorrect for that day
+    const lessons = Object.entries(lessonMap)
+      .map(([subfolder, boards]) => {
+        let correctCount = 0
+        let incorrectCount = 0
+        for (const boardObs of Object.values(boards)) {
+          // A board is "correct" for the day if all observations that day were correct
+          const allCorrect = boardObs.every(o => o.correct)
+          if (allCorrect) {
+            correctCount++
+          } else {
+            incorrectCount++
+          }
+        }
+        return { subfolder, correctCount, incorrectCount }
+      })
+      .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
+
+    const totalBoards = lessons.reduce((sum, l) => sum + l.correctCount + l.incorrectCount, 0)
+
+    return { date, lessons, totalBoards }
   })
 })
-
-function onBoardClick(subfolder, dealNumber) {
-  emit('navigate-to-deal', { subfolder, dealNumber })
-}
 
 function formatLessonName(folderName) {
   return accomplishments.formatLessonName(folderName)
 }
 
-function formatRelativeTime(timestamp) {
-  const now = new Date()
-  const then = new Date(timestamp)
-  const diffMs = now - then
-  const diffMins = Math.floor(diffMs / 60000)
-  const diffHours = Math.floor(diffMs / 3600000)
-  const diffDays = Math.floor(diffMs / 86400000)
+function formatDate(dateStr) {
+  const date = new Date(dateStr + 'T00:00:00')
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
 
-  if (diffMins < 1) return 'Just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return then.toLocaleDateString()
+  const todayStr = today.toISOString().split('T')[0]
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+  if (dateStr === todayStr) return 'Today'
+  if (dateStr === yesterdayStr) return 'Yesterday'
+
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric'
+  })
 }
 </script>
 
@@ -198,7 +153,7 @@ function formatRelativeTime(timestamp) {
 .progress-dashboard {
   background: white;
   border-radius: 12px;
-  max-width: 600px;
+  max-width: 500px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
@@ -238,7 +193,7 @@ function formatRelativeTime(timestamp) {
 }
 
 .dashboard-content {
-  padding: 20px;
+  padding: 16px 20px;
 }
 
 .loading,
@@ -288,93 +243,53 @@ function formatRelativeTime(timestamp) {
   margin-bottom: 20px;
 }
 
-/* Mastery section */
-.mastery-section,
-.recent-section {
-  margin-bottom: 24px;
-}
-
-.mastery-section h3,
-.recent-section h3 {
-  font-size: 14px;
-  text-transform: uppercase;
-  color: #666;
-  margin-bottom: 12px;
-  letter-spacing: 0.5px;
-}
-
-.no-data {
-  text-align: center;
-  color: #999;
-  padding: 20px;
-}
-
-.lesson-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.lesson-row {
+/* Day cards */
+.day-card {
   background: #fafafa;
   border-radius: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
 }
 
-.lesson-header {
+.day-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
-.lesson-name {
+.day-date {
   font-weight: 600;
   font-size: 14px;
   color: #333;
 }
 
-.achievement-badge {
+.day-summary {
   font-size: 12px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 12px;
+  color: #999;
 }
 
-.achievement-badge.gold {
-  background: linear-gradient(135deg, #ffd700, #ffb300);
-  color: #5d4037;
-}
-
-.achievement-badge.silver {
-  background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
-  color: #424242;
-}
-
-/* Recent Skills */
-.recent-skills {
+.day-lessons {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
-.skill-card {
+.day-lesson-row {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  background: #fafafa;
-  border-radius: 8px;
+  padding: 4px 8px;
+  background: white;
+  border-radius: 4px;
 }
 
-.skill-name {
-  flex: 1;
-  font-weight: 500;
-  font-size: 14px;
-  color: #333;
+.day-lesson-name {
+  font-size: 13px;
+  color: #555;
 }
 
-.skill-counts {
+.day-lesson-counts {
   display: flex;
   gap: 6px;
 }
@@ -383,50 +298,30 @@ function formatRelativeTime(timestamp) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
   font-size: 12px;
   font-weight: 600;
 }
 
-.count-green {
+.count-correct {
   background: #4caf50;
   color: white;
 }
 
-.count-orange {
-  background: #ff9800;
-  color: white;
-}
-
-.count-yellow {
-  background: #ffc107;
-  color: #333;
-}
-
-.count-red {
+.count-incorrect {
   background: #ef5350;
   color: white;
-}
-
-.count-grey {
-  background: #ccc;
-  color: #666;
-}
-
-.skill-time {
-  font-size: 12px;
-  color: #999;
-  white-space: nowrap;
 }
 
 /* Actions */
 .dashboard-actions {
   display: flex;
   gap: 12px;
-  margin-top: 24px;
-  padding-top: 20px;
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid #eee;
 }
 

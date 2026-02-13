@@ -246,7 +246,7 @@
 
     <!-- Progress Dashboard Modal -->
     <div v-if="showProgress" class="modal-overlay" @click.self="showProgress = false">
-      <ProgressDashboard @close="showProgress = false" @navigate-to-deal="handleNavigateFromProgress" />
+      <ProgressDashboard @close="showProgress = false" />
     </div>
 
     <!-- Accomplishments Modal -->
@@ -642,11 +642,6 @@ async function navigateToDeal({ subfolder, dealNumber }) {
 
 function handleNavigateToDeal(payload) {
   showAccomplishments.value = false
-  navigateToDeal(payload)
-}
-
-function handleNavigateFromProgress(payload) {
-  showProgress.value = false
   navigateToDeal(payload)
 }
 
