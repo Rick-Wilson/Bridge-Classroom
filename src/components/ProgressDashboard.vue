@@ -26,84 +26,48 @@
 
     <!-- Dashboard content -->
     <div v-else class="dashboard-content">
-      <!-- Overall Stats -->
-      <section class="stats-section">
-        <h3>Overall Stats</h3>
-        <div class="stat-cards">
-          <div class="stat-card">
-            <div class="stat-value">{{ progress.totalObservations.value }}</div>
-            <div class="stat-label">Total Bids</div>
-          </div>
-          <div class="stat-card accuracy">
-            <div class="stat-value">{{ progress.overallAccuracy.value }}%</div>
-            <div class="stat-label">Accuracy</div>
-          </div>
-          <div class="stat-card streak">
-            <div class="stat-value">{{ progress.streak.value }}</div>
-            <div class="stat-label">Day Streak</div>
+      <!-- Lesson Mastery Strips -->
+      <section class="mastery-section">
+        <h3>Lesson Mastery</h3>
+        <div v-if="lessonMasteryList.length === 0" class="no-data">
+          No lesson data available yet.
+        </div>
+        <div v-else class="lesson-list">
+          <div v-for="lesson in lessonMasteryList" :key="lesson.subfolder" class="lesson-row">
+            <div class="lesson-header">
+              <span class="lesson-name">{{ formatLessonName(lesson.subfolder) }}</span>
+              <span
+                v-if="lesson.achievement !== 'none'"
+                :class="['achievement-badge', lesson.achievement]"
+              >
+                &#9733; {{ lesson.achievement === 'gold' ? 'Gold' : 'Silver' }}
+              </span>
+            </div>
+            <BoardMasteryStrip
+              :boardNumbers="lesson.boardNumbers"
+              :lessonSubfolder="lesson.subfolder"
+              :currentIndex="-1"
+            />
           </div>
         </div>
       </section>
 
-      <!-- Today's Progress -->
-      <section class="stats-section">
-        <h3>Today</h3>
-        <div class="period-stats">
-          <div class="period-stat">
-            <span class="value">{{ progress.todayStats.value.total }}</span>
-            <span class="label">bids</span>
-          </div>
-          <div class="period-stat correct">
-            <span class="value">{{ progress.todayStats.value.correct }}</span>
-            <span class="label">correct</span>
-          </div>
-          <div class="period-stat incorrect">
-            <span class="value">{{ progress.todayStats.value.incorrect }}</span>
-            <span class="label">wrong</span>
-          </div>
-          <div class="period-stat" v-if="progress.todayStats.value.total > 0">
-            <span class="value">{{ progress.todayStats.value.accuracy }}%</span>
-            <span class="label">accuracy</span>
+      <!-- Recent Skills -->
+      <section class="recent-section" v-if="recentSkills.length > 0">
+        <h3>Recent Skills</h3>
+        <div class="recent-skills">
+          <div v-for="skill in recentSkills" :key="skill.subfolder" class="skill-card">
+            <div class="skill-name">{{ formatLessonName(skill.subfolder) }}</div>
+            <div class="skill-counts">
+              <span v-if="skill.greenCount" class="count count-green">{{ skill.greenCount }}</span>
+              <span v-if="skill.orangeCount" class="count count-orange">{{ skill.orangeCount }}</span>
+              <span v-if="skill.yellowCount" class="count count-yellow">{{ skill.yellowCount }}</span>
+              <span v-if="skill.redCount" class="count count-red">{{ skill.redCount }}</span>
+              <span v-if="skill.greyCount" class="count count-grey">{{ skill.greyCount }}</span>
+            </div>
+            <div class="skill-time">{{ formatRelativeTime(skill.lastActivity) }}</div>
           </div>
         </div>
-      </section>
-
-      <!-- This Week -->
-      <section class="stats-section">
-        <h3>This Week</h3>
-        <div class="period-stats">
-          <div class="period-stat">
-            <span class="value">{{ progress.weekStats.value.total }}</span>
-            <span class="label">bids</span>
-          </div>
-          <div class="period-stat correct">
-            <span class="value">{{ progress.weekStats.value.correct }}</span>
-            <span class="label">correct</span>
-          </div>
-          <div class="period-stat incorrect">
-            <span class="value">{{ progress.weekStats.value.incorrect }}</span>
-            <span class="label">wrong</span>
-          </div>
-          <div class="period-stat" v-if="progress.weekStats.value.total > 0">
-            <span class="value">{{ progress.weekStats.value.accuracy }}%</span>
-            <span class="label">accuracy</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Skill Breakdown -->
-      <section class="stats-section" v-if="Object.keys(progress.skillStats.value).length > 0">
-        <h3>Skills</h3>
-        <SkillChart :stats="progress.skillStats.value" />
-      </section>
-
-      <!-- Recent Practice -->
-      <section class="stats-section" v-if="progress.sessions.value.length > 0">
-        <h3>Recent Sessions</h3>
-        <PracticeHistory
-          :sessions="progress.sessions.value.slice(0, 5)"
-          :observations="progress.recentObservations.value"
-        />
       </section>
 
       <!-- Actions -->
@@ -120,21 +84,102 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useStudentProgress } from '../composables/useStudentProgress.js'
-import SkillChart from './SkillChart.vue'
-import PracticeHistory from './PracticeHistory.vue'
+import { useBoardMastery } from '../composables/useBoardMastery.js'
+import { useAccomplishments } from '../composables/useAccomplishments.js'
+import BoardMasteryStrip from './BoardMasteryStrip.vue'
 
 const emit = defineEmits(['close'])
 
 const progress = useStudentProgress()
+const mastery = useBoardMastery()
+const accomplishments = useAccomplishments()
 
 onMounted(async () => {
   await progress.fetchProgress()
 })
 
 async function refresh() {
-  await progress.fetchProgress(true) // Force refresh
+  await progress.fetchProgress(true)
+}
+
+/**
+ * All lessons with mastery data, sorted alphabetically
+ */
+const lessonMasteryList = computed(() => {
+  const observations = mastery.getObservations()
+  const lessons = mastery.extractLessonsFromObservations(observations)
+
+  return lessons
+    .map(lesson => {
+      const boardMasteryResults = mastery.computeBoardMastery(
+        observations,
+        lesson.subfolder,
+        lesson.boardNumbers
+      )
+      const lessonAchievement = mastery.computeLessonAchievement(boardMasteryResults)
+      return {
+        ...lesson,
+        achievement: lessonAchievement.achievement
+      }
+    })
+    .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
+})
+
+/**
+ * Last 5 most recently practiced lessons with status counts
+ */
+const recentSkills = computed(() => {
+  const observations = mastery.getObservations()
+  const lessons = mastery.extractLessonsFromObservations(observations)
+
+  // Sort by most recent activity, take 5
+  const recent = lessons
+    .sort((a, b) => b.lastActivity.localeCompare(a.lastActivity))
+    .slice(0, 5)
+
+  return recent.map(lesson => {
+    const boardMasteryResults = mastery.computeBoardMastery(
+      observations,
+      lesson.subfolder,
+      lesson.boardNumbers
+    )
+
+    const counts = { green: 0, orange: 0, yellow: 0, red: 0, grey: 0 }
+    for (const board of boardMasteryResults) {
+      counts[board.status] = (counts[board.status] || 0) + 1
+    }
+
+    return {
+      subfolder: lesson.subfolder,
+      lastActivity: lesson.lastActivity,
+      greenCount: counts.green,
+      orangeCount: counts.orange,
+      yellowCount: counts.yellow,
+      redCount: counts.red,
+      greyCount: counts.grey
+    }
+  })
+})
+
+function formatLessonName(folderName) {
+  return accomplishments.formatLessonName(folderName)
+}
+
+function formatRelativeTime(timestamp) {
+  const now = new Date()
+  const then = new Date(timestamp)
+  const diffMs = now - then
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
+
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return then.toLocaleDateString()
 }
 </script>
 
@@ -232,11 +277,14 @@ async function refresh() {
   margin-bottom: 20px;
 }
 
-.stats-section {
+/* Mastery section */
+.mastery-section,
+.recent-section {
   margin-bottom: 24px;
 }
 
-.stats-section h3 {
+.mastery-section h3,
+.recent-section h3 {
   font-size: 14px;
   text-transform: uppercase;
   color: #666;
@@ -244,70 +292,125 @@ async function refresh() {
   letter-spacing: 0.5px;
 }
 
-.stat-cards {
+.no-data {
+  text-align: center;
+  color: #999;
+  padding: 20px;
+}
+
+.lesson-list {
   display: flex;
+  flex-direction: column;
   gap: 12px;
 }
 
-.stat-card {
-  flex: 1;
-  background: #f5f5f5;
-  padding: 16px;
+.lesson-row {
+  background: #fafafa;
   border-radius: 8px;
-  text-align: center;
+  padding: 10px 12px;
 }
 
-.stat-card.accuracy {
-  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-}
-
-.stat-card.streak {
-  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #333;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
-}
-
-.period-stats {
+.lesson-header {
   display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
 }
 
-.period-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.period-stat .value {
-  font-size: 20px;
+.lesson-name {
   font-weight: 600;
+  font-size: 14px;
   color: #333;
 }
 
-.period-stat .label {
-  font-size: 13px;
+.achievement-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.achievement-badge.gold {
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  color: #5d4037;
+}
+
+.achievement-badge.silver {
+  background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
+  color: #424242;
+}
+
+/* Recent Skills */
+.recent-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.skill-name {
+  flex: 1;
+  font-weight: 500;
+  font-size: 14px;
+  color: #333;
+}
+
+.skill-counts {
+  display: flex;
+  gap: 6px;
+}
+
+.count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.count-green {
+  background: #4caf50;
+  color: white;
+}
+
+.count-orange {
+  background: #ff9800;
+  color: white;
+}
+
+.count-yellow {
+  background: #ffc107;
+  color: #333;
+}
+
+.count-red {
+  background: #ef5350;
+  color: white;
+}
+
+.count-grey {
+  background: #ccc;
   color: #666;
 }
 
-.period-stat.correct .value {
-  color: #4caf50;
+.skill-time {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
 }
 
-.period-stat.incorrect .value {
-  color: #d32f2f;
-}
-
+/* Actions */
 .dashboard-actions {
   display: flex;
   gap: 12px;

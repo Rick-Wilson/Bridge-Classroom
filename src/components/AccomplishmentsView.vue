@@ -44,32 +44,15 @@
 
     <!-- Main content -->
     <div v-else class="view-content">
-      <!-- Summary stats -->
-      <div class="summary-stats">
-        <div class="stat-card">
-          <div class="stat-value">{{ accomplishments.totalObservations.value }}</div>
-          <div class="stat-label">Total Bids</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ accomplishments.overallSuccessRate.value }}%</div>
-          <div class="stat-label">Overall Success</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value">{{ uniqueItemCount }}</div>
-          <div class="stat-label">{{ accomplishments.activeTab.value === 'lessons' ? 'Lessons' : 'Skills' }}</div>
-        </div>
-      </div>
-
-      <!-- Controls row -->
+      <!-- Tabs -->
       <div class="controls-row">
-        <!-- Tabs -->
         <div class="tabs">
           <button
             class="tab-btn"
             :class="{ active: accomplishments.activeTab.value === 'lessons' }"
             @click="accomplishments.activeTab.value = 'lessons'"
           >
-            Baker Bridge
+            Lessons
           </button>
           <button
             class="tab-btn"
@@ -79,46 +62,51 @@
             Taxons
           </button>
         </div>
-
-        <!-- Filter -->
-        <label class="filter-checkbox">
-          <input
-            type="checkbox"
-            v-model="accomplishments.onlyWithObservations.value"
-          />
-          Only with observations
-        </label>
       </div>
 
-      <!-- Table content -->
-      <div class="table-container">
-        <AccomplishmentsTable
-          v-if="accomplishments.activeTab.value === 'lessons'"
-          :items="accomplishments.filteredLessonStats.value"
-          name-column-label="Lesson"
-          :show-category="false"
-          :show-filter-hint="!accomplishments.onlyWithObservations.value"
-          @select="onItemSelect"
-        />
-        <AccomplishmentsTable
-          v-else
-          :items="accomplishments.filteredTaxonStats.value"
-          name-column-label="Skill"
-          :show-category="true"
-          :show-filter-hint="!accomplishments.onlyWithObservations.value"
-          @select="onItemSelect"
-        />
-
-        <!-- Board mastery drill-down (shown when a lesson is selected) -->
-        <div v-if="selectedLesson" class="board-drill-down">
-          <div class="drill-down-header">
-            <h3>{{ selectedLesson.displayName }} - Board Mastery</h3>
-            <button class="close-drill-down" @click="selectedLesson = null">&times;</button>
+      <!-- Lessons tab: mastery strips -->
+      <div v-if="accomplishments.activeTab.value === 'lessons'" class="tab-content">
+        <div v-if="lessonMasteryList.length === 0" class="no-data">
+          No lesson data available yet.
+        </div>
+        <div v-else class="lesson-list">
+          <div v-for="lesson in lessonMasteryList" :key="lesson.subfolder" class="lesson-row">
+            <div class="lesson-header">
+              <span class="lesson-name">{{ formatLessonName(lesson.subfolder) }}</span>
+              <span
+                v-if="lesson.achievement !== 'none'"
+                :class="['achievement-badge', lesson.achievement]"
+              >
+                &#9733; {{ lesson.achievement === 'gold' ? 'Gold' : 'Silver' }}
+              </span>
+            </div>
+            <BoardMasteryStrip
+              :boardNumbers="lesson.boardNumbers"
+              :lessonSubfolder="lesson.subfolder"
+              :currentIndex="-1"
+              @goto="(boardIndex) => onBoardClick(lesson.subfolder, lesson.boardNumbers[boardIndex])"
+            />
           </div>
-          <BoardMasteryGrid
-            :lessonSubfolder="selectedLesson.lesson"
-            :observations="selectedLesson.observations"
-          />
+        </div>
+      </div>
+
+      <!-- Taxons tab: skill cards -->
+      <div v-if="accomplishments.activeTab.value === 'taxons'" class="tab-content">
+        <div v-if="accomplishments.filteredTaxonStats.value.length === 0" class="no-data">
+          No skill data available yet.
+        </div>
+        <div v-else class="taxon-list">
+          <div v-for="taxon in accomplishments.filteredTaxonStats.value" :key="taxon.skillPath" class="taxon-card">
+            <div class="taxon-header">
+              <span class="taxon-category">{{ taxon.categoryName }}</span>
+              <span class="taxon-name">{{ taxon.skillName }}</span>
+            </div>
+            <div class="taxon-counts">
+              <span class="taxon-stat correct">{{ taxon.correct }}</span>
+              <span class="taxon-stat incorrect">{{ taxon.incorrect }}</span>
+              <span class="taxon-stat total">{{ taxon.total }} total</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -141,81 +129,77 @@
 </template>
 
 <script setup>
-import { computed, ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
-import { generateLessonFocusedObservations, generateTaxonFocusedObservations } from '../utils/accomplishmentsTestData.js'
+import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { generateBoardMasteryTestData } from '../utils/boardMasteryTestData.js'
-import AccomplishmentsTable from './AccomplishmentsTable.vue'
-import BoardMasteryGrid from './BoardMasteryGrid.vue'
+import BoardMasteryStrip from './BoardMasteryStrip.vue'
 
-const emit = defineEmits(['close', 'select-item'])
+const emit = defineEmits(['close', 'navigate-to-deal'])
 
 const accomplishments = useAccomplishments()
+const mastery = useBoardMastery()
 
-// Check URL for test mode flag (e.g., ?test=accomplishments or ?test=mastery)
+// Check URL for test mode flag
 const urlParams = new URLSearchParams(window.location.search)
 const testParam = urlParams.get('test')
-const useTestMode = testParam === 'accomplishments' || testParam === 'mastery'
 
 onMounted(async () => {
-  if (testParam === 'mastery') {
+  if (testParam === 'mastery' || testParam === 'accomplishments') {
     accomplishments.enableTestMode(generateBoardMasteryTestData())
-  } else if (testParam === 'accomplishments') {
-    const testData = [
-      ...generateLessonFocusedObservations(),
-      ...generateTaxonFocusedObservations()
-    ]
-    accomplishments.enableTestMode(testData)
   } else {
     await accomplishments.initialize()
   }
 })
 
-/**
- * Refresh data
- */
 async function refresh() {
   await accomplishments.loadAccomplishments(true)
 }
 
-/**
- * Handle user selection change
- */
 async function onUserChange(userId) {
   await accomplishments.selectUser(userId)
 }
 
 /**
- * Handle item selection - toggle board mastery drill-down for lessons
+ * Handle clicking a board circle — navigate to that deal
  */
-const selectedLesson = ref(null)
-
-function onItemSelect(item) {
-  // Only drill-down for lessons tab (lessons have .lesson property)
-  if (accomplishments.activeTab.value === 'lessons' && item.lesson) {
-    if (selectedLesson.value?.lesson === item.lesson) {
-      selectedLesson.value = null
-    } else {
-      selectedLesson.value = item
-    }
-  }
+function onBoardClick(subfolder, dealNumber) {
+  emit('navigate-to-deal', { subfolder, dealNumber })
 }
 
 /**
- * Count of unique items in current view
+ * All lessons with mastery data, sorted alphabetically
  */
-const uniqueItemCount = computed(() => {
-  return accomplishments.activeTab.value === 'lessons'
-    ? accomplishments.filteredLessonStats.value.length
-    : accomplishments.filteredTaxonStats.value.length
+const lessonMasteryList = computed(() => {
+  const observations = mastery.getObservations()
+  const lessons = mastery.extractLessonsFromObservations(observations)
+
+  return lessons
+    .map(lesson => {
+      const boardMasteryResults = mastery.computeBoardMastery(
+        observations,
+        lesson.subfolder,
+        lesson.boardNumbers
+      )
+      const lessonAchievement = mastery.computeLessonAchievement(boardMasteryResults)
+      return {
+        ...lesson,
+        achievement: lessonAchievement.achievement
+      }
+    })
+    .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
 })
+
+function formatLessonName(folderName) {
+  return accomplishments.formatLessonName(folderName)
+}
 </script>
 
 <style scoped>
 .accomplishments-view {
   background: white;
   border-radius: 12px;
-  max-width: 900px;
+  max-width: 700px;
   width: 100%;
   max-height: 90vh;
   display: flex;
@@ -331,36 +315,9 @@ const uniqueItemCount = computed(() => {
   overflow: hidden;
 }
 
-.summary-stats {
-  display: flex;
-  gap: 12px;
-  padding: 16px 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.stat-card {
-  flex: 1;
-  background: #f5f5f5;
-  padding: 12px 16px;
-  border-radius: 8px;
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #333;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
-}
-
 .controls-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
   padding: 12px 20px;
   border-bottom: 1px solid #eee;
@@ -394,25 +351,122 @@ const uniqueItemCount = computed(() => {
   color: white;
 }
 
-.filter-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #666;
-  cursor: pointer;
-}
-
-.filter-checkbox input {
-  cursor: pointer;
-}
-
-.table-container {
+.tab-content {
   flex: 1;
   overflow-y: auto;
-  padding: 0 20px 20px;
+  padding: 16px 20px;
 }
 
+.no-data {
+  text-align: center;
+  color: #999;
+  padding: 40px 20px;
+}
+
+/* Lesson mastery list */
+.lesson-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lesson-row {
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.lesson-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.lesson-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.achievement-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.achievement-badge.gold {
+  background: linear-gradient(135deg, #ffd700, #ffb300);
+  color: #5d4037;
+}
+
+.achievement-badge.silver {
+  background: linear-gradient(135deg, #e0e0e0, #bdbdbd);
+  color: #424242;
+}
+
+/* Taxon list */
+.taxon-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.taxon-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.taxon-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.taxon-category {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #999;
+  letter-spacing: 0.3px;
+}
+
+.taxon-name {
+  font-weight: 500;
+  font-size: 14px;
+  color: #333;
+}
+
+.taxon-counts {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.taxon-stat {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.taxon-stat.correct {
+  color: #4caf50;
+}
+
+.taxon-stat.incorrect {
+  color: #ef5350;
+}
+
+.taxon-stat.total {
+  color: #999;
+  font-weight: 400;
+  font-size: 13px;
+}
+
+/* Actions */
 .view-actions {
   display: flex;
   gap: 12px;
@@ -466,42 +520,6 @@ const uniqueItemCount = computed(() => {
   font-weight: 500;
 }
 
-/* Board mastery drill-down */
-.board-drill-down {
-  margin-top: 16px;
-  padding: 16px;
-  background: #fafafa;
-  border-radius: 10px;
-  border: 1px solid #e0e0e0;
-}
-
-.drill-down-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.drill-down-header h3 {
-  margin: 0;
-  font-size: 16px;
-  color: #333;
-}
-
-.close-drill-down {
-  background: none;
-  border: none;
-  font-size: 22px;
-  color: #999;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-}
-
-.close-drill-down:hover {
-  color: #333;
-}
-
 /* Responsive adjustments */
 @media (max-width: 600px) {
   .accomplishments-view {
@@ -509,30 +527,8 @@ const uniqueItemCount = computed(() => {
     border-radius: 0;
   }
 
-  .summary-stats {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .stat-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    text-align: left;
-  }
-
-  .stat-value {
-    font-size: 20px;
-  }
-
   .controls-row {
-    flex-direction: column;
-    gap: 12px;
-    align-items: stretch;
-  }
-
-  .tabs {
-    justify-content: center;
+    padding: 8px 12px;
   }
 }
 </style>

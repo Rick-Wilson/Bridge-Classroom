@@ -264,6 +264,32 @@ function computeLessonAchievement(boardMasteryList) {
   return { achievement: ACHIEVEMENT.NONE }
 }
 
+/**
+ * Extract unique lessons and their board numbers from observations.
+ * @param {Array} observations - All observations
+ * @returns {Array<{subfolder: string, boardNumbers: number[], lastActivity: string}>}
+ */
+function extractLessonsFromObservations(observations) {
+  const lessons = {}
+  for (const obs of observations) {
+    const subfolder = obs.deal_subfolder || obs.deal?.subfolder
+    const boardNum = obs.deal_number ?? obs.deal?.deal_number
+    if (!subfolder || boardNum == null) continue
+    if (!lessons[subfolder]) {
+      lessons[subfolder] = { boards: new Set(), lastActivity: obs.timestamp }
+    }
+    lessons[subfolder].boards.add(boardNum)
+    if (obs.timestamp > lessons[subfolder].lastActivity) {
+      lessons[subfolder].lastActivity = obs.timestamp
+    }
+  }
+  return Object.entries(lessons).map(([subfolder, data]) => ({
+    subfolder,
+    boardNumbers: [...data.boards].sort((a, b) => a - b),
+    lastActivity: data.lastActivity
+  }))
+}
+
 export function useBoardMastery() {
   const accomplishments = useAccomplishments()
 
@@ -281,6 +307,7 @@ export function useBoardMastery() {
     getObservations,
     computeBoardMastery,
     computeLessonAchievement,
+    extractLessonsFromObservations,
     // Exposed for testing
     groupIntoBoardAttempts,
     calculateCurrentStatus,

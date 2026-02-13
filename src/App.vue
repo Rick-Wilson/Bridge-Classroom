@@ -251,7 +251,7 @@
 
     <!-- Accomplishments Modal -->
     <div v-if="showAccomplishments" class="modal-overlay" @click.self="showAccomplishments = false">
-      <AccomplishmentsView @close="showAccomplishments = false" />
+      <AccomplishmentsView @close="showAccomplishments = false" @navigate-to-deal="handleNavigateToDeal" />
     </div>
 
     <!-- Floating Intro PDF Viewer (non-modal) -->
@@ -596,6 +596,44 @@ function gotoDeal(index) {
     forceRedBoard.value = null
     currentDealIndex.value = index
     practice.loadDeal(deals.value[index])
+  }
+}
+
+// Navigate to a specific deal from accomplishments view
+async function handleNavigateToDeal({ subfolder, dealNumber }) {
+  showAccomplishments.value = false
+
+  // If the current lesson matches, just navigate to the deal
+  if (currentLesson.value?.id === subfolder && deals.value.length > 0) {
+    const index = deals.value.findIndex(d => d.boardNumber === dealNumber)
+    if (index >= 0) {
+      gotoDeal(index)
+      return
+    }
+  }
+
+  // Otherwise, try to load the lesson from known collections
+  for (const collection of appConfig.COLLECTIONS) {
+    try {
+      const filename = subfolder.includes('/') ? subfolder.split('/').pop() : subfolder
+      const url = `${collection.baseUrl}/${filename}.pbn`
+      const response = await fetch(url)
+      if (!response.ok) continue
+
+      const content = await response.text()
+      currentCollection.value = collection.id
+      appConfig.setCollectionInUrl(collection.id)
+      handleLessonLoad({ subfolder, name: subfolder, category: '', content })
+
+      // Navigate to the specific deal
+      const index = deals.value.findIndex(d => d.boardNumber === dealNumber)
+      if (index >= 0) {
+        gotoDeal(index)
+      }
+      return
+    } catch {
+      // Try next collection
+    }
   }
 }
 
