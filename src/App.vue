@@ -721,6 +721,8 @@ async function navigateToDeal({ subfolder, dealNumber }) {
 
 function handleNavigateToDeal(payload) {
   showAccomplishments.value = false
+  showTeacherView.value = false
+  selectedStudentId.value = null
   navigateToDeal(payload)
 }
 
