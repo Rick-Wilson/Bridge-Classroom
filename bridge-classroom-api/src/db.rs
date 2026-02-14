@@ -309,6 +309,27 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // View: sharing grants with human-readable names
+    sqlx::query(
+        r#"
+        CREATE VIEW IF NOT EXISTS grants_by_name AS
+        SELECT
+            g.id,
+            u.first_name || ' ' || u.last_name AS grantor_name,
+            u.email AS grantor_email,
+            v.name AS grantee_name,
+            v.role AS grantee_role,
+            g.granted_at,
+            g.revoked
+        FROM sharing_grants g
+        JOIN users u ON u.id = g.grantor_id
+        JOIN viewers v ON v.id = g.grantee_id
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
     // Seed the "2/1 Intermediate" system card if it doesn't exist
     let system_card_id = "system-21-intermediate";
     let card_exists: bool = sqlx::query_scalar(

@@ -83,7 +83,7 @@ export function useDealPractice() {
 
   const currentTurnSeat = computed(() => {
     if (!currentDeal.value) return null
-    return getSeatForBid(biddingState.currentBidIndex, currentDeal.value.dealer)
+    return getSeatForBid(biddingState.currentBidIndex, currentDeal.value.auctionDealer || currentDeal.value.dealer)
   })
 
   const isStudentTurn = computed(() => currentTurnSeat.value === studentSeat.value)
@@ -135,7 +135,7 @@ export function useDealPractice() {
     }
     if (lastContractIdx === -1) return false
 
-    const lastContractSeat = getSeatForBid(lastContractIdx, currentDeal.value.dealer)
+    const lastContractSeat = getSeatForBid(lastContractIdx, currentDeal.value.auctionDealer || currentDeal.value.dealer)
     const currentSeat = currentTurnSeat.value
     const isOpponent = (
       (currentSeat === 'N' || currentSeat === 'S') && (lastContractSeat === 'E' || lastContractSeat === 'W')
@@ -153,7 +153,7 @@ export function useDealPractice() {
       if (bid === 'Pass') continue
       if (bid === 'XX') return false
       if (bid === 'X') {
-        const doubleSeat = getSeatForBid(i, currentDeal.value.dealer)
+        const doubleSeat = getSeatForBid(i, currentDeal.value.auctionDealer || currentDeal.value.dealer)
         const currentSeat = currentTurnSeat.value
         const isPartner = (
           (currentSeat === 'N' && doubleSeat === 'S') ||
@@ -513,7 +513,7 @@ export function useDealPractice() {
 
     // Advance through bids until we reach a prompted student bid
     while (biddingState.currentBidIndex < auction.length) {
-      const currentSeat = getSeatForBid(biddingState.currentBidIndex, currentDeal.value.dealer)
+      const currentSeat = getSeatForBid(biddingState.currentBidIndex, currentDeal.value.auctionDealer || currentDeal.value.dealer)
       const currentBid = auction[biddingState.currentBidIndex]
       const currentPromptBid = promptsList[biddingState.currentPromptIndex]?.bid
 
