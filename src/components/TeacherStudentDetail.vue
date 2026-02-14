@@ -49,9 +49,10 @@
               <div
                 v-for="board in lesson.boardMastery"
                 :key="board.boardNumber"
-                class="board-circle"
+                class="board-circle board-clickable"
                 :class="'status-' + board.status"
                 :title="getTooltip(board)"
+                @click="emit('navigate-to-lesson', lesson.subfolder, board.boardNumber)"
               >
                 <span
                   v-if="board.achievement === 'gold'"
@@ -446,6 +447,16 @@ function getTooltip(board) {
   font-size: 13px;
   font-weight: 600;
   user-select: none;
+}
+
+.board-clickable {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.board-clickable:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .status-grey { background: #ccc; color: #666; }

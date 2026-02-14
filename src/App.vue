@@ -724,10 +724,10 @@ function handleNavigateToDeal(payload) {
   navigateToDeal(payload)
 }
 
-function handleTeacherNavigateToLesson(subfolder) {
+function handleTeacherNavigateToLesson(subfolder, boardNumber) {
   showTeacherView.value = false
   selectedStudentId.value = null
-  navigateToDeal({ subfolder, dealNumber: 1 })
+  navigateToDeal({ subfolder, dealNumber: boardNumber || 1 })
 }
 
 // Return to lesson browser (keep collection, clear deals)
