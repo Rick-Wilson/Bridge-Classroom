@@ -37,7 +37,7 @@
         <div v-else class="lesson-list">
           <div v-for="lesson in lessonMasteryList" :key="lesson.subfolder" class="lesson-row">
             <div class="lesson-header">
-              <span class="lesson-name">{{ formatLessonName(lesson.subfolder) }}</span>
+              <button class="lesson-name lesson-link" @click="emit('navigate-to-lesson', lesson.subfolder)">{{ formatLessonName(lesson.subfolder) }}</button>
               <span
                 v-if="lesson.achievement !== 'none'"
                 :class="['achievement-badge', lesson.achievement]"
@@ -82,7 +82,7 @@
             </div>
             <div class="day-lessons">
               <div v-for="lesson in day.lessons" :key="lesson.subfolder" class="day-lesson-row">
-                <span class="day-lesson-name">{{ formatLessonName(lesson.subfolder) }}</span>
+                <button class="day-lesson-name lesson-link" @click="emit('navigate-to-lesson', lesson.subfolder)">{{ formatLessonName(lesson.subfolder) }}</button>
                 <div class="day-lesson-counts">
                   <span v-if="lesson.correctCount" class="count count-correct">{{ lesson.correctCount }}</span>
                   <span v-if="lesson.incorrectCount" class="count count-incorrect">{{ lesson.incorrectCount }}</span>
@@ -107,7 +107,7 @@ const props = defineProps({
   studentName: { type: String, required: true }
 })
 
-defineEmits(['back'])
+const emit = defineEmits(['back', 'navigate-to-lesson'])
 
 const teacherRole = useTeacherRole()
 const mastery = useBoardMastery()
@@ -390,6 +390,19 @@ function getTooltip(board) {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+}
+
+.lesson-link {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.lesson-link:hover {
+  text-decoration: underline;
+  color: #667eea;
 }
 
 .lesson-name {

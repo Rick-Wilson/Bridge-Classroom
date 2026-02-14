@@ -56,6 +56,7 @@
         :studentId="selectedStudentId"
         :studentName="selectedStudentName"
         @back="selectedStudentId = null"
+        @navigate-to-lesson="handleTeacherNavigateToLesson"
       />
       <!-- Lobby when no deals and no collection selected -->
       <div v-else-if="!deals.length && !currentCollection" class="lobby">
@@ -721,6 +722,12 @@ async function navigateToDeal({ subfolder, dealNumber }) {
 function handleNavigateToDeal(payload) {
   showAccomplishments.value = false
   navigateToDeal(payload)
+}
+
+function handleTeacherNavigateToLesson(subfolder) {
+  showTeacherView.value = false
+  selectedStudentId.value = null
+  navigateToDeal({ subfolder, dealNumber: 1 })
 }
 
 // Return to lesson browser (keep collection, clear deals)
