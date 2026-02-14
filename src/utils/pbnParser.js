@@ -169,8 +169,8 @@ function parsePromptsInternal(commentaryParts) {
     const bid = parts[i + 1]
     const textAfter = parts[i + 2] || ''
 
-    // Clean up the bid (remove suit escapes)
-    const cleanBid = replaceSuitSymbols(bid).trim()
+    // Clean up the bid (remove suit escapes and alert markers)
+    const cleanBid = replaceSuitSymbols(bid).replace(/!/g, '').trim()
 
     // The prompt text is what comes before this [BID] marker
     let promptText = ''
@@ -600,7 +600,7 @@ function parseAuctionString(auctionString) {
  * @returns {string} Normalized bid
  */
 function normalizeBid(bid) {
-  const upper = bid.toUpperCase()
+  const upper = bid.replace(/!/g, '').toUpperCase()
   if (upper === 'PASS' || upper === 'P') return 'Pass'
   if (upper === 'X' || upper === 'DBL' || upper === 'DOUBLE') return 'X'
   if (upper === 'XX' || upper === 'RDBL' || upper === 'REDOUBLE') return 'XX'
@@ -679,8 +679,8 @@ export function parsePrompts(commentaryParts) {
     const bid = parts[i + 1]
     const textAfter = parts[i + 2] || ''
 
-    // Clean up the bid (remove suit escapes)
-    const cleanBid = replaceSuitSymbols(bid).trim()
+    // Clean up the bid (remove suit escapes and alert markers)
+    const cleanBid = replaceSuitSymbols(bid).replace(/!/g, '').trim()
 
     // The prompt text is what comes before this [BID] marker
     // For the first bid, it's parts[0]. For subsequent bids, we need the text after previous bid.

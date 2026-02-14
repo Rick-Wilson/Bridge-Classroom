@@ -806,6 +806,7 @@ export function useDealPractice() {
   function normalizeBid(bid) {
     if (!bid) return ''
     let normalized = bid
+      .replace(/!/g, '')
       .replace(/♠/g, 'S').replace(/♥/g, 'H').replace(/♦/g, 'D').replace(/♣/g, 'C')
     const upper = normalized.toUpperCase()
     if (upper === 'PASS' || upper === 'P') return 'PASS'
