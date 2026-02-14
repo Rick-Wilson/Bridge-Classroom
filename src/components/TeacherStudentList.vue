@@ -286,7 +286,7 @@ function initials(student) {
 
 .pill-green { background: #4caf50; }
 .pill-orange { background: #ff9800; }
-.pill-yellow { background: #ffc107; color: #333; }
+.pill-yellow { background: #ffeb3b; color: #333; }
 .pill-red { background: #ef5350; }
 
 .no-data-label {
