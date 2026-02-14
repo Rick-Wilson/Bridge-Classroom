@@ -461,7 +461,7 @@ function getTooltip(board) {
 
 .status-grey { background: #ccc; color: #666; }
 .status-red { background: #ef5350; color: white; }
-.status-yellow { background: #ffc107; color: #333; }
+.status-yellow { background: #ffeb3b; color: #333; }
 .status-orange { background: #ff9800; color: white; }
 .status-green { background: #4caf50; color: white; }
 

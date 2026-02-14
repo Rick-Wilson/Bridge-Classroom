@@ -169,7 +169,7 @@ function getTooltip(board) {
 }
 
 .status-yellow {
-  background: #ffc107;
+  background: #ffeb3b;
   color: #333;
 }
 
