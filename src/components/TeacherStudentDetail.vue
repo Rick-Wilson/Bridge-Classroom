@@ -85,8 +85,10 @@
               <div v-for="lesson in day.lessons" :key="lesson.subfolder" class="day-lesson-row">
                 <button class="day-lesson-name lesson-link" @click="emit('navigate-to-lesson', lesson.subfolder)">{{ formatLessonName(lesson.subfolder) }}</button>
                 <div class="day-lesson-counts">
-                  <span v-if="lesson.correctCount" class="count count-correct">{{ lesson.correctCount }}</span>
-                  <span v-if="lesson.incorrectCount" class="count count-incorrect">{{ lesson.incorrectCount }}</span>
+                  <span v-if="lesson.green" class="count count-green">{{ lesson.green }}</span>
+                  <span v-if="lesson.yellow" class="count count-yellow">{{ lesson.yellow }}</span>
+                  <span v-if="lesson.orange" class="count count-orange">{{ lesson.orange }}</span>
+                  <span v-if="lesson.red" class="count count-red">{{ lesson.red }}</span>
                 </div>
               </div>
             </div>
@@ -204,17 +206,21 @@ const dailyProgress = computed(() => {
 
     const lessons = Object.entries(lessonMap)
       .map(([subfolder, boards]) => {
-        let correctCount = 0
-        let incorrectCount = 0
-        for (const boardObs of Object.values(boards)) {
-          if (boardObs.every(o => o.correct)) correctCount++
-          else incorrectCount++
+        const counts = { green: 0, yellow: 0, orange: 0, red: 0 }
+        for (const [boardNum, dayBoardObs] of Object.entries(boards)) {
+          // Get ALL observations for this board (not just today's) so status is accurate
+          const allBoardObs = obs
+            .filter(o => o.deal_subfolder === subfolder && o.deal_number === Number(boardNum))
+            .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+          const status = mastery.calculateCurrentStatus(allBoardObs)
+          if (counts[status] !== undefined) counts[status]++
+          else counts.green++ // grey shouldn't happen for practiced boards
         }
-        return { subfolder, correctCount, incorrectCount }
+        return { subfolder, ...counts }
       })
       .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
 
-    const totalBoards = lessons.reduce((sum, l) => sum + l.correctCount + l.incorrectCount, 0)
+    const totalBoards = lessons.reduce((sum, l) => sum + l.green + l.yellow + l.orange + l.red, 0)
     return { date, lessons, totalBoards }
   })
 })
@@ -559,8 +565,10 @@ function getTooltip(board) {
   font-weight: 600;
 }
 
-.count-correct { background: #4caf50; color: white; }
-.count-incorrect { background: #ef5350; color: white; }
+.count-green { background: #4caf50; color: white; }
+.count-yellow { background: #ffeb3b; color: #333; }
+.count-orange { background: #ff9800; color: white; }
+.count-red { background: #ef5350; color: white; }
 
 /* Responsive */
 @media (max-width: 600px) {
