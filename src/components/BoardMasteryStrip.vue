@@ -209,8 +209,8 @@ function getTooltip(board) {
 }
 
 .silver-medal {
-  color: #c0c0c0;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+  color: #e8e8e8;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 
 /* Medal + bad status: add a colored ring to make both visible */
