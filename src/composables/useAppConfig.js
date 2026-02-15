@@ -86,8 +86,31 @@ function setLessonInUrl(lessonId) {
     url.searchParams.set('lesson', lessonId)
   } else {
     url.searchParams.delete('lesson')
+    url.searchParams.delete('deal')
   }
   window.history.pushState({}, '', url.toString())
+}
+
+/**
+ * Get current deal number from URL
+ */
+function getDealFromUrl() {
+  const params = new URLSearchParams(window.location.search)
+  const deal = params.get('deal')
+  return deal ? parseInt(deal, 10) : null
+}
+
+/**
+ * Set deal number in URL without reload
+ */
+function setDealInUrl(dealNumber) {
+  const url = new URL(window.location.href)
+  if (dealNumber && dealNumber > 1) {
+    url.searchParams.set('deal', dealNumber)
+  } else {
+    url.searchParams.delete('deal')
+  }
+  window.history.replaceState({}, '', url.toString())
 }
 
 /**
@@ -308,6 +331,8 @@ export function useAppConfig() {
     setCollectionInUrl,
     getLessonFromUrl,
     setLessonInUrl,
+    getDealFromUrl,
+    setDealInUrl,
     setUIPref,
 
     // Constants

@@ -535,6 +535,7 @@ const dealTitle = computed(() => {
 watch(currentDealIndex, () => {
   if (currentDeal.value) {
     practice.loadDeal(currentDeal.value)
+    appConfig.setDealInUrl(currentDeal.value.boardNumber)
   }
 }, { flush: 'sync' })
 
@@ -859,8 +860,12 @@ async function loadLessonFromUrl(collectionId, lessonId) {
         category: deal.category || foundCategory.name
       }))
       deals.value = dealsWithCategory
-      currentDealIndex.value = 0
-      practice.loadDeal(dealsWithCategory[0])
+
+      // Restore deal number from URL if present
+      const dealNum = appConfig.getDealFromUrl()
+      const dealIdx = dealNum ? dealsWithCategory.findIndex(d => d.boardNumber === dealNum) : -1
+      currentDealIndex.value = dealIdx >= 0 ? dealIdx : 0
+      practice.loadDeal(dealsWithCategory[currentDealIndex.value])
       practice.resetStats()
 
       // Store lesson metadata (URL already has the params)
