@@ -180,10 +180,10 @@ const dailyProgress = computed(() => {
   const obs = observations.value
   if (obs.length === 0) return []
 
-  // Group by date
+  // Group by local date
   const byDate = {}
   for (const o of obs) {
-    const date = o.timestamp.split('T')[0]
+    const date = toLocalDateStr(o.timestamp)
     if (!byDate[date]) byDate[date] = []
     byDate[date].push(o)
   }
@@ -223,14 +223,21 @@ function formatLessonName(folderName) {
   return accomplishments.formatLessonName(folderName)
 }
 
+function toLocalDateStr(timestamp) {
+  const d = new Date(timestamp)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
 function formatDate(dateStr) {
   const date = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  const yesterday = new Date(today)
+  const now = new Date()
+  const todayStr = toLocalDateStr(now)
+  const yesterday = new Date(now)
   yesterday.setDate(yesterday.getDate() - 1)
-
-  const todayStr = today.toISOString().split('T')[0]
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
+  const yesterdayStr = toLocalDateStr(yesterday)
 
   if (dateStr === todayStr) return 'Today'
   if (dateStr === yesterdayStr) return 'Yesterday'
