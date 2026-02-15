@@ -95,6 +95,8 @@
           </div>
         </div>
       </section>
+
+      <div class="observation-total">{{ observations.length }} observations</div>
     </div>
   </div>
 </template>
@@ -569,6 +571,13 @@ function getTooltip(board) {
 .count-yellow { background: #ffeb3b; color: #333; }
 .count-orange { background: #ff9800; color: white; }
 .count-red { background: #ef5350; color: white; }
+
+.observation-total {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  margin-top: 12px;
+}
 
 /* Responsive */
 @media (max-width: 600px) {

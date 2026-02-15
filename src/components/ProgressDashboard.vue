@@ -42,6 +42,8 @@
         </div>
       </div>
 
+      <div class="observation-total">{{ progress.totalObservations.value }} observations</div>
+
       <!-- Actions -->
       <div class="dashboard-actions">
         <button class="secondary-btn" @click="refresh">
@@ -314,6 +316,13 @@ function formatDate(dateStr) {
 .count-incorrect {
   background: #ef5350;
   color: white;
+}
+
+.observation-total {
+  text-align: center;
+  font-size: 12px;
+  color: #999;
+  margin-top: 12px;
 }
 
 /* Actions */
