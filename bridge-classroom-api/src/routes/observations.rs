@@ -115,7 +115,7 @@ pub async fn get_observations(
         return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
     }
 
-    let limit = query.limit.unwrap_or(100).min(1000);
+    let limit = query.limit.unwrap_or(100).min(10000);
     let offset = query.offset.unwrap_or(0);
 
     // Build query dynamically

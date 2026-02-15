@@ -100,7 +100,7 @@ async function fetchStudentObservations(userId) {
 
   try {
     const res = await fetch(
-      `${API_URL}/observations?user_id=${encodeURIComponent(userId)}`,
+      `${API_URL}/observations?user_id=${encodeURIComponent(userId)}&limit=10000`,
       { headers: { 'x-api-key': API_KEY } }
     )
     if (!res.ok) throw new Error(`HTTP ${res.status}`)

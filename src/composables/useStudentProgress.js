@@ -23,7 +23,7 @@ const CACHE_DURATION_MS = 5 * 60 * 1000
  * @returns {Promise<Array>} Raw encrypted observations
  */
 async function fetchObservationsFromServer(userId) {
-  const response = await fetch(`${API_URL}/observations?user_id=${userId}`, {
+  const response = await fetch(`${API_URL}/observations?user_id=${userId}&limit=10000`, {
     headers: {
       'x-api-key': API_KEY
     }

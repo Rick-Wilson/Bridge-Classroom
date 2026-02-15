@@ -142,7 +142,7 @@ async function loadAccomplishments(forceRefresh = false) {
       observations.value = studentProgress.decryptedObservations.value
     } else {
       // Fetch another user's observations (requires grant access)
-      const response = await fetch(`${API_URL}/observations?user_id=${selectedUserId.value}`, {
+      const response = await fetch(`${API_URL}/observations?user_id=${selectedUserId.value}&limit=10000`, {
         headers: { 'x-api-key': API_KEY }
       })
 
