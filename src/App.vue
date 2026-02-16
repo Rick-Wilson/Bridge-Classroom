@@ -452,6 +452,14 @@ onMounted(async () => {
 
   appConfig.initializeFromUrl()
   userStore.initialize()
+
+  // If a recovery link was clicked while another user is logged in,
+  // clear current user so WelcomeScreen renders and handles the claim
+  const urlParams = new URLSearchParams(window.location.search)
+  if (urlParams.get('recover') && urlParams.get('user_id') && userStore.isAuthenticated.value) {
+    userStore.currentUserId.value = null
+  }
+
   assignmentStore.initializeFromUrl()
   practice.observationStore.initialize()
 
