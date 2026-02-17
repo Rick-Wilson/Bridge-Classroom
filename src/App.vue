@@ -174,10 +174,12 @@
               <div class="commentary-text-container" ref="commentaryContainer">
                 <!-- Previous steps (greyed out, except last step's explanation which is current context) -->
                 <template v-for="(step, idx) in practice.steps.value.slice(0, practice.currentStepIndex.value)" :key="'prev-' + idx">
-                  <span class="narrative-text previous" v-html="colorizeSuits(flowText(step.text))"></span>
-                  <span v-if="step.type === 'bid' && step.explanationText"
-                    :class="['narrative-text', idx === practice.currentStepIndex.value - 1 && practice.isBidStep.value && !practice.bidAnswered.value ? 'current' : 'previous']"
-                    v-html="colorizeSuits(flowText(step.explanationText))"></span>
+                  <template v-if="idx >= practice.commentaryStartIndex.value">
+                    <span class="narrative-text previous" v-html="colorizeSuits(flowText(step.text))"></span>
+                    <span v-if="step.type === 'bid' && step.explanationText"
+                      :class="['narrative-text', idx === practice.currentStepIndex.value - 1 && practice.isBidStep.value && !practice.bidAnswered.value ? 'current' : 'previous']"
+                      v-html="colorizeSuits(flowText(step.explanationText))"></span>
+                  </template>
                 </template>
                 <!-- Current step text (black) -->
                 <span v-if="practice.currentStep.value" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.text))"></span>

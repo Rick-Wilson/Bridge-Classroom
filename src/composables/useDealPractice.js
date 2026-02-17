@@ -60,6 +60,14 @@ export function useDealPractice() {
   const hasBidSteps = computed(() => steps.value.some(s => s.type === 'bid'))
   const isBidStep = computed(() => currentStep.value?.type === 'bid')
 
+  // Index from which to start rendering commentary (after most recent clearCommentary)
+  const commentaryStartIndex = computed(() => {
+    for (let i = currentStepIndex.value; i >= 0; i--) {
+      if (steps.value[i]?.clearCommentary) return i
+    }
+    return 0
+  })
+
   // ==================== COMPUTED: Bidding ====================
   const studentSeat = computed(() => currentDeal.value?.studentSeat || 'S')
 
@@ -787,6 +795,7 @@ export function useDealPractice() {
     currentStep,
     hasBidSteps,
     isBidStep,
+    commentaryStartIndex,
 
     // Computed: Bidding
     studentSeat,

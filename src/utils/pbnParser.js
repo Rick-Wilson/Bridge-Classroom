@@ -304,6 +304,9 @@ function parseStepContent(text, action) {
   // Check for [SHOW_LEAD] - display the opening lead
   const showLead = /\[SHOW_LEAD\]/i.test(text)
 
+  // Check for [clear-commentary] - clear previous commentary display
+  const clearCommentary = /\[clear-commentary\]/i.test(text)
+
   // Extract [showcards ...] tags - shows specific cards from hidden hands
   let showcards = null
   const showcardsMatch = text.match(/\[showcards\s+([^\]]+)\]/i)
@@ -330,6 +333,7 @@ function parseStepContent(text, action) {
     .replace(/\[SHOW_LEAD\]/gi, '')
     .replace(/\[showcards\s+[^\]]*\]/gi, '')
     .replace(/\[choose-card\s+[^\]]*\]/gi, '')
+    .replace(/\[clear-commentary\]/gi, '')
     // Strip deal title lines (e.g., "Stayman 1", "Entries 2") - matches "Word(s) Number" at start of line
     .replace(/^[A-Z][a-zA-Z-]*(?:\s+[A-Z][a-zA-Z-]*)?\s+\d+\s*$/gim, '')
     .trim()
@@ -342,6 +346,7 @@ function parseStepContent(text, action) {
     reset,        // true if [RESET] tag present - show original hands
     showAuction,  // null = no change, true = show, false = hide
     showLead,     // true if [SHOW_LEAD] tag present
+    clearCommentary, // true if [clear-commentary] tag present - clear previous text
     showcards,    // null = no change, object = { seat: [cards] } to show
     chooseCard    // null = no card choice, object = { card } or { cards, anyOf: true }
   }
