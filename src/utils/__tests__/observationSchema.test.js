@@ -34,9 +34,9 @@ describe('observationSchema', () => {
     contract: '3NT',
     declarer: 'S',
     lead: 'H3',
-    prompts: [
-      { bid: '2C', promptText: 'What do you bid?' },
-      { bid: '3NT', promptText: 'What now?' }
+    steps: [
+      { type: 'bid', bid: '2C', text: 'What do you bid?' },
+      { type: 'bid', bid: '3NT', text: 'What now?' }
     ]
   }
 

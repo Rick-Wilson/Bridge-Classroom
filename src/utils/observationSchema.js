@@ -95,7 +95,7 @@ export function createObservation({
   skillPath,
   assignment = null
 }) {
-  const totalPrompts = deal.prompts?.length || 1
+  const totalPrompts = deal.steps?.filter(s => s.type === 'bid').length || 1
   const studentSeat = deal.studentSeat || 'S'
   const studentHand = deal.hands?.[studentSeat.toLowerCase()] || ''
 

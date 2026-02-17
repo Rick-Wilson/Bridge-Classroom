@@ -283,7 +283,7 @@ Pass
       ]
       const prompts = parsePrompts(commentary)
 
-      expect(prompts[0].promptText).toContain('♠')
+      expect(prompts[0].text).toContain('♠')
       expect(prompts[0].explanationText).toContain('♠')
     })
   })

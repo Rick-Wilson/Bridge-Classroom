@@ -120,7 +120,7 @@
               :vulnerable="currentDeal?.vulnerable"
               :contract="currentDeal?.contract"
               :declarer="currentDeal?.declarer"
-              :showContract="practice.biddingState.auctionComplete || practice.showOpeningLead.value || practice.hasSteps.value"
+              :showContract="practice.auctionState.auctionComplete || practice.showOpeningLead.value || practice.hasSteps.value"
               :openingLead="practice.showOpeningLead.value ? currentDeal?.openingLead : ''"
               :totalDeals="deals.length"
               :currentIndex="currentDealIndex"
@@ -143,20 +143,20 @@
             <!-- Auction table - shown if deal has auction and [AUCTION off] not triggered -->
             <AuctionTable
               v-if="practice.showAuctionTable.value"
-              :bids="practice.hasPrompts.value ? practice.biddingState.displayedBids : (currentDeal?.auction || [])"
+              :bids="practice.hasBidSteps.value ? practice.auctionState.displayedBids : (currentDeal?.auction || [])"
               :dealer="currentDeal?.dealer || 'N'"
-              :currentBidIndex="practice.hasPrompts.value ? practice.biddingState.currentBidIndex : -1"
-              :wrongBidIndex="practice.biddingState.wrongBidIndex"
-              :correctBidIndex="practice.biddingState.correctBidIndex"
+              :currentBidIndex="practice.hasBidSteps.value ? practice.auctionState.currentBidIndex : -1"
+              :wrongBidIndex="practice.auctionState.wrongBidIndex"
+              :correctBidIndex="practice.auctionState.correctBidIndex"
               :showTurnIndicator="practice.hasBidPrompt.value"
             />
 
             <!-- Feedback panel - shown after wrong bid (between auction and narrative) -->
             <FeedbackPanel
-              :visible="!!practice.biddingState.wrongBid"
+              :visible="!!practice.auctionState.wrongBid"
               type="wrong"
-              :wrongBid="practice.biddingState.wrongBid"
-              :correctBid="practice.biddingState.correctBid"
+              :wrongBid="practice.auctionState.wrongBid"
+              :correctBid="practice.auctionState.correctBid"
               :showContinue="false"
             />
 
@@ -169,90 +169,38 @@
               :showContinue="false"
             />
 
-            <!-- Bidding narrative - accumulating text with previous in grey -->
-            <div v-if="practice.hasPrompts.value && !practice.isComplete.value" class="bidding-narrative-container">
-              <div class="bidding-narrative" ref="biddingNarrativeContainer">
-                <!-- Previous prompts (greyed out) -->
-                <template v-for="(prompt, idx) in practice.prompts.value.slice(0, practice.biddingState.currentPromptIndex)" :key="'prev-' + idx">
-                  <!-- Only show promptText for first prompt (subsequent prompts duplicate previous explanation) -->
-                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(flowText(prompt.promptText))"></span>
-                  <!-- Show explanationText in grey only if it's not the most recent answer (that goes in black below) -->
-                  <span v-if="prompt.explanationText && idx < practice.biddingState.currentPromptIndex - 1" class="narrative-text previous" v-html="colorizeSuits(flowText(prompt.explanationText))"></span>
+            <!-- Unified commentary panel - shown when deal has interactive steps -->
+            <div v-if="practice.hasSteps.value" class="commentary-panel">
+              <div class="commentary-text-container" ref="commentaryContainer">
+                <!-- Previous steps (greyed out, except last step's explanation which is current context) -->
+                <template v-for="(step, idx) in practice.steps.value.slice(0, practice.currentStepIndex.value)" :key="'prev-' + idx">
+                  <span class="narrative-text previous" v-html="colorizeSuits(flowText(step.text))"></span>
+                  <span v-if="step.type === 'bid' && step.explanationText"
+                    :class="['narrative-text', idx === practice.currentStepIndex.value - 1 && practice.isBidStep.value && !practice.bidAnswered.value ? 'current' : 'previous']"
+                    v-html="colorizeSuits(flowText(step.explanationText))"></span>
                 </template>
-                <!-- Current text (black) - first prompt shows promptText, subsequent show previous explanation -->
-                <span v-if="practice.biddingState.currentPromptIndex === 0 && practice.currentPrompt.value?.promptText" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentPrompt.value.promptText))"></span>
-                <span v-else-if="practice.biddingState.currentPromptIndex > 0 && practice.prompts.value[practice.biddingState.currentPromptIndex - 1]?.explanationText" class="narrative-text current" v-html="colorizeSuits(flowText(practice.prompts.value[practice.biddingState.currentPromptIndex - 1].explanationText))"></span>
+                <!-- Current step text (black) -->
+                <span v-if="practice.currentStep.value" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.text))"></span>
+                <!-- Bid explanation shown after bid is answered -->
+                <span v-if="practice.bidAnswered.value && practice.currentStep.value?.explanationText" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.explanationText))"></span>
               </div>
 
-              <!-- Bidding box -->
-              <div v-if="practice.hasBidPrompt.value" class="bidding-box-wrapper">
-                <BiddingBox
-                  :lastBid="practice.lastContractBid.value"
-                  :canDouble="practice.canDouble.value"
-                  :canRedouble="practice.canRedouble.value"
-                  @bid="onBid"
-                />
-                <button
-                  v-if="practice.canGoBack.value"
-                  class="back-btn"
-                  @click="practice.goBack()"
-                >
-                  ← Back
-                </button>
-              </div>
-            </div>
-
-            <!-- Instruction panel - shown if deal has [NEXT]/[ROTATE] steps -->
-            <div v-if="practice.hasSteps.value" class="instruction-panel">
-              <div class="instruction-progress">
-                Step {{ practice.stepState.currentStepIndex + 1 }} of {{ practice.totalSteps.value }}
-              </div>
-              <div class="instruction-text-container" ref="instructionContainer">
-                <!-- Previous steps (greyed out) -->
-                <template v-for="(step, idx) in practice.steps.value.slice(0, practice.stepState.currentStepIndex)" :key="idx">
-                  <div class="instruction-text previous" v-html="colorizeSuits(flowText(step.text))"></div>
-                </template>
-                <!-- Current step (active) -->
-                <div class="instruction-text current" v-html="colorizeSuits(flowText(practice.currentStepText.value))"></div>
-              </div>
-              <div class="instruction-controls">
-                <button
-                  v-if="practice.stepState.currentStepIndex > 0"
-                  class="instruction-btn secondary"
-                  @click="onStepBack"
-                >
-                  ← Back
-                </button>
-                <!-- Card choice prompt replaces Next button -->
-                <div v-if="practice.hasCardChoice.value" class="card-choice-prompt">
+              <!-- Controls based on current step type -->
+              <div class="commentary-controls">
+                <!-- Bidding box for bid steps -->
+                <div v-if="practice.hasBidPrompt.value" class="bidding-box-wrapper">
+                  <BiddingBox
+                    :lastBid="practice.lastContractBid.value"
+                    :canDouble="practice.canDouble.value"
+                    :canRedouble="practice.canRedouble.value"
+                    @bid="onBid"
+                  />
+                </div>
+                <!-- Card choice prompt -->
+                <div v-else-if="practice.hasCardChoice.value" class="card-choice-prompt">
                   Click on the card you would choose
                 </div>
-                <button
-                  v-else-if="practice.hasNextStep.value"
-                  class="instruction-btn primary"
-                  @click="practice.nextStep()"
-                >
-                  {{ practice.currentStepAction.value === 'rotate' ? 'Rotate' : 'Next' }} →
-                </button>
-              </div>
-            </div>
-
-            <!-- Completion panel - shown when deal is complete -->
-            <div v-if="practice.isComplete.value" class="auction-complete">
-              <h3 v-if="practice.hasPrompts.value">Auction Complete</h3>
-              <!-- Bidding lessons: show accumulated narrative with final explanation -->
-              <div v-if="practice.hasPrompts.value && !practice.hasSteps.value" class="full-narrative" ref="completionNarrativeContainer">
-                <template v-for="(prompt, idx) in practice.prompts.value" :key="'final-' + idx">
-                  <!-- Only show promptText for first prompt (subsequent prompts duplicate previous explanation) -->
-                  <span v-if="idx === 0" class="narrative-text previous" v-html="colorizeSuits(flowText(prompt.promptText))"></span>
-                  <!-- Show explanationText - last one is "current" (black), rest are "previous" (grey) -->
-                  <span v-if="prompt.explanationText" :class="['narrative-text', idx === practice.prompts.value.length - 1 ? 'current' : 'previous']" v-html="colorizeSuits(flowText(prompt.explanationText))"></span>
-                </template>
-              </div>
-              <!-- Non-bidding lessons: show full commentary -->
-              <div v-else-if="currentDeal?.commentary && !practice.hasSteps.value" class="full-commentary" v-html="colorizeSuits(flowText(stripControlDirectives(currentDeal.commentary)))">
-              </div>
-              <div class="completion-controls">
+                <!-- Back button (left of Next) -->
                 <button
                   v-if="practice.canGoBack.value"
                   class="instruction-btn secondary"
@@ -260,10 +208,29 @@
                 >
                   ← Back
                 </button>
-                <button v-if="currentDealIndex < deals.length - 1" class="next-deal-btn" @click="nextDeal">
+                <!-- Next/Rotate button for non-bid, non-card-choice steps (including bid explanation dismissal) -->
+                <button
+                  v-if="!practice.isComplete.value && (practice.bidAnswered.value || (!practice.hasBidPrompt.value && !practice.hasCardChoice.value && practice.currentStep.value && practice.currentStep.value.type !== 'end'))"
+                  class="instruction-btn primary"
+                  @click="practice.advance()"
+                >
+                  {{ practice.currentStep.value?.type === 'rotate' ? 'Rotate' : 'Next' }} →
+                </button>
+                <!-- Next Deal button when complete -->
+                <button v-if="practice.isComplete.value && currentDealIndex < deals.length - 1" class="next-deal-btn" @click="nextDeal">
                   Next Deal →
                 </button>
               </div>
+            </div>
+
+            <!-- Display-only commentary (no interactive steps) -->
+            <div v-else-if="currentDeal?.commentary" class="display-commentary" v-html="colorizeSuits(flowText(stripControlDirectives(currentDeal.commentary)))">
+            </div>
+            <!-- Display-only completion: Next Deal button -->
+            <div v-if="!practice.hasSteps.value && practice.isComplete.value && currentDealIndex < deals.length - 1" class="completion-controls">
+              <button class="next-deal-btn" @click="nextDeal">
+                Next Deal →
+              </button>
             </div>
 
           </div>
@@ -357,9 +324,7 @@ const isTeacherMode = ref(false)
 const showTeacherView = ref(false)
 const selectedStudentId = ref(null)
 const selectedStudentName = ref('')
-const instructionContainer = ref(null)
-const biddingNarrativeContainer = ref(null)
-const completionNarrativeContainer = ref(null)
+const commentaryContainer = ref(null)
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 
@@ -381,26 +346,18 @@ function scrollToCurrentElement(container, selector = '.current') {
   }
 }
 
-// Auto-scroll instruction text when step changes
-watch(() => practice.stepState.currentStepIndex, () => {
+// Auto-scroll commentary when step changes
+watch(() => practice.currentStepIndex.value, () => {
   nextTick(() => {
-    scrollToCurrentElement(instructionContainer.value, '.instruction-text.current')
+    scrollToCurrentElement(commentaryContainer.value, '.narrative-text.current')
   })
 })
 
-// Auto-scroll bidding narrative when prompt changes
-watch(() => practice.biddingState.currentPromptIndex, () => {
-  nextTick(() => {
-    scrollToCurrentElement(biddingNarrativeContainer.value, '.narrative-text.current')
-  })
-})
-
-// Auto-scroll completion narrative to show final explanation
+// Auto-scroll commentary when deal completes
 watch(() => practice.isComplete.value, (isComplete) => {
   if (isComplete) {
     nextTick(() => {
-      // For completion, find the last .current element
-      scrollToCurrentElement(completionNarrativeContainer.value, '.narrative-text.current')
+      scrollToCurrentElement(commentaryContainer.value, '.narrative-text.current')
     })
   }
 })
@@ -643,9 +600,9 @@ function handleLessonLoad({ subfolder, name, category, content }) {
   }
 }
 
-// Combined stats (bidding + card choice — never both active in same lesson)
-const totalCorrect = computed(() => practice.biddingState.correctCount + practice.cardChoiceState.correctCount)
-const totalWrong = computed(() => practice.biddingState.wrongCount + practice.cardChoiceState.wrongCount)
+// Board-level stats
+const totalCorrect = computed(() => practice.boardState.correctCount)
+const totalWrong = computed(() => practice.boardState.wrongCount)
 
 // Bidding
 function onBid(bid) {
@@ -1378,6 +1335,19 @@ body {
   display: flex;
   gap: 12px;
   justify-content: center;
+}
+
+.commentary-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.commentary-controls .bidding-box-wrapper,
+.commentary-controls .card-choice-prompt {
+  width: 100%;
 }
 
 .instruction-btn {

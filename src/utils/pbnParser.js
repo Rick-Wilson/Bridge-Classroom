@@ -67,11 +67,7 @@ export function parsePbn(pbnContent) {
         // Save previous deal if exists
         if (currentDeal) {
           currentDeal.commentary = formatCommentary(currentCommentary)
-          currentDeal.prompts = parsePromptsInternal(currentCommentary)
-          currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
-          currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
-          currentDeal.initialShowcards = parseInitialShowcards(currentCommentary)
-          currentDeal.mode = detectDealMode(currentCommentary)
+          currentDeal.steps = parseUnifiedSteps(currentCommentary)
           currentDeal.auction = trimAuction(currentDeal.auction)
           deals.push(currentDeal)
         }
@@ -137,11 +133,7 @@ export function parsePbn(pbnContent) {
   // Don't forget the last deal
   if (currentDeal) {
     currentDeal.commentary = formatCommentary(currentCommentary)
-    currentDeal.prompts = parsePromptsInternal(currentCommentary)
-    currentDeal.instructionSteps = parseInstructionSteps(currentCommentary)
-    currentDeal.initialShowSeats = parseInitialShowSeats(currentCommentary)
-    currentDeal.initialShowcards = parseInitialShowcards(currentCommentary)
-    currentDeal.mode = detectDealMode(currentCommentary)
+    currentDeal.steps = parseUnifiedSteps(currentCommentary)
     currentDeal.auction = trimAuction(currentDeal.auction)
     deals.push(currentDeal)
   }
@@ -150,198 +142,101 @@ export function parsePbn(pbnContent) {
 }
 
 /**
- * Internal function to parse prompts (to avoid circular dependency with export)
- * Each prompt includes showSeatsAfter - visibility after answering that prompt
- */
-function parsePromptsInternal(commentaryParts) {
-  if (!commentaryParts.length) return []
-
-  const fullText = commentaryParts.join('\n\n')
-  const prompts = []
-
-  // Match [BID xxx] markers
-  const bidPattern = /\[BID\s+([^\]]+)\]/gi
-  const parts = fullText.split(bidPattern)
-
-  // parts will be: [textBefore, bid1, textAfter1, bid2, textAfter2, ...]
-  for (let i = 0; i < parts.length - 1; i += 2) {
-    const textBefore = parts[i]
-    const bid = parts[i + 1]
-    const textAfter = parts[i + 2] || ''
-
-    // Clean up the bid (remove suit escapes and alert markers)
-    const cleanBid = replaceSuitSymbols(bid).replace(/!/g, '').trim()
-
-    // The prompt text is what comes before this [BID] marker
-    let promptText = ''
-    if (i === 0) {
-      // First bid - use text before it (skip title line)
-      const lines = textBefore.trim().split('\n')
-      // Skip the title line (e.g., "Stayman 1", "Cue-bid 5")
-      promptText = lines.slice(1).join('\n').trim()
-    } else {
-      // Subsequent bids - the prompt is the explanation from previous section
-      promptText = textBefore.trim()
-    }
-
-    // The explanation is the text after this [BID] until the next [BID] or end
-    let explanationText = textAfter.split(/\[BID|\[NEXT/i)[0].trim()
-
-    // Check for [show] directive in the text after this [BID]
-    // This determines what to show after the user answers this prompt
-    const showSeatsAfter = parseShowDirective(explanationText)
-
-    // Strip [SHOW ...] tags from display text
-    promptText = promptText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
-    explanationText = explanationText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
-
-    prompts.push({
-      bid: cleanBid,
-      promptText: replaceSuitSymbols(promptText),
-      explanationText: replaceSuitSymbols(explanationText),
-      showSeatsAfter  // null = no change, array = seats to show after answering this prompt
-    })
-  }
-
-  return prompts
-}
-
-/**
- * Detect the deal mode based on control tags in commentary
- * @param {Array} commentaryParts Array of commentary strings
- * @returns {string} 'bidding' | 'instruction' | 'display'
- */
-function detectDealMode(commentaryParts) {
-  if (!commentaryParts.length) return 'display'
-
-  const fullText = commentaryParts.join('\n\n')
-
-  // Check for [BID xxx] tags - bidding practice mode
-  if (/\[BID\s+[^\]]+\]/i.test(fullText)) {
-    return 'bidding'
-  }
-
-  // Check for [NEXT] or [ROTATE] tags - play instruction mode
-  if (/\[NEXT\]|\[ROTATE\]/i.test(fullText)) {
-    return 'instruction'
-  }
-
-  return 'display'
-}
-
-/**
- * Parse initial [SHOW ...] directive from commentary
- * Returns array of seats to show, or null if no directive found
+ * Parse commentary into a unified array of steps.
+ * Splits on all interactive control tags: [BID], [NEXT], [ROTATE], [choose-card].
+ * Declarative tags ([SHOW], [PLAY], [RESET], etc.) are extracted as properties within each step.
  *
  * @param {Array} commentaryParts Array of commentary strings
- * @returns {Array|null} Array of seat letters ['N', 'S'] or null
+ * @returns {Array} Array of step objects
  */
-function parseInitialShowSeats(commentaryParts) {
-  if (!commentaryParts.length) return null
-
-  const fullText = commentaryParts.join('\n\n')
-
-  // Find first [SHOW ...] tag
-  const showMatch = fullText.match(/\[SHOW\s+([^\]]+)\]/i)
-  if (!showMatch) return null
-
-  const showValue = showMatch[1].toUpperCase().trim()
-  if (showValue === 'ALL' || showValue === 'NESW') {
-    return ['N', 'E', 'S', 'W']
-  }
-
-  // Parse individual seat letters
-  const seats = []
-  if (showValue.includes('N')) seats.push('N')
-  if (showValue.includes('E')) seats.push('E')
-  if (showValue.includes('S')) seats.push('S')
-  if (showValue.includes('W')) seats.push('W')
-
-  return seats.length > 0 ? seats : null
-}
-
-/**
- * Parse [showcards] directive for showing specific cards from hidden hands
- * Format: [showcards E:S7 S:S5] means show ♠7 from East and ♠5 from South
- * Multiple cards for same seat use comma: [showcards E:S7,H3 S:S5]
- * @param {Array} commentaryParts Array of commentary strings
- * @returns {Object|null} Object mapping seat to array of cards, e.g. { E: ['S7'], S: ['S5'] }
- */
-function parseInitialShowcards(commentaryParts) {
-  if (!commentaryParts.length) return null
-
-  const fullText = commentaryParts.join('\n\n')
-
-  // Find first [showcards ...] tag
-  const showcardsMatch = fullText.match(/\[showcards\s+([^\]]+)\]/i)
-  if (!showcardsMatch) return null
-
-  const showcardsValue = showcardsMatch[1].trim()
-  const result = {}
-
-  // Parse format like "E:S7 S:S5" (space between seats, comma between cards for same seat)
-  const seatPattern = /([NESW]):([^,\s]+(?:,[^,\s]+)*)/gi
-  let match
-  while ((match = seatPattern.exec(showcardsValue)) !== null) {
-    const seat = match[1].toUpperCase()
-    const cards = match[2].split(',').map(c => c.trim().toUpperCase())
-    result[seat] = cards
-  }
-
-  return Object.keys(result).length > 0 ? result : null
-}
-
-/**
- * Parse instruction steps from commentary for play instruction mode
- * Splits on [NEXT] and [ROTATE] tags, extracts [SHOW ...] and [PLAY ...] tags
- *
- * NOTE: [SHOW ...] and [PLAY ...] tags should be placed AFTER the [NEXT] tag
- * in the PBN file, so they appear in the step where they take effect.
- *
- * @param {Array} commentaryParts Array of commentary strings
- * @returns {Array} Array of {text, action, showSeats, plays} objects
- */
-function parseInstructionSteps(commentaryParts) {
+function parseUnifiedSteps(commentaryParts) {
   if (!commentaryParts.length) return []
 
   const fullText = commentaryParts.join('\n\n')
 
-  // Check if this is instruction mode (has [NEXT] or [ROTATE])
-  if (!/\[NEXT\]|\[ROTATE\]/i.test(fullText)) {
-    return []
-  }
-
-  const steps = []
-
-  // Split by control tags, keeping the tags
-  const pattern = /(\[NEXT\]|\[ROTATE\])/gi
+  // Split on all interactive control tags, keeping the delimiters
+  const pattern = /(\[BID\s+[^\]]+\]|\[NEXT\]|\[ROTATE\]|\[choose-card\s+[^\]]+\])/gi
   const parts = fullText.split(pattern)
 
-  let currentText = ''
+  // If no control tags found, return empty (display-only deal)
+  if (parts.length === 1) return []
+
+  const steps = []
+  let textBuffer = ''
 
   for (let i = 0; i < parts.length; i++) {
     const part = parts[i]
 
-    if (/^\[NEXT\]$/i.test(part)) {
-      // Found [NEXT] - save current text as a step
-      if (currentText.trim()) {
-        steps.push(parseStepContent(currentText.trim(), 'next'))
+    // Check which control tag this is
+    const bidMatch = part.match(/^\[BID\s+([^\]]+)\]$/i)
+    const nextMatch = /^\[NEXT\]$/i.test(part)
+    const rotateMatch = /^\[ROTATE\]$/i.test(part)
+    const chooseCardMatch = part.match(/^\[choose-card\s+([^\]]+)\]$/i)
+
+    if (bidMatch) {
+      // [BID x] — text before is the prompt, text after (until next tag) is the explanation
+      const cleanBid = replaceSuitSymbols(bidMatch[1]).replace(/!/g, '').trim()
+
+      const promptText = textBuffer.trim()
+      textBuffer = ''
+
+      // Collect explanation text — everything after [BID] until the next control tag
+      let explanationText = ''
+      if (i + 1 < parts.length) {
+        const nextPart = parts[i + 1]
+        if (!nextPart.match(/^\[(?:BID|NEXT|ROTATE|choose-card)\b/i)) {
+          explanationText = nextPart.trim()
+          i++ // consume the explanation text
+        }
       }
-      currentText = ''
-    } else if (/^\[ROTATE\]$/i.test(part)) {
-      // Found [ROTATE] - save current text as a step with rotate action
-      if (currentText.trim()) {
-        steps.push(parseStepContent(currentText.trim(), 'rotate'))
+
+      // Extract declarative tags from prompt and explanation text
+      const promptStep = parseStepContent(promptText, 'bid')
+      const explStep = parseStepContent(explanationText, 'bid')
+
+      steps.push({
+        ...promptStep,
+        type: 'bid',
+        bid: cleanBid,
+        explanationText: explStep.text,
+        showSeatsAfter: explStep.showSeats,
+      })
+
+    } else if (nextMatch || rotateMatch) {
+      const type = nextMatch ? 'next' : 'rotate'
+      if (textBuffer.trim()) {
+        steps.push(parseStepContent(textBuffer.trim(), type))
       }
-      currentText = ''
+      textBuffer = ''
+
+    } else if (chooseCardMatch) {
+      // [choose-card x] — creates a step that blocks until user clicks correct card
+      const value = chooseCardMatch[1].trim()
+      let chooseCard
+      if (value.toLowerCase().startsWith('any:')) {
+        const cards = value.substring(4).split(',').map(c => normalizeCardCode(c.trim()))
+        chooseCard = { cards, anyOf: true }
+      } else {
+        chooseCard = { card: normalizeCardCode(value) }
+      }
+
+      if (textBuffer.trim()) {
+        const step = parseStepContent(textBuffer.trim(), 'choose-card')
+        step.chooseCard = chooseCard
+        steps.push(step)
+      }
+      textBuffer = ''
+
     } else {
-      currentText += part
+      // Plain text — accumulate
+      textBuffer += part
     }
   }
 
-  // Don't forget remaining text after last control tag
-  if (currentText.trim()) {
-    steps.push(parseStepContent(currentText.trim(), 'end'))
+  // Remaining text after last control tag becomes the final step
+  if (textBuffer.trim()) {
+    const step = parseStepContent(textBuffer.trim(), 'end')
+    steps.push(step)
   }
 
   return steps
@@ -468,12 +363,9 @@ function createEmptyDeal() {
     auctionDealer: '',
     result: '',
     commentary: '',
-    prompts: [],  // Array of {bid, promptText, explanationText} for bidding practice
-    instructionSteps: [],  // Array of {text, action} for play instruction mode
-    mode: 'display',  // 'bidding' | 'instruction' | 'display'
+    steps: [],  // Unified array of {type, text, bid, showSeats, ...} parsed from control tags
     openingLeader: null,  // Position of opening leader (N/E/S/W)
     openingLead: null,    // Opening lead card (e.g., "SJ" for spade jack)
-    initialShowSeats: null,  // Initial [SHOW ...] seats from PBN (null = use defaults)
     // Metadata embedded in PBN by lesson builder
     event: '',            // Event name (e.g., "Bridge Lesson - Stayman")
     skillPath: null,      // Skill path (e.g., "bidding_conventions/stayman")
@@ -635,87 +527,14 @@ function replaceSuitSymbols(text) {
     .replace(/\\c/g, '♣')
 }
 
-/**
- * Parse [show] directive from text, returning array of seats or null
- */
-function parseShowDirective(text) {
-  const showMatch = text.match(/\[SHOW\s+([^\]]+)\]/i)
-  if (!showMatch) return null
-
-  const showValue = showMatch[1].toUpperCase().trim()
-  if (showValue === 'ALL' || showValue === 'NESW') {
-    return ['N', 'E', 'S', 'W']
-  }
-
-  const seats = []
-  if (showValue.includes('N')) seats.push('N')
-  if (showValue.includes('E')) seats.push('E')
-  if (showValue.includes('S')) seats.push('S')
-  if (showValue.includes('W')) seats.push('W')
-
-  return seats.length > 0 ? seats : null
-}
 
 /**
- * Parse commentary to extract prompts for each student bid
- * Format: "...text... [BID 3\H] ...explanation..."
- * Each prompt includes showSeatsAfter - visibility after answering that prompt
+ * Parse commentary to extract bid-type steps (for backward compatibility with tests)
  * @param {Array} commentaryParts Array of commentary strings
- * @returns {Array} Array of {bid, promptText, explanationText, showSeatsAfter} objects
+ * @returns {Array} Array of bid step objects
  */
 export function parsePrompts(commentaryParts) {
-  if (!commentaryParts.length) return []
-
-  const fullText = commentaryParts.join('\n\n')
-  const prompts = []
-
-  // Match [BID xxx] or [NEXT] markers
-  const bidPattern = /\[BID\s+([^\]]+)\]/gi
-  const parts = fullText.split(bidPattern)
-
-  // parts will be: [textBefore, bid1, textAfter1, bid2, textAfter2, ...]
-  for (let i = 0; i < parts.length - 1; i += 2) {
-    const textBefore = i === 0 ? parts[i] : parts[i]
-    const bid = parts[i + 1]
-    const textAfter = parts[i + 2] || ''
-
-    // Clean up the bid (remove suit escapes and alert markers)
-    const cleanBid = replaceSuitSymbols(bid).replace(/!/g, '').trim()
-
-    // The prompt text is what comes before this [BID] marker
-    // For the first bid, it's parts[0]. For subsequent bids, we need the text after previous bid.
-    let promptText = ''
-    if (i === 0) {
-      // First bid - use text before it (skip title line)
-      const lines = textBefore.trim().split('\n')
-      // Skip the title line (e.g., "Stayman 1", "Cue-bid 5")
-      promptText = lines.slice(1).join('\n').trim()
-    } else {
-      // Subsequent bids - the prompt is the explanation from previous section
-      promptText = textBefore.trim()
-    }
-
-    // The explanation is the text after this [BID] until the next [BID] or end
-    // We'll extract just until a double newline or next section
-    let explanationText = textAfter.split(/\[BID|\[NEXT/i)[0].trim()
-
-    // Check for [show] directive in the text after this [BID]
-    // This determines what to show after the user answers this prompt
-    const showSeatsAfter = parseShowDirective(explanationText)
-
-    // Strip [show] tags from display text
-    promptText = promptText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
-    explanationText = explanationText.replace(/\[SHOW\s+[^\]]*\]/gi, '').trim()
-
-    prompts.push({
-      bid: cleanBid,
-      promptText: replaceSuitSymbols(promptText),
-      explanationText: replaceSuitSymbols(explanationText),
-      showSeatsAfter  // null = no change, array = seats to show after answering this prompt
-    })
-  }
-
-  return prompts
+  return parseUnifiedSteps(commentaryParts).filter(s => s.type === 'bid')
 }
 
 /**

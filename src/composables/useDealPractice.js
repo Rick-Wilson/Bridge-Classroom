@@ -1,15 +1,13 @@
-import { ref, computed, reactive, watch } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { getSeatForBid } from '../utils/pbnParser.js'
 import { useObservationStore } from './useObservationStore.js'
 
 /**
- * Unified composable for deal practice - tag-driven, no modes
+ * Unified composable for deal practice — single step array architecture.
  *
- * Control tags drive the UI:
- * - [SHOW ...] tags control hand visibility
- * - [BID ...] tags create bidding prompts
- * - [NEXT]/[ROTATE] tags create step navigation
- * - [PLAY ...] tags remove cards from hands
+ * All interactive control tags ([BID], [NEXT], [ROTATE], [choose-card]) are parsed
+ * into a single ordered steps array by the parser. This composable walks through
+ * that array with one index, using sub-states for auction and card-choice tracking.
  */
 export function useDealPractice() {
   const observationStore = useObservationStore()
@@ -17,100 +15,80 @@ export function useDealPractice() {
   // Current deal
   const currentDeal = ref(null)
 
-  // ==================== STEP/INSTRUCTION STATE ====================
-  const stepState = reactive({
-    currentStepIndex: 0,
-    instructionComplete: false
-  })
+  // ==================== UNIFIED STEP STATE ====================
+  const currentStepIndex = ref(0)
+  const complete = ref(false)
+  const bidAnswered = ref(false)  // true when bid answered but explanation not yet dismissed
 
-  // Track revealed seats (cumulative from [SHOW] tags)
-  const revealedSeats = ref([])
-  const showAllTriggered = ref(false)
-
-  // Track played cards { N: [{suit, card}], E: [], S: [], W: [] }
-  const playedCards = ref({ N: [], E: [], S: [], W: [] })
-
-  // ==================== BIDDING STATE ====================
-  const biddingState = reactive({
+  // Auction sub-state (for bid steps)
+  const auctionState = reactive({
     displayedBids: [],
     currentBidIndex: 0,
-    currentPromptIndex: 0,
     wrongBid: null,
     correctBid: null,
     wrongBidIndex: -1,
     correctBidIndex: -1,
-    auctionComplete: false,
-    // Per-board counters (boards completed correctly vs with errors)
-    correctCount: 0,  // Boards with all bids correct
-    wrongCount: 0,    // Boards with at least one wrong bid
-    // Track if current board has any wrong answers
-    boardHadWrong: false,
-    // Track which prompt indices have unresolved wrong answers (for back-up-and-fix detection)
-    wrongPromptIndices: {}
+    auctionComplete: false
   })
 
-  // ==================== CARD CHOICE STATE ====================
+  // Card choice sub-state (for choose-card steps)
   const cardChoiceState = reactive({
-    answered: {},         // { stepIndex: true } — tracks which steps have been answered
-    wrongCard: null,      // student's wrong card code (for feedback)
-    correctCard: null,    // expected correct card code (for feedback)
-    boardHadWrong: false,
-    correctCount: 0,      // Boards with all card choices correct
-    wrongCount: 0,        // Boards with at least one wrong card choice
-    wrongStepIndices: {}  // for back-up-fix detection
+    answered: {},         // { stepIndex: true }
+    wrongCard: null,
+    correctCard: null
   })
+
+  // Board scoring
+  const boardState = reactive({
+    boardHadWrong: false,
+    correctCount: 0,
+    wrongCount: 0,
+    wrongStepIndices: {}  // tracks which step indices had wrong answers (for back-up-fix)
+  })
+
+  // Track played cards { N: [{suit, card}], E: [], S: [], W: [] }
+  const playedCards = ref({ N: [], E: [], S: [], W: [] })
 
   // Timing for observations
   const promptStartTime = ref(null)
   const currentAttemptNumber = ref(1)
 
-  // ==================== COMPUTED: Steps (from [NEXT]/[ROTATE] tags) ====================
-  const steps = computed(() => currentDeal.value?.instructionSteps || [])
+  // ==================== COMPUTED: Steps ====================
+  const steps = computed(() => currentDeal.value?.steps || [])
   const hasSteps = computed(() => steps.value.length > 0)
-  const currentStep = computed(() => {
-    if (!hasSteps.value) return null
-    return steps.value[stepState.currentStepIndex] || null
-  })
-  const currentStepText = computed(() => currentStep.value?.text || '')
-  const currentStepAction = computed(() => currentStep.value?.action || 'end')
-  const hasNextStep = computed(() => stepState.currentStepIndex < steps.value.length - 1)
-  const totalSteps = computed(() => steps.value.length)
+  const currentStep = computed(() => steps.value[currentStepIndex.value] || null)
+  const hasBidSteps = computed(() => steps.value.some(s => s.type === 'bid'))
+  const isBidStep = computed(() => currentStep.value?.type === 'bid')
 
-  // ==================== COMPUTED: Bidding (from [BID] tags) ====================
-  const prompts = computed(() => currentDeal.value?.prompts || [])
-  const hasPrompts = computed(() => prompts.value.length > 0)
+  // ==================== COMPUTED: Bidding ====================
   const studentSeat = computed(() => currentDeal.value?.studentSeat || 'S')
 
   const currentTurnSeat = computed(() => {
     if (!currentDeal.value) return null
-    return getSeatForBid(biddingState.currentBidIndex, currentDeal.value.auctionDealer || currentDeal.value.dealer)
+    return getSeatForBid(auctionState.currentBidIndex, currentDeal.value.auctionDealer || currentDeal.value.dealer)
   })
 
   const isStudentTurn = computed(() => currentTurnSeat.value === studentSeat.value)
 
-  const currentPrompt = computed(() => {
-    if (!hasPrompts.value) return null
-    return prompts.value[biddingState.currentPromptIndex] || null
-  })
-
-  // Does current position have a [BID] prompt requiring input?
+  // Does current step require a bid from the student?
   const hasBidPrompt = computed(() => {
-    if (!hasPrompts.value || !isStudentTurn.value) return false
-    if (biddingState.auctionComplete) return false
+    if (!isBidStep.value || !isStudentTurn.value) return false
+    if (auctionState.auctionComplete) return false
+    if (bidAnswered.value) return false  // bid answered, showing explanation
 
-    const prompt = prompts.value[biddingState.currentPromptIndex]
-    if (!prompt) return false
+    const step = currentStep.value
+    if (!step?.bid) return false
 
-    const expectedBid = currentDeal.value?.auction?.[biddingState.currentBidIndex]
+    const expectedBid = currentDeal.value?.auction?.[auctionState.currentBidIndex]
     if (!expectedBid) return false
 
-    return normalizeBid(prompt.bid) === normalizeBid(expectedBid)
+    return normalizeBid(step.bid) === normalizeBid(expectedBid)
   })
 
   // Last contract bid (for bidding box validation)
   const lastContractBid = computed(() => {
-    for (let i = biddingState.displayedBids.length - 1; i >= 0; i--) {
-      const bid = biddingState.displayedBids[i]
+    for (let i = auctionState.displayedBids.length - 1; i >= 0; i--) {
+      const bid = auctionState.displayedBids[i]
       if (bid && bid !== 'Pass' && bid !== 'X' && bid !== 'XX') {
         return bid
       }
@@ -120,14 +98,14 @@ export function useDealPractice() {
 
   // Can double?
   const canDouble = computed(() => {
-    if (!currentDeal.value || biddingState.displayedBids.length === 0) return false
-    const last = biddingState.displayedBids[biddingState.displayedBids.length - 1]
+    if (!currentDeal.value || auctionState.displayedBids.length === 0) return false
+    const last = auctionState.displayedBids[auctionState.displayedBids.length - 1]
     if (last === 'X' || last === 'XX') return false
     if (!lastContractBid.value) return false
 
     let lastContractIdx = -1
-    for (let i = biddingState.displayedBids.length - 1; i >= 0; i--) {
-      const bid = biddingState.displayedBids[i]
+    for (let i = auctionState.displayedBids.length - 1; i >= 0; i--) {
+      const bid = auctionState.displayedBids[i]
       if (bid && bid !== 'Pass' && bid !== 'X' && bid !== 'XX') {
         lastContractIdx = i
         break
@@ -147,9 +125,9 @@ export function useDealPractice() {
 
   // Can redouble?
   const canRedouble = computed(() => {
-    if (!currentDeal.value || biddingState.displayedBids.length === 0) return false
-    for (let i = biddingState.displayedBids.length - 1; i >= 0; i--) {
-      const bid = biddingState.displayedBids[i]
+    if (!currentDeal.value || auctionState.displayedBids.length === 0) return false
+    for (let i = auctionState.displayedBids.length - 1; i >= 0; i--) {
+      const bid = auctionState.displayedBids[i]
       if (bid === 'Pass') continue
       if (bid === 'XX') return false
       if (bid === 'X') {
@@ -161,115 +139,88 @@ export function useDealPractice() {
           (currentSeat === 'E' && doubleSeat === 'W') ||
           (currentSeat === 'W' && doubleSeat === 'E')
         )
-        return !isPartner // Can redouble if opponent doubled
+        return !isPartner
       }
       return false
     }
     return false
   })
 
-  // ==================== COMPUTED: Card Choice (from [choose-card] tags) ====================
-  // Does current step have an unanswered [choose-card] prompt?
+  // ==================== COMPUTED: Card Choice ====================
   const hasCardChoice = computed(() => {
-    if (!hasSteps.value) return false
     const step = currentStep.value
     if (!step?.chooseCard) return false
-    return !cardChoiceState.answered[stepState.currentStepIndex]
+    return !cardChoiceState.answered[currentStepIndex.value]
   })
 
-  // The choose-card object from current step (if any)
-  const currentChooseCard = computed(() => {
-    if (!hasSteps.value) return null
-    return currentStep.value?.chooseCard || null
-  })
+  const currentChooseCard = computed(() => currentStep.value?.chooseCard || null)
 
   // ==================== COMPUTED: Hand Visibility ====================
-  // Hidden seats driven by [SHOW] tags in PBN - app follows instructions
+  // Walk steps[0..currentStepIndex], applying showSeats with REPLACEMENT semantics
   const hiddenSeats = computed(() => {
     if (!currentDeal.value) return []
     const allSeats = ['N', 'E', 'S', 'W']
 
-    // For step-based lessons, use cumulative [SHOW] tags from steps
-    if (hasSteps.value) {
-      if (showAllTriggered.value) return []
-      return allSeats.filter(seat => !revealedSeats.value.includes(seat))
+    if (!hasSteps.value) {
+      // Display-only deal — show all hands
+      return []
     }
 
-    // For bidding lessons, compute visibility by walking through answered prompts
-    // This supports the Back button - when currentPromptIndex decreases, visibility recalculates
-    if (hasPrompts.value) {
-      // Start with initial visibility
-      let showSeats = currentDeal.value.initialShowSeats || []
-
-      // Apply showSeatsAfter from each answered prompt
-      const promptsList = prompts.value
-      for (let i = 0; i < biddingState.currentPromptIndex; i++) {
-        const prompt = promptsList[i]
-        if (prompt?.showSeatsAfter) {
-          showSeats = prompt.showSeatsAfter
-        }
+    // Walk through steps to find the latest [SHOW] directive
+    let showSeats = null
+    const stepsList = steps.value
+    for (let i = 0; i <= currentStepIndex.value && i < stepsList.length; i++) {
+      const step = stepsList[i]
+      if (step?.showSeats) {
+        showSeats = step.showSeats  // replacement, not cumulative
       }
-
-      if (showSeats.length > 0) {
-        return allSeats.filter(seat => !showSeats.includes(seat))
+      // For bid steps, apply showSeatsAfter if we've passed this step or bid is answered
+      if (step?.showSeatsAfter && (i < currentStepIndex.value || (i === currentStepIndex.value && bidAnswered.value))) {
+        showSeats = step.showSeatsAfter
       }
     }
 
-    // For display-only lessons, use initial [SHOW] directive from PBN
-    const showSeats = currentDeal.value.initialShowSeats
-    if (showSeats && showSeats.length > 0) {
+    if (showSeats) {
       return allSeats.filter(seat => !showSeats.includes(seat))
     }
 
-    // No [SHOW] directive - show all (fallback for legacy PBN files)
-    return []
+    // No [SHOW] directive found — hide all seats
+    return allSeats
   })
 
   // Showcards - specific cards to show from otherwise hidden hands
-  // Format: { E: ['S7'], S: ['S5'] } means show ♠7 from East and ♠5 from South
   const currentShowcards = computed(() => {
-    if (!currentDeal.value) return null
+    if (!currentDeal.value || !hasSteps.value) return null
 
-    // For step-based lessons, track showcards through steps
-    if (hasSteps.value) {
-      const instructionSteps = currentDeal.value.instructionSteps || []
-      let showcards = { ...(currentDeal.value.initialShowcards || {}) }
+    let showcards = {}
+    const stepsList = steps.value
 
-      // Walk through steps up to current, updating showcards
-      for (let i = 0; i <= stepState.currentStepIndex && i < instructionSteps.length; i++) {
-        const step = instructionSteps[i]
+    for (let i = 0; i <= currentStepIndex.value && i < stepsList.length; i++) {
+      const step = stepsList[i]
 
-        // If this step has showcards, add/update them
-        if (step?.showcards) {
-          for (const [seat, cards] of Object.entries(step.showcards)) {
-            showcards[seat] = cards
-          }
-        }
-
-        // If this step reveals a seat fully, clear its showcards
-        if (step?.showSeats) {
-          for (const seat of step.showSeats) {
-            delete showcards[seat]
-          }
+      if (step?.showcards) {
+        for (const [seat, cards] of Object.entries(step.showcards)) {
+          showcards[seat] = cards
         }
       }
 
-      return Object.keys(showcards).length > 0 ? showcards : null
+      // If this step reveals a seat fully, clear its showcards
+      if (step?.showSeats) {
+        for (const seat of step.showSeats) {
+          delete showcards[seat]
+        }
+      }
+      if (step?.showSeatsAfter && (i < currentStepIndex.value || (i === currentStepIndex.value && bidAnswered.value))) {
+        for (const seat of step.showSeatsAfter) {
+          delete showcards[seat]
+        }
+      }
     }
 
-    // For bidding/display lessons, use initial showcards
-    // Note: showcards get cleared when [show NESW] reveals all hands
-    const showSeats = currentDeal.value.initialShowSeats || []
-
-    // If all seats are shown, no need for showcards
-    if (showSeats.length === 4 || (showSeats.includes('N') && showSeats.includes('E') && showSeats.includes('S') && showSeats.includes('W'))) {
-      return null
-    }
-
-    return currentDeal.value.initialShowcards || null
+    return Object.keys(showcards).length > 0 ? showcards : null
   })
 
-  // Seats that have showcards should not be hidden (they'll show partial hands)
+  // Seats that have showcards should not be hidden
   const seatsWithShowcards = computed(() => {
     const showcards = currentShowcards.value
     if (!showcards) return []
@@ -284,7 +235,7 @@ export function useDealPractice() {
     return hidden.filter(seat => !withShowcards.includes(seat))
   })
 
-  // Helper to convert showcards format (e.g., ['S7', 'H3']) to hand object
+  // Helper to convert showcards format to hand object
   function showcardsToHand(cards) {
     const hand = { spades: [], hearts: [], diamonds: [], clubs: [] }
     const suitMap = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }
@@ -299,8 +250,7 @@ export function useDealPractice() {
     return hand
   }
 
-  // Hands with played cards removed (unless current step has [RESET])
-  // Also handles showcards - returns partial hands for seats with showcards
+  // Hands with played cards removed
   const hands = computed(() => {
     if (!currentDeal.value?.hands) return {}
 
@@ -313,7 +263,6 @@ export function useDealPractice() {
     const result = {}
 
     for (const seat of ['N', 'E', 'S', 'W']) {
-      // Check if this seat has showcards (partial hand)
       if (showcards && showcards[seat]) {
         result[seat] = showcardsToHand(showcards[seat])
         continue
@@ -325,7 +274,6 @@ export function useDealPractice() {
         continue
       }
 
-      // Copy the hand and remove played cards
       result[seat] = {
         spades: [...(hand.spades || [])],
         hearts: [...(hand.hearts || [])],
@@ -345,20 +293,18 @@ export function useDealPractice() {
 
   // Show HCP?
   const showHcp = computed(() => {
-    if (hasPrompts.value && !biddingState.auctionComplete) return false
+    if (hasBidSteps.value && !auctionState.auctionComplete) return false
     return true
   })
 
   // ==================== COMPUTED: Auction & Lead Visibility ====================
-  // Track auction visibility based on [AUCTION off/on] directives
-  // Scans through steps up to current to determine state
   const showAuctionTable = computed(() => {
-    if (!hasSteps.value) return true  // Default: show auction for bidding/display modes
+    if (!hasSteps.value) return true
 
-    // Scan through steps to find latest [AUCTION off/on] directive
-    let visible = true  // Default: show auction
-    for (let i = 0; i <= stepState.currentStepIndex; i++) {
-      const step = currentDeal.value?.instructionSteps?.[i]
+    let visible = true
+    const stepsList = steps.value
+    for (let i = 0; i <= currentStepIndex.value && i < stepsList.length; i++) {
+      const step = stepsList[i]
       if (step?.showAuction !== null && step?.showAuction !== undefined) {
         visible = step.showAuction
       }
@@ -366,19 +312,16 @@ export function useDealPractice() {
     return visible
   })
 
-  // Track whether to show opening lead based on [SHOW_LEAD] directive
   const showOpeningLead = computed(() => {
-    if (!hasSteps.value) return false  // Only relevant for instruction mode
+    if (!hasSteps.value) return false
 
-    // Scan through steps to find if [SHOW_LEAD] has been triggered
-    for (let i = 0; i <= stepState.currentStepIndex; i++) {
-      const step = currentDeal.value?.instructionSteps?.[i]
-      if (step?.showLead) return true
+    const stepsList = steps.value
+    for (let i = 0; i <= currentStepIndex.value && i < stepsList.length; i++) {
+      if (stepsList[i]?.showLead) return true
     }
     return false
   })
 
-  // Opening lead info from deal
   const openingLead = computed(() => {
     if (!currentDeal.value?.openingLead) return null
     return {
@@ -387,234 +330,193 @@ export function useDealPractice() {
     }
   })
 
-  // ==================== COMPUTED: Completion State ====================
+  // ==================== COMPUTED: Completion ====================
   const isComplete = computed(() => {
-    if (hasSteps.value) {
-      // If on last step and it has an unanswered card choice, not complete yet
-      if (hasCardChoice.value) return false
-      return stepState.instructionComplete || (!hasNextStep.value && stepState.currentStepIndex === steps.value.length - 1)
-    }
-    if (hasPrompts.value) {
-      return biddingState.auctionComplete
-    }
-    return true // Display mode is always "complete"
+    if (!hasSteps.value) return true  // Display-only
+    if (complete.value) return true
+    // On last step, type 'end', and no pending card choice
+    const step = currentStep.value
+    if (step?.type === 'end' && !hasCardChoice.value) return true
+    return false
   })
 
-  // ==================== METHODS: Step Navigation ====================
-  function calculateRevealedSeats() {
-    const revealed = []
-    let showAll = false
-    if (!currentDeal.value?.instructionSteps) return { revealed, showAll }
+  const canGoBack = computed(() => {
+    if (!hasSteps.value) return false
+    // Can go back if showing bid explanation
+    if (bidAnswered.value) return true
+    // Can go back if we've advanced past step 0
+    if (currentStepIndex.value > 0) return true
+    // On step 0 but a bid has been answered
+    if (isBidStep.value && auctionState.currentBidIndex > 0) return true
+    return false
+  })
 
-    for (let i = 0; i <= stepState.currentStepIndex; i++) {
-      const step = currentDeal.value.instructionSteps[i]
-      if (step?.showSeats) {
-        for (const seat of step.showSeats) {
-          if (!revealed.includes(seat)) revealed.push(seat)
-        }
-        if (step.showSeats.length === 4) showAll = true
-      }
-    }
-    return { revealed, showAll }
-  }
-
-  function processPlaysForStep(stepIndex) {
-    if (!currentDeal.value?.instructionSteps) return
-    const step = currentDeal.value.instructionSteps[stepIndex]
-    if (!step?.plays?.length) return
-
-    for (const playStr of step.plays) {
-      const plays = playStr.split(/[,\s]+/)
-      for (const play of plays) {
-        if (!play) continue
-        const match = play.trim().match(/^([NESW]):([SHDC])(.+)$/i)
-        if (match) {
-          const seat = match[1].toUpperCase()
-          const suit = match[2].toUpperCase()
-          let card = match[3].toUpperCase()
-          if (card === '10') card = 'T'
-          playedCards.value[seat].push({ suit, card })
-        }
-      }
-    }
-  }
-
-  function updateStepState() {
-    const { revealed, showAll } = calculateRevealedSeats()
-    revealedSeats.value = revealed
-    showAllTriggered.value = showAll
-
-    // Process plays
+  // ==================== METHODS: Visibility & Plays ====================
+  function updateVisibilityAndPlays() {
+    // Recalculate played cards by walking steps
     playedCards.value = { N: [], E: [], S: [], W: [] }
-    for (let i = 0; i <= stepState.currentStepIndex; i++) {
-      processPlaysForStep(i)
+    const stepsList = steps.value
+    for (let i = 0; i <= currentStepIndex.value && i < stepsList.length; i++) {
+      const step = stepsList[i]
+      if (!step?.plays?.length) continue
+      for (const playStr of step.plays) {
+        const plays = playStr.split(/[,\s]+/)
+        for (const play of plays) {
+          if (!play) continue
+          const match = play.trim().match(/^([NESW]):([SHDC])(.+)$/i)
+          if (match) {
+            const seat = match[1].toUpperCase()
+            const suit = match[2].toUpperCase()
+            let card = match[3].toUpperCase()
+            if (card === '10') card = 'T'
+            playedCards.value[seat].push({ suit, card })
+          }
+        }
+      }
     }
   }
 
-  function nextStep() {
-    // Block advancement if current step has unanswered card choice
-    if (hasCardChoice.value) return false
-
-    if (stepState.currentStepIndex < steps.value.length - 1) {
-      stepState.currentStepIndex++
-      updateStepState()
-      return true
-    }
-    stepState.instructionComplete = true
-    // Record card choice board completion if this lesson had card choices
-    onCardChoiceBoardComplete()
-    return false
-  }
-
-  function onCardChoiceBoardComplete() {
-    // Check if this lesson had any card choice steps
-    const instructionSteps = currentDeal.value?.instructionSteps || []
-    const hasAnyCardChoice = instructionSteps.some(s => s.chooseCard)
-    if (!hasAnyCardChoice) return
-
-    if (cardChoiceState.boardHadWrong) {
-      cardChoiceState.wrongCount++
-      const allFixed = Object.keys(cardChoiceState.wrongStepIndices).length === 0
-      recordBoardObservation(allFixed)
-    } else {
-      cardChoiceState.correctCount++
-      recordBoardObservation(true)
-    }
-  }
-
-  function prevStep() {
-    if (stepState.currentStepIndex > 0) {
-      stepState.currentStepIndex--
-      stepState.instructionComplete = false
-      updateStepState()
-      return true
-    }
-    return false
-  }
-
-  // ==================== METHODS: Bidding ====================
-  // Advance through auction, stop when it's the student's turn
-  function advanceAuction() {
+  // ==================== METHODS: Auction ====================
+  /**
+   * Advance through the auction, auto-playing non-student bids
+   * until we reach the next student prompt or the auction ends.
+   * Called after loadDeal and after each successful makeBid.
+   */
+  function advanceAuctionToNextPrompt() {
     if (!currentDeal.value) return
     const auction = currentDeal.value.auction || []
-    const promptsList = prompts.value
 
-    // If no more prompts, play out the rest of the auction
-    if (biddingState.currentPromptIndex >= promptsList.length) {
-      while (biddingState.currentBidIndex < auction.length) {
-        biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
-        biddingState.currentBidIndex++
+    // Find the next bid step from current position
+    const nextBidStepIdx = findNextBidStep(currentStepIndex.value)
+
+    // If no more bid steps, play out the rest of the auction
+    if (nextBidStepIdx === -1) {
+      while (auctionState.currentBidIndex < auction.length) {
+        auctionState.displayedBids.push(auction[auctionState.currentBidIndex])
+        auctionState.currentBidIndex++
       }
-      biddingState.auctionComplete = true
+      auctionState.auctionComplete = true
       promptStartTime.value = null
-      onBoardComplete(promptsList)
       return
     }
 
-    // Advance through bids until we reach a prompted student bid
-    while (biddingState.currentBidIndex < auction.length) {
-      const currentSeat = getSeatForBid(biddingState.currentBidIndex, currentDeal.value.auctionDealer || currentDeal.value.dealer)
-      const currentBid = auction[biddingState.currentBidIndex]
-      const currentPromptBid = promptsList[biddingState.currentPromptIndex]?.bid
+    // Advance through bids until we reach the prompted student bid
+    const targetStep = steps.value[nextBidStepIdx]
+    const targetBid = normalizeBid(targetStep.bid)
 
-      // Is this a prompted student bid?
-      // Only stop if: (1) it's student's turn AND (2) this bid matches the current prompt
-      if (currentSeat === studentSeat.value &&
-          currentPromptBid &&
-          normalizeBid(currentBid) === normalizeBid(currentPromptBid)) {
-        // Stop here - wait for user input
+    while (auctionState.currentBidIndex < auction.length) {
+      const currentSeat = getSeatForBid(auctionState.currentBidIndex, currentDeal.value.auctionDealer || currentDeal.value.dealer)
+      const currentBid = normalizeBid(auction[auctionState.currentBidIndex])
+
+      // Is this the prompted student bid?
+      if (currentSeat === studentSeat.value && currentBid === targetBid) {
         promptStartTime.value = Date.now()
         currentAttemptNumber.value = 1
         return
       }
 
-      // Auto-play this bid (either not student's turn, or student bid without a prompt)
-      biddingState.displayedBids.push(auction[biddingState.currentBidIndex])
-      biddingState.currentBidIndex++
+      // Auto-play this bid
+      auctionState.displayedBids.push(auction[auctionState.currentBidIndex])
+      auctionState.currentBidIndex++
     }
 
     // Reached end of auction
-    biddingState.auctionComplete = true
+    auctionState.auctionComplete = true
     promptStartTime.value = null
-    onBoardComplete(promptsList)
   }
 
   /**
-   * Called when a board's auction is complete. Records wrap-up observation
-   * and updates per-board counters.
+   * Find the next bid step at or after startIdx that hasn't been answered yet.
+   * Returns step index or -1 if none.
    */
-  function onBoardComplete(promptsList) {
-    // Update per-board counters
-    if (biddingState.boardHadWrong) {
-      biddingState.wrongCount++
-    } else if (promptsList.length > 0) {
-      biddingState.correctCount++
+  function findNextBidStep(startIdx) {
+    const stepsList = steps.value
+    for (let i = startIdx; i < stepsList.length; i++) {
+      if (stepsList[i].type === 'bid') return i
     }
-
-    // Record board-level observation
-    if (promptsList.length > 0) {
-      if (biddingState.boardHadWrong) {
-        // Wrap-up: record overall board result (all fixed = true, else false)
-        const allFixed = Object.keys(biddingState.wrongPromptIndices).length === 0
-        recordBoardObservation(allFixed)
-      } else {
-        // Clean completion
-        recordBoardObservation(true)
-      }
-    }
+    return -1
   }
 
   function makeBid(bid) {
-    if (!currentDeal.value || biddingState.auctionComplete) return false
+    if (!currentDeal.value || auctionState.auctionComplete) return false
+    if (!isBidStep.value) return false
 
-    const expectedBid = currentDeal.value.auction[biddingState.currentBidIndex]
+    const expectedBid = currentDeal.value.auction[auctionState.currentBidIndex]
     const isCorrect = normalizeBid(bid) === normalizeBid(expectedBid)
-    const promptIdx = biddingState.currentPromptIndex
+    const stepIdx = currentStepIndex.value
 
-    // Record observations per-board (not per-bid):
-    // - Wrong bid: record failure immediately
-    // - Correct bid on a previously-wrong prompt (back-up fix): record success
-    // - Correct bid on a never-wrong prompt: no recording (wait for board completion)
+    // Record observations per-board
     if (!isCorrect) {
       recordBoardObservation(false)
-      biddingState.wrongPromptIndices[promptIdx] = true
-      biddingState.boardHadWrong = true
-    } else if (promptIdx in biddingState.wrongPromptIndices) {
-      // Student backed up and fixed this prompt
-      delete biddingState.wrongPromptIndices[promptIdx]
+      boardState.wrongStepIndices[stepIdx] = true
+      boardState.boardHadWrong = true
+    } else if (stepIdx in boardState.wrongStepIndices) {
+      delete boardState.wrongStepIndices[stepIdx]
       recordBoardObservation(true)
     }
 
     // Capture bid position before advancing
-    const bidPosition = biddingState.currentBidIndex
+    const bidPosition = auctionState.currentBidIndex
 
-    // Always advance the auction after any bid
-    biddingState.displayedBids.push(currentDeal.value.auction[biddingState.currentBidIndex])
-    biddingState.currentBidIndex++
-    biddingState.currentPromptIndex++
+    // Always advance the auction after any bid attempt
+    auctionState.displayedBids.push(currentDeal.value.auction[auctionState.currentBidIndex])
+    auctionState.currentBidIndex++
     promptStartTime.value = null
     currentAttemptNumber.value = 1
 
     if (isCorrect) {
-      biddingState.wrongBid = null
-      biddingState.correctBid = null
-      biddingState.wrongBidIndex = -1
+      auctionState.wrongBid = null
+      auctionState.correctBid = null
+      auctionState.wrongBidIndex = -1
     } else {
-      // Show feedback for wrong bid (but still advance)
-      biddingState.wrongBid = bid
-      biddingState.correctBid = expectedBid
-      biddingState.wrongBidIndex = bidPosition
+      auctionState.wrongBid = bid
+      auctionState.correctBid = expectedBid
+      auctionState.wrongBidIndex = bidPosition
     }
 
-    advanceAuction()
+    // Check what comes next
+    const nextStepIdx = currentStepIndex.value + 1
+    const nextStep = steps.value[nextStepIdx]
+
+    if (nextStep?.type === 'bid') {
+      // Next step is also a bid — advance immediately and keep going
+      currentStepIndex.value = nextStepIdx
+      bidAnswered.value = false
+      advanceAuctionToNextPrompt()
+    } else {
+      // Next step is not a bid — pause to show explanation
+      bidAnswered.value = true
+      finishAuctionIfNeeded()
+
+      // If this is the last step (no more steps after), auto-complete
+      if (currentStepIndex.value >= steps.value.length - 1) {
+        markComplete()
+      }
+    }
+
     return isCorrect
   }
 
+  function finishAuctionIfNeeded() {
+    if (auctionState.auctionComplete) return
+    // Check if there are more bid steps ahead
+    const nextBid = findNextBidStep(currentStepIndex.value)
+    if (nextBid === -1) {
+      // No more bid steps — play out remaining auction
+      const auction = currentDeal.value?.auction || []
+      while (auctionState.currentBidIndex < auction.length) {
+        auctionState.displayedBids.push(auction[auctionState.currentBidIndex])
+        auctionState.currentBidIndex++
+      }
+      auctionState.auctionComplete = true
+    }
+  }
+
   function clearFeedback() {
-    biddingState.wrongBid = null
-    biddingState.correctBid = null
-    biddingState.wrongBidIndex = -1
-    biddingState.correctBidIndex = -1
+    auctionState.wrongBid = null
+    auctionState.correctBid = null
+    auctionState.wrongBidIndex = -1
+    auctionState.correctBidIndex = -1
   }
 
   // ==================== METHODS: Card Choice ====================
@@ -625,27 +527,25 @@ export function useDealPractice() {
     if (!chooseCard) return false
 
     const chosen = (suitLetter + rank).toUpperCase()
-    const stepIdx = stepState.currentStepIndex
+    const stepIdx = currentStepIndex.value
 
-    // Check if the chosen card matches expected card(s)
     let isCorrect = false
     let expectedDisplay = ''
     if (chooseCard.anyOf) {
       isCorrect = chooseCard.cards.includes(chosen)
-      expectedDisplay = chooseCard.cards[0] // Show first acceptable card in feedback
+      expectedDisplay = chooseCard.cards[0]
     } else {
       isCorrect = chosen === chooseCard.card
       expectedDisplay = chooseCard.card
     }
 
-    // Record observations (mirrors bidding pattern)
+    // Record observations per-board
     if (!isCorrect) {
       recordBoardObservation(false)
-      cardChoiceState.wrongStepIndices[stepIdx] = true
-      cardChoiceState.boardHadWrong = true
-    } else if (stepIdx in cardChoiceState.wrongStepIndices) {
-      // Student backed up and fixed this step
-      delete cardChoiceState.wrongStepIndices[stepIdx]
+      boardState.wrongStepIndices[stepIdx] = true
+      boardState.boardHadWrong = true
+    } else if (stepIdx in boardState.wrongStepIndices) {
+      delete boardState.wrongStepIndices[stepIdx]
       recordBoardObservation(true)
     }
 
@@ -660,17 +560,8 @@ export function useDealPractice() {
       cardChoiceState.correctCard = expectedDisplay
     }
 
-    // Advance to next step (shows the explanation/reveal)
-    nextStep()
-
-    // If we've landed on the last step with no more card choices, complete the board.
-    // nextStep() only calls onCardChoiceBoardComplete() when it can't advance,
-    // but here it successfully advanced to the final step — and since hasNextStep
-    // is false, the "Next" button won't appear, so nextStep() won't be called again.
-    if (!hasNextStep.value && !hasCardChoice.value) {
-      stepState.instructionComplete = true
-      onCardChoiceBoardComplete()
-    }
+    // Advance to next step
+    advance()
 
     return isCorrect
   }
@@ -680,70 +571,135 @@ export function useDealPractice() {
     cardChoiceState.correctCard = null
   }
 
-  // Can we go back? True if we've made progress (answered a bid or advanced a step)
-  const canGoBack = computed(() => {
-    // Can go back in bidding if we've answered at least one prompt
-    if (hasPrompts.value && biddingState.currentPromptIndex > 0) return true
-    // Can go back in steps if we're past the first step
-    if (hasSteps.value && stepState.currentStepIndex > 0) return true
-    return false
-  })
+  // ==================== METHODS: Navigation ====================
+  /**
+   * Advance to the next step. Blocks if current step needs unanswered bid or card choice.
+   * For bid steps, use makeBid() instead — it calls advance internally.
+   */
+  function advance() {
+    // Block if current step needs unanswered input
+    if (hasBidPrompt.value) return false
+    if (hasCardChoice.value) return false
 
-  // Go back to the previous state (previous bid prompt or previous step)
-  function goBack() {
-    // Clear any feedback first
-    clearFeedback()
-    clearCardFeedback()
+    // If we're showing a bid explanation, dismiss it and move to next step
+    if (bidAnswered.value) {
+      bidAnswered.value = false
+    }
 
-    // If we have prompts and have answered at least one, go back to previous prompt
-    if (hasPrompts.value && biddingState.currentPromptIndex > 0) {
-      // Decrement prompt index
-      biddingState.currentPromptIndex--
-      biddingState.auctionComplete = false
+    if (currentStepIndex.value < steps.value.length - 1) {
+      currentStepIndex.value++
+      updateVisibilityAndPlays()
 
-      // Find where the previous prompt was in the auction
-      const promptsList = prompts.value
-      const targetPrompt = promptsList[biddingState.currentPromptIndex]
-      const targetBid = normalizeBid(targetPrompt.bid)
-
-      // Scan auction to find the position of this prompt
-      const auction = currentDeal.value.auction || []
-      let targetBidIndex = 0
-      for (let i = 0; i < auction.length; i++) {
-        if (normalizeBid(auction[i]) === targetBid) {
-          targetBidIndex = i
-          break
-        }
+      // If new step is a bid, advance auction to it
+      if (steps.value[currentStepIndex.value]?.type === 'bid') {
+        advanceAuctionToNextPrompt()
       }
 
-      // Reset state to that position
-      biddingState.currentBidIndex = targetBidIndex
-      biddingState.displayedBids = auction.slice(0, targetBidIndex)
-      promptStartTime.value = Date.now()
-      currentAttemptNumber.value = 1
+      // Auto-complete if we landed on the last step and it needs no interaction
+      if (currentStepIndex.value >= steps.value.length - 1) {
+        const step = steps.value[currentStepIndex.value]
+        if (step?.type !== 'bid' && step?.type !== 'choose-card') {
+          markComplete()
+        }
+      }
       return true
     }
 
-    // If we have steps and are past the first, go back a step
-    if (hasSteps.value && stepState.currentStepIndex > 0) {
-      // If the previous step had a card choice, clear its answered state so it can be retried
-      const prevIdx = stepState.currentStepIndex - 1
+    // At end of steps (fallback)
+    markComplete()
+    return false
+  }
+
+  function markComplete() {
+    complete.value = true
+    onBoardComplete()
+  }
+
+  function onBoardComplete() {
+    // Check if this deal had any interactive steps (bid or choose-card)
+    const hadInteractive = steps.value.some(s => s.type === 'bid' || s.type === 'choose-card')
+    if (!hadInteractive) return
+
+    if (boardState.boardHadWrong) {
+      boardState.wrongCount++
+      const allFixed = Object.keys(boardState.wrongStepIndices).length === 0
+      recordBoardObservation(allFixed)
+    } else {
+      boardState.correctCount++
+      recordBoardObservation(true)
+    }
+  }
+
+  function goBack() {
+    clearFeedback()
+    clearCardFeedback()
+
+    // If showing bid explanation, go back to the unanswered bid
+    if (bidAnswered.value) {
+      bidAnswered.value = false
+      rewindAuctionToStep(currentStepIndex.value)
+      return true
+    }
+
+    if (currentStepIndex.value > 0) {
+      const prevIdx = currentStepIndex.value - 1
+      const prevStep = steps.value[prevIdx]
+
+      // If going back to a card-choice step, clear its answered state
       if (cardChoiceState.answered[prevIdx]) {
         delete cardChoiceState.answered[prevIdx]
       }
-      return prevStep()
+
+      // If going back to a bid step, rewind the auction
+      if (prevStep?.type === 'bid') {
+        rewindAuctionToStep(prevIdx)
+      }
+
+      currentStepIndex.value = prevIdx
+      complete.value = false
+      bidAnswered.value = false
+      updateVisibilityAndPlays()
+      return true
     }
 
     return false
   }
 
+  /**
+   * Rewind the auction display to the state it was in when we arrived at stepIdx
+   * (i.e., the bid for this step hasn't been made yet)
+   */
+  function rewindAuctionToStep(stepIdx) {
+    const step = steps.value[stepIdx]
+    if (!step || step.type !== 'bid') return
+
+    const targetBid = normalizeBid(step.bid)
+    const auction = currentDeal.value?.auction || []
+
+    // Find where this bid is in the auction
+    let targetBidIndex = 0
+    for (let i = 0; i < auction.length; i++) {
+      if (normalizeBid(auction[i]) === targetBid) {
+        targetBidIndex = i
+        break
+      }
+    }
+
+    auctionState.currentBidIndex = targetBidIndex
+    auctionState.displayedBids = auction.slice(0, targetBidIndex)
+    auctionState.auctionComplete = false
+    promptStartTime.value = Date.now()
+    currentAttemptNumber.value = 1
+  }
+
+  // ==================== METHODS: Observations ====================
   async function recordBoardObservation(correct) {
     if (!currentDeal.value) return
     try {
       await observationStore.recordObservation({
         deal: currentDeal.value,
         promptIndex: -1,
-        auctionSoFar: [...biddingState.displayedBids],
+        auctionSoFar: [...auctionState.displayedBids],
         expectedBid: 'BOARD',
         studentBid: correct ? 'PASS' : 'FAIL',
         correct,
@@ -759,48 +715,49 @@ export function useDealPractice() {
   function loadDeal(deal) {
     currentDeal.value = deal
 
-    // Reset step state
-    stepState.currentStepIndex = 0
-    stepState.instructionComplete = false
-    revealedSeats.value = []
-    showAllTriggered.value = false
-    playedCards.value = { N: [], E: [], S: [], W: [] }
+    // Reset unified state
+    currentStepIndex.value = 0
+    complete.value = false
+    bidAnswered.value = false
 
-    // Reset card choice state
+    // Reset auction sub-state
+    auctionState.displayedBids = []
+    auctionState.currentBidIndex = 0
+    auctionState.wrongBid = null
+    auctionState.correctBid = null
+    auctionState.wrongBidIndex = -1
+    auctionState.correctBidIndex = -1
+    auctionState.auctionComplete = false
+
+    // Reset card choice sub-state
     cardChoiceState.answered = {}
     cardChoiceState.wrongCard = null
     cardChoiceState.correctCard = null
-    cardChoiceState.boardHadWrong = false
-    cardChoiceState.wrongStepIndices = {}
 
-    // Reset bidding state
-    biddingState.displayedBids = []
-    biddingState.currentBidIndex = 0
-    biddingState.currentPromptIndex = 0
-    biddingState.wrongBid = null
-    biddingState.correctBid = null
-    biddingState.wrongBidIndex = -1
-    biddingState.correctBidIndex = -1
-    biddingState.auctionComplete = false
-    biddingState.boardHadWrong = false
-    biddingState.wrongPromptIndices = {}
+    // Reset board scoring
+    boardState.boardHadWrong = false
+    boardState.wrongStepIndices = {}
+
+    // Reset plays
+    playedCards.value = { N: [], E: [], S: [], W: [] }
+
+    // Reset timing
     promptStartTime.value = null
     currentAttemptNumber.value = 1
 
-    // Initialize based on what tags are present
-    if (deal?.instructionSteps?.length) {
-      updateStepState()
-    }
-    if (deal?.prompts?.length) {
-      advanceAuction()
+    if (deal?.steps?.length) {
+      updateVisibilityAndPlays()
+
+      // If first step is a bid, advance auction to it
+      if (deal.steps[0]?.type === 'bid') {
+        advanceAuctionToNextPrompt()
+      }
     }
   }
 
   function resetStats() {
-    biddingState.correctCount = 0
-    biddingState.wrongCount = 0
-    cardChoiceState.correctCount = 0
-    cardChoiceState.wrongCount = 0
+    boardState.correctCount = 0
+    boardState.wrongCount = 0
   }
 
   function normalizeBid(bid) {
@@ -818,26 +775,23 @@ export function useDealPractice() {
   return {
     // State
     currentDeal,
-    stepState,
-    biddingState,
+    currentStepIndex,
+    bidAnswered,
+    auctionState,
     cardChoiceState,
+    boardState,
 
     // Computed: Steps
     steps,
     hasSteps,
     currentStep,
-    currentStepText,
-    currentStepAction,
-    hasNextStep,
-    totalSteps,
+    hasBidSteps,
+    isBidStep,
 
     // Computed: Bidding
-    prompts,
-    hasPrompts,
     studentSeat,
     currentTurnSeat,
     isStudentTurn,
-    currentPrompt,
     hasBidPrompt,
     lastContractBid,
     canDouble,
@@ -859,20 +813,13 @@ export function useDealPractice() {
     showOpeningLead,
     openingLead,
 
-    // Methods: Steps
-    nextStep,
-    prevStep,
-
-    // Methods: Bidding
+    // Methods
+    advance,
     makeBid,
     clearFeedback,
     goBack,
-
-    // Methods: Card Choice
     makeCardChoice,
     clearCardFeedback,
-
-    // Methods: General
     loadDeal,
     resetStats,
     observationStore
