@@ -120,7 +120,7 @@
               :vulnerable="currentDeal?.vulnerable"
               :contract="currentDeal?.contract"
               :declarer="currentDeal?.declarer"
-              :showContract="practice.auctionState.auctionComplete || practice.showOpeningLead.value || practice.hasSteps.value"
+              :showContract="practice.auctionState.auctionComplete || practice.showOpeningLead.value || (practice.hasSteps.value && !practice.hasBidSteps.value)"
               :openingLead="practice.showOpeningLead.value ? currentDeal?.openingLead : ''"
               :totalDeals="deals.length"
               :currentIndex="currentDealIndex"
