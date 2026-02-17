@@ -79,9 +79,9 @@
           @click="$emit('selectStudent', student.id)"
         >
           <div class="student-header">
-            <div class="student-avatar">{{ getInitials(student) }}</div>
+            <div class="student-avatar">{{ anon.displayInitials(student) }}</div>
             <div class="student-name-container">
-              <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
+              <span class="student-name">{{ anon.displayFullName(student) }}</span>
               <span class="last-active" v-if="student.stats.lastPractice">
                 Last active: {{ formatDate(student.stats.lastPractice) }}
               </span>
@@ -128,6 +128,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useTeacherDashboard } from '../../composables/useTeacherDashboard.js'
+import { useAnonymizer } from '../../composables/useAnonymizer.js'
 import { getSkillFromPath } from '../../utils/skillPath.js'
 
 const props = defineProps({
@@ -140,6 +141,7 @@ const props = defineProps({
 defineEmits(['back', 'selectStudent'])
 
 const dashboard = useTeacherDashboard()
+const anon = useAnonymizer()
 const sortBy = ref('name')
 
 const classroomName = computed(() => dashboard.formatClassroomName(props.classroomId))
@@ -213,8 +215,8 @@ const sortedStudents = computed(() => {
     case 'name':
     default:
       return studentsCopy.sort((a, b) => {
-        const nameA = `${a.first_name} ${a.last_name}`.toLowerCase()
-        const nameB = `${b.first_name} ${b.last_name}`.toLowerCase()
+        const nameA = anon.displayFullName(a).toLowerCase()
+        const nameB = anon.displayFullName(b).toLowerCase()
         return nameA.localeCompare(nameB)
       })
   }

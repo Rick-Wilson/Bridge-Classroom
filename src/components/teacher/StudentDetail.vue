@@ -146,6 +146,7 @@
 <script setup>
 import { computed, ref, onMounted, watch } from 'vue'
 import { useTeacherDashboard } from '../../composables/useTeacherDashboard.js'
+import { useAnonymizer } from '../../composables/useAnonymizer.js'
 import { getSkillFromPath } from '../../utils/skillPath.js'
 
 const props = defineProps({
@@ -158,6 +159,7 @@ const props = defineProps({
 defineEmits(['back'])
 
 const dashboard = useTeacherDashboard()
+const anon = useAnonymizer()
 const loading = ref(false)
 const decryptedObservations = ref([])
 
@@ -167,14 +169,12 @@ const student = computed(() =>
 )
 
 const studentName = computed(() =>
-  student.value ? `${student.value.first_name} ${student.value.last_name}` : 'Unknown Student'
+  student.value ? anon.displayFullName(student.value) : 'Unknown Student'
 )
 
 const initials = computed(() => {
   if (!student.value) return '?'
-  const first = student.value.first_name?.charAt(0) || ''
-  const last = student.value.last_name?.charAt(0) || ''
-  return (first + last).toUpperCase()
+  return anon.displayInitials(student.value)
 })
 
 const classroomName = computed(() =>

@@ -9,6 +9,9 @@
         </span>
       </div>
       <div class="header-actions">
+        <button class="anon-btn" :class="{ active: anon.isAnonymized.value }" @click="anon.toggleAnonymize()">
+          {{ anon.isAnonymized.value ? 'Clear' : 'Anon' }}
+        </button>
         <button class="refresh-btn" @click="refresh" :disabled="dashboard.isLoading.value">
           {{ dashboard.isLoading.value ? 'Loading...' : 'Refresh' }}
         </button>
@@ -107,9 +110,9 @@
             class="recent-item"
             @click="$emit('selectStudent', student.id)"
           >
-            <div class="student-avatar">{{ getInitials(student) }}</div>
+            <div class="student-avatar">{{ anon.displayInitials(student) }}</div>
             <div class="student-info">
-              <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
+              <span class="student-name">{{ anon.displayFullName(student) }}</span>
               <span class="student-classroom">{{ dashboard.formatClassroomName(student.classroom) }}</span>
             </div>
             <div class="student-quick-stats">
@@ -128,11 +131,13 @@
 import { computed, onMounted } from 'vue'
 import { useTeacherDashboard } from '../../composables/useTeacherDashboard.js'
 import { useTeacherAuth } from '../../composables/useTeacherAuth.js'
+import { useAnonymizer } from '../../composables/useAnonymizer.js'
 
 const emit = defineEmits(['selectClassroom', 'selectStudent', 'logout'])
 
 const dashboard = useTeacherDashboard()
 const teacherAuth = useTeacherAuth()
+const anon = useAnonymizer()
 
 onMounted(async () => {
   await dashboard.initialize()
@@ -229,7 +234,7 @@ function getAccuracyClass(accuracy) {
   gap: 12px;
 }
 
-.refresh-btn, .logout-btn {
+.anon-btn, .refresh-btn, .logout-btn {
   padding: 10px 20px;
   border-radius: 6px;
   font-size: 14px;
@@ -251,6 +256,27 @@ function getAccuracyClass(accuracy) {
 .refresh-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.anon-btn {
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.anon-btn.active {
+  background: #fff3e0;
+  color: #e65100;
+  border-color: #ffcc80;
+}
+
+.anon-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.anon-btn.active:hover {
+  background: #ffe0b2;
 }
 
 .logout-btn {
