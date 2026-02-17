@@ -3,6 +3,9 @@
     <header class="teacher-header">
       <h2>My Students</h2>
       <div class="header-actions">
+        <button class="anon-btn" :class="{ active: anon.isAnonymized.value }" @click="anon.toggleAnonymize()">
+          {{ anon.isAnonymized.value ? 'Clear' : 'Anon' }}
+        </button>
         <button class="secondary-btn" @click="refresh">Refresh</button>
         <button class="secondary-btn" @click="$emit('close')">Back</button>
       </div>
@@ -82,10 +85,12 @@
 <script setup>
 import { computed, onMounted } from 'vue'
 import { useTeacherRole } from '../composables/useTeacherRole.js'
+import { useAnonymizer } from '../composables/useAnonymizer.js'
 
 const emit = defineEmits(['close', 'select-student'])
 
 const teacherRole = useTeacherRole()
+const anon = useAnonymizer()
 
 onMounted(async () => {
   await teacherRole.loadAllStudentSummaries()
@@ -124,11 +129,11 @@ const recentLessons = computed(() => {
 })
 
 function studentName(student) {
-  return `${student.first_name} ${student.last_name}`
+  return anon.displayFullName(student)
 }
 
 function initials(student) {
-  return (student.first_name?.[0] || '') + (student.last_name?.[0] || '')
+  return anon.displayInitials(student)
 }
 </script>
 
@@ -312,6 +317,33 @@ function initials(student) {
 }
 
 /* Buttons */
+.anon-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+  transition: all 0.2s;
+}
+
+.anon-btn.active {
+  background: #fff3e0;
+  color: #e65100;
+  border-color: #ffcc80;
+}
+
+.anon-btn:hover {
+  background: #f5f5f5;
+  color: #333;
+}
+
+.anon-btn.active:hover {
+  background: #ffe0b2;
+}
+
 .secondary-btn {
   padding: 8px 16px;
   border-radius: 6px;
