@@ -507,8 +507,8 @@ export function useDealPractice() {
 
   function finishAuctionIfNeeded() {
     if (auctionState.auctionComplete) return
-    // Check if there are more bid steps ahead
-    const nextBid = findNextBidStep(currentStepIndex.value)
+    // Check if there are more bid steps ahead (after current)
+    const nextBid = findNextBidStep(currentStepIndex.value + 1)
     if (nextBid === -1) {
       // No more bid steps — play out remaining auction
       const auction = currentDeal.value?.auction || []
