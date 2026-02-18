@@ -472,6 +472,61 @@ async function claimRecovery(userId, token, apiUrl) {
   }
 }
 
+/**
+ * Claim account recovery using a 6-digit numeric code from the email
+ * @param {string} email - Email address
+ * @param {string} code - 6-digit recovery code
+ * @param {string} apiUrl - API base URL
+ * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
+ */
+async function claimRecoveryByCode(email, code, apiUrl) {
+  try {
+    const response = await fetch(`${apiUrl}/recovery/claim-code`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, code })
+    })
+
+    const data = await response.json()
+
+    if (!data.success || !data.user) {
+      return {
+        success: false,
+        error: data.error || 'Invalid code'
+      }
+    }
+
+    // Restore user to local storage — same logic as claimRecovery()
+    const recoveredUser = {
+      id: data.user.id,
+      firstName: data.user.first_name,
+      lastName: data.user.last_name,
+      email: data.user.email,
+      classrooms: data.user.classroom ? [data.user.classroom] : [],
+      dataConsent: true,
+      secretKey: data.user.secret_key,
+      serverRegistered: true,
+      recoveredAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    }
+
+    users.value[recoveredUser.id] = recoveredUser
+    currentUserId.value = recoveredUser.id
+    saveToStorage()
+
+    return { success: true, user: recoveredUser }
+  } catch (err) {
+    console.error('Recovery claim by code failed:', err)
+    return {
+      success: false,
+      error: 'Unable to connect to server. Please try again.'
+    }
+  }
+}
+
 export function useUserStore() {
   // Computed properties
   const currentUser = computed(() => {
@@ -533,6 +588,7 @@ export function useUserStore() {
 
     // Account recovery
     requestRecovery,
-    claimRecovery
+    claimRecovery,
+    claimRecoveryByCode
   }
 }

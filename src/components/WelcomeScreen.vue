@@ -38,6 +38,7 @@ const loadingMessage = ref('')
 const recoveryEmail = ref('')
 const recoveryError = ref('')
 const recoveryMessage = ref('')
+const recoveryCode = ref('')
 
 // Initialize
 onMounted(async () => {
@@ -230,6 +231,37 @@ async function handleRequestRecovery() {
     }
   } catch (err) {
     console.error('Recovery request failed:', err)
+    recoveryError.value = 'Unable to connect to server. Please try again.'
+  } finally {
+    isLoading.value = false
+    loadingMessage.value = ''
+  }
+}
+
+/**
+ * Handle recovery code submission
+ */
+async function handleClaimByCode() {
+  if (recoveryCode.value.trim().length !== 6) return
+
+  isLoading.value = true
+  loadingMessage.value = 'Verifying code...'
+  recoveryError.value = ''
+
+  try {
+    const result = await userStore.claimRecoveryByCode(
+      recoveryEmail.value.trim(),
+      recoveryCode.value.trim(),
+      API_URL
+    )
+
+    if (result.success && result.user) {
+      emit('userReady', result.user)
+    } else {
+      recoveryError.value = result.error || 'Invalid code. Please check and try again.'
+    }
+  } catch (err) {
+    console.error('Recovery code claim failed:', err)
     recoveryError.value = 'Unable to connect to server. Please try again.'
   } finally {
     isLoading.value = false
@@ -544,8 +576,34 @@ function toggleClassroom(classroomId) {
           <div class="recovery-info">
             <p>{{ recoveryMessage }}</p>
             <p class="recovery-note">
-              Click the link in the email to restore your account on this device.
+              Click the link in the email, or enter the 6-digit code below.
             </p>
+          </div>
+
+          <!-- Code entry -->
+          <div class="code-entry">
+            <label for="recoveryCode">Recovery Code</label>
+            <input
+              id="recoveryCode"
+              v-model="recoveryCode"
+              type="text"
+              inputmode="numeric"
+              pattern="[0-9]*"
+              maxlength="6"
+              placeholder="000000"
+              class="code-input"
+              autocomplete="one-time-code"
+              @keyup.enter="handleClaimByCode"
+            />
+            <button
+              class="submit-btn"
+              :disabled="recoveryCode.trim().length !== 6 || isLoading"
+              @click="handleClaimByCode"
+            >
+              <span v-if="isLoading">{{ loadingMessage }}</span>
+              <span v-else>Restore Account</span>
+            </button>
+            <span v-if="recoveryError" class="error-message">{{ recoveryError }}</span>
           </div>
 
           <button class="back-link" @click="viewState = 'form'">
@@ -902,6 +960,41 @@ function toggleClassroom(classroomId) {
   font-size: 14px;
   color: #558b2f;
   font-style: italic;
+}
+
+/* Code entry styles */
+.code-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.code-entry label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #444;
+}
+
+.code-input {
+  padding: 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 28px;
+  font-family: 'Courier New', Courier, monospace;
+  text-align: center;
+  letter-spacing: 8px;
+  transition: border-color 0.2s;
+}
+
+.code-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.code-input::placeholder {
+  color: #ccc;
+  letter-spacing: 8px;
 }
 
 .recovery-error-panel {

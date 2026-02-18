@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::Instant;
+
 use axum::{
     extract::State,
     http::StatusCode,
@@ -11,6 +15,15 @@ use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use reqwest::Client;
 
 use crate::AppState;
+
+/// Rate limiting for code claims: max attempts per email within a window
+const MAX_CODE_ATTEMPTS: u32 = 5;
+const CODE_RATE_LIMIT_SECS: u64 = 900; // 15 minutes
+
+/// In-memory rate limiter for recovery code attempts
+/// Key: email (lowercase), Value: (window_start, attempt_count)
+static CODE_RATE_LIMITER: std::sync::LazyLock<Mutex<HashMap<String, (Instant, u32)>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Request to initiate account recovery
 #[derive(Debug, Deserialize)]
@@ -32,6 +45,13 @@ pub struct RecoveryRequestResponse {
 pub struct RecoveryClaimRequest {
     pub user_id: String,
     pub token: String,
+}
+
+/// Request to claim recovery by numeric code
+#[derive(Debug, Deserialize)]
+pub struct RecoveryClaimByCodeRequest {
+    pub email: String,
+    pub code: String,
 }
 
 /// User data returned on successful recovery
@@ -139,6 +159,15 @@ fn hash_token(token: &str) -> String {
     hex::encode(hasher.finalize())
 }
 
+/// Generate a 6-digit numeric recovery code
+fn generate_recovery_code() -> String {
+    let rng = SystemRandom::new();
+    let mut bytes = [0u8; 4];
+    rng.fill(&mut bytes).expect("Failed to generate random code");
+    let num = u32::from_be_bytes(bytes) % 1_000_000;
+    format!("{:06}", num)
+}
+
 /// Resend API request body
 #[derive(Debug, Serialize)]
 struct ResendEmailRequest {
@@ -155,6 +184,7 @@ async fn send_recovery_email(
     to_email: &str,
     first_name: &str,
     recovery_url: &str,
+    recovery_code: &str,
 ) -> Result<(), String> {
     let client = Client::new();
 
@@ -177,9 +207,11 @@ async fn send_recovery_email(
         <p>Hi {first_name},</p>
         <p>You requested to recover your Bridge Classroom account. Click the button below to restore your practice history:</p>
         <a href="{recovery_url}" class="button" style="display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0;">Restore My Account</a>
-        <p>Or copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; color: #666;">{recovery_url}</p>
-        <p><strong>This link expires in 1 hour.</strong></p>
+        <div style="text-align: center; margin: 24px 0; padding: 20px; background: #f0f4ff; border-radius: 8px;">
+            <p style="margin: 0 0 8px 0; font-size: 14px; color: #666;">Or enter this code in the app:</p>
+            <p style="margin: 0; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #1a237e; font-family: monospace;">{recovery_code}</p>
+        </div>
+        <p><strong>This link and code expire in 1 hour.</strong></p>
         <div class="footer">
             <p>If you didn't request this, you can safely ignore this email.</p>
             <p>— Bridge Classroom</p>
@@ -189,6 +221,7 @@ async fn send_recovery_email(
 </html>"#,
         first_name = first_name,
         recovery_url = recovery_url,
+        recovery_code = recovery_code,
     );
 
     let email_request = ResendEmailRequest {
@@ -260,15 +293,17 @@ pub async fn request_recovery(
         }));
     }
 
-    // Generate token
+    // Generate token and recovery code
     let token = generate_recovery_token();
     let token_hash = hash_token(&token);
+    let recovery_code = generate_recovery_code();
+    let code_hash = hash_token(&recovery_code);
     let now = chrono::Utc::now();
     let expires_at = now + chrono::Duration::hours(1);
 
     tracing::info!("========== Creating recovery token ==========");
     tracing::info!("Generated token (first 20 chars): {}...", &token.chars().take(20).collect::<String>());
-    tracing::info!("Token hash (first 20 chars): {}...", &token_hash.chars().take(20).collect::<String>());
+    tracing::info!("Recovery code: {}", recovery_code);
 
     // Delete any existing tokens for this user
     sqlx::query("DELETE FROM recovery_tokens WHERE user_id = ?")
@@ -277,17 +312,18 @@ pub async fn request_recovery(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    // Store new token
+    // Store new token with recovery code hash
     let token_id = uuid::Uuid::new_v4().to_string();
     sqlx::query(
         r#"
-        INSERT INTO recovery_tokens (id, user_id, token_hash, created_at, expires_at, used)
-        VALUES (?, ?, ?, ?, ?, 0)
+        INSERT INTO recovery_tokens (id, user_id, token_hash, recovery_code_hash, created_at, expires_at, used)
+        VALUES (?, ?, ?, ?, ?, ?, 0)
         "#
     )
     .bind(&token_id)
     .bind(&user_id)
     .bind(&token_hash)
+    .bind(&code_hash)
     .bind(now.to_rfc3339())
     .bind(expires_at.to_rfc3339())
     .execute(&state.db)
@@ -310,6 +346,7 @@ pub async fn request_recovery(
             &req.email,
             &first_name,
             &recovery_url,
+            &recovery_code,
         ).await {
             Ok(_) => {
                 tracing::info!("Recovery email sent to {} for user {}", req.email, first_name);
@@ -318,12 +355,13 @@ pub async fn request_recovery(
             Err(e) => {
                 // Log error but don't fail - still tell frontend the account exists
                 tracing::error!("Failed to send recovery email: {}", e);
-                // Log the recovery URL so it can be manually shared if needed
+                // Log the recovery URL and code so it can be manually shared if needed
                 println!("\n{}", "=".repeat(70));
                 println!("RECOVERY LINK (email failed: {})", e);
                 println!("{}", "=".repeat(70));
                 println!("User: {} ({})", first_name, req.email);
                 println!("Link: {}", recovery_url);
+                println!("Code: {}", recovery_code);
                 println!("Expires: {}", expires_at.to_rfc3339());
                 println!("{}\n", "=".repeat(70));
             }
@@ -336,6 +374,7 @@ pub async fn request_recovery(
         println!("{}", "=".repeat(70));
         println!("User: {} ({})", first_name, req.email);
         println!("Link: {}", recovery_url);
+        println!("Code: {}", recovery_code);
         println!("Expires: {}", expires_at.to_rfc3339());
         println!("{}\n", "=".repeat(70));
     }
@@ -456,6 +495,172 @@ pub async fn claim_recovery(
             first_name,
             last_name,
             email,
+            secret_key,
+            classroom,
+        }),
+        error: None,
+    }))
+}
+
+/// POST /api/recovery/claim-code
+/// Claim account recovery using a 6-digit numeric code from the email
+pub async fn claim_by_code(
+    State(state): State<AppState>,
+    Json(req): Json<RecoveryClaimByCodeRequest>,
+) -> Result<Json<RecoveryClaimResponse>, (StatusCode, String)> {
+    let email = req.email.trim().to_lowercase();
+    let code = req.code.trim().to_string();
+
+    tracing::info!("========== Recovery claim-by-code request ==========");
+    tracing::info!("email: {}", email);
+
+    // Validate request
+    if email.is_empty() || code.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "email and code are required".to_string()));
+    }
+
+    if code.len() != 6 || !code.chars().all(|c| c.is_ascii_digit()) {
+        return Ok(Json(RecoveryClaimResponse {
+            success: false,
+            user: None,
+            error: Some("Please enter a 6-digit numeric code.".to_string()),
+        }));
+    }
+
+    // Rate limiting
+    {
+        let mut limiter = CODE_RATE_LIMITER.lock().unwrap();
+        let now = Instant::now();
+
+        // Clean up expired entries
+        limiter.retain(|_, (start, _)| now.duration_since(*start).as_secs() < CODE_RATE_LIMIT_SECS);
+
+        let entry = limiter.entry(email.clone()).or_insert((now, 0));
+
+        // Reset if window expired
+        if now.duration_since(entry.0).as_secs() >= CODE_RATE_LIMIT_SECS {
+            *entry = (now, 0);
+        }
+
+        entry.1 += 1;
+        if entry.1 > MAX_CODE_ATTEMPTS {
+            tracing::warn!("Rate limit exceeded for recovery code claims: {}", email);
+            return Ok(Json(RecoveryClaimResponse {
+                success: false,
+                user: None,
+                error: Some("Too many attempts. Please wait 15 minutes and try again.".to_string()),
+            }));
+        }
+    }
+
+    // Find user by email
+    let user_row = sqlx::query_as::<_, (String,)>(
+        "SELECT id FROM users WHERE email = ?"
+    )
+    .bind(&email)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let user_id = match user_row {
+        Some((id,)) => id,
+        None => {
+            // Don't reveal whether email exists
+            return Ok(Json(RecoveryClaimResponse {
+                success: false,
+                user: None,
+                error: Some("Invalid code. Please check and try again.".to_string()),
+            }));
+        }
+    };
+
+    // Find valid token with matching code hash
+    let code_hash = hash_token(&code);
+    let now_str = chrono::Utc::now().to_rfc3339();
+
+    let token_record = sqlx::query_as::<_, (String,)>(
+        r#"
+        SELECT id FROM recovery_tokens
+        WHERE user_id = ? AND recovery_code_hash = ? AND used = 0 AND expires_at > ?
+        "#
+    )
+    .bind(&user_id)
+    .bind(&code_hash)
+    .bind(&now_str)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let token_id = match token_record {
+        Some((id,)) => {
+            tracing::info!("Found valid token by code for user: {}", user_id);
+            id
+        },
+        None => {
+            tracing::warn!("No valid token found for code claim, email: {}", email);
+            return Ok(Json(RecoveryClaimResponse {
+                success: false,
+                user: None,
+                error: Some("Invalid or expired code. Please request a new recovery email.".to_string()),
+            }));
+        }
+    };
+
+    // Mark token as used
+    sqlx::query("UPDATE recovery_tokens SET used = 1 WHERE id = ?")
+        .bind(&token_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // Get user data with recovery key
+    let user = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<String>)>(
+        "SELECT id, first_name, last_name, email, classroom, recovery_encrypted_key FROM users WHERE id = ?"
+    )
+    .bind(&user_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let (id, first_name, last_name, user_email, classroom, recovery_encrypted_key) = user;
+
+    let encrypted_key = match recovery_encrypted_key {
+        Some(k) => k,
+        None => {
+            return Ok(Json(RecoveryClaimResponse {
+                success: false,
+                user: None,
+                error: Some("No recovery key available for this account".to_string()),
+            }));
+        }
+    };
+
+    // Decrypt the secret key
+    let recovery_secret = state.config.recovery_secret.as_ref()
+        .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, "Recovery not configured".to_string()))?;
+
+    let secret_key = decrypt_for_recovery(&encrypted_key, recovery_secret)
+        .map_err(|e| {
+            tracing::error!("Failed to decrypt recovery key: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to decrypt recovery key".to_string())
+        })?;
+
+    // Clear rate limit on success
+    {
+        let mut limiter = CODE_RATE_LIMITER.lock().unwrap();
+        limiter.remove(&email);
+    }
+
+    tracing::info!("========== Recovery claim-by-code SUCCESS ==========");
+    tracing::info!("Account recovered for user: {} {} ({})", first_name, last_name, user_email);
+
+    Ok(Json(RecoveryClaimResponse {
+        success: true,
+        user: Some(RecoveredUserData {
+            id,
+            first_name,
+            last_name,
+            email: user_email,
             secret_key,
             classroom,
         }),

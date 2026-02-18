@@ -242,6 +242,22 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         tracing::info!("Added recovery_encrypted_key column to users table");
     }
 
+    // Add recovery_code_hash column to recovery_tokens if it doesn't exist
+    let has_code_column: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('recovery_tokens') WHERE name = 'recovery_code_hash'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_code_column {
+        sqlx::query(r#"ALTER TABLE recovery_tokens ADD COLUMN recovery_code_hash TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added recovery_code_hash column to recovery_tokens table");
+    }
+
     // Convention cards table - stores card definitions
     // owner_id is NULL for system cards (templates/samples)
     sqlx::query(

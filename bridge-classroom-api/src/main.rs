@@ -85,6 +85,7 @@ async fn main() -> anyhow::Result<()> {
         // Recovery routes
         .route("/api/recovery/request", post(routes::request_recovery))
         .route("/api/recovery/claim", post(routes::claim_recovery))
+        .route("/api/recovery/claim-code", post(routes::claim_by_code))
         // Convention card routes
         .route("/api/cards", get(routes::list_cards))
         .route("/api/cards", post(routes::create_card))
