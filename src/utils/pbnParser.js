@@ -340,7 +340,7 @@ function parseStepContent(text, action) {
 
   return {
     text: replaceSuitSymbols(displayText),
-    action,
+    type: action,
     showSeats,    // null means no change, array means show these seats
     plays,        // Array of play sequences
     reset,        // true if [RESET] tag present - show original hands
