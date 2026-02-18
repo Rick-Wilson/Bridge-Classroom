@@ -21,8 +21,16 @@
               <span
                 v-for="card in hand[suit]"
                 :key="card"
-                class="card-clickable"
-                @click="$emit('card-click', { suit: suitLetter(suit), rank: card })"
+                :class="isCardPlayed(suit, card) ? 'card-played' : 'card-clickable'"
+                @click="!isCardPlayed(suit, card) && $emit('card-click', { suit: suitLetter(suit), rank: card })"
+              >{{ formatCard(card) }}</span>
+            </span>
+            <!-- Non-clickable mode: individual spans when there are played cards -->
+            <span v-else-if="hasPlayedCards" class="cards">
+              <span
+                v-for="card in hand[suit]"
+                :key="card"
+                :class="{ 'card-played': isCardPlayed(suit, card) }"
               >{{ formatCard(card) }}</span>
             </span>
             <!-- Non-clickable mode: plain text -->
@@ -80,6 +88,10 @@ const props = defineProps({
   clickable: {
     type: Boolean,
     default: false
+  },
+  playedCards: {
+    type: Array,
+    default: null
   }
 })
 
@@ -124,6 +136,27 @@ function formatSuitCards(suit) {
   const cards = props.hand[suit]
   if (cards.length === 0) return '—'
   return cards.map(formatCard).join(' ')
+}
+
+// playedCards is an array like ['SK', 'H3'] — card codes from showcards for this seat
+const hasPlayedCards = computed(() => props.playedCards && props.playedCards.length > 0)
+
+// Build a Set of "suit:rank" keys for O(1) lookup
+const playedCardSet = computed(() => {
+  if (!props.playedCards) return null
+  const set = new Set()
+  for (const code of props.playedCards) {
+    const suit = code[0].toUpperCase()
+    const rank = code.slice(1).toUpperCase()
+    const suitName = { S: 'spades', H: 'hearts', D: 'diamonds', C: 'clubs' }[suit]
+    if (suitName) set.add(`${suitName}:${rank}`)
+  }
+  return set
+})
+
+function isCardPlayed(suit, rank) {
+  if (!playedCardSet.value) return false
+  return playedCardSet.value.has(`${suit}:${rank}`)
 }
 </script>
 
@@ -174,6 +207,15 @@ function formatSuitCards(suit) {
 .cards {
   font-weight: 500;
   letter-spacing: 1px;
+}
+
+/* Played card (already led/played in a previous trick) */
+.card-played {
+  opacity: 0.4;
+  text-decoration: line-through;
+  cursor: default;
+  padding: 2px 6px;
+  user-select: none;
 }
 
 /* Clickable cards mode */

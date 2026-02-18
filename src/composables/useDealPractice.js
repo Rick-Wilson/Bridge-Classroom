@@ -197,6 +197,7 @@ export function useDealPractice() {
   })
 
   // Showcards - specific cards to show from otherwise hidden hands
+  // Also tracks showcards for fully-shown seats (these represent already-played cards)
   const currentShowcards = computed(() => {
     if (!currentDeal.value || !hasSteps.value) return null
 
@@ -226,6 +227,42 @@ export function useDealPractice() {
     }
 
     return Object.keys(showcards).length > 0 ? showcards : null
+  })
+
+  // Track showcards for seats that are also fully shown.
+  // When [showcards W:SK] and [show NW] appear together, the SK was already
+  // played (e.g. opening lead) and should be highlighted and non-clickable.
+  const showcardsPlayedCards = computed(() => {
+    if (!currentDeal.value || !hasSteps.value) return {}
+
+    let showcards = {}
+    let shownSeats = new Set()
+    const stepsList = steps.value
+
+    for (let i = 0; i <= currentStepIndex.value && i < stepsList.length; i++) {
+      const step = stepsList[i]
+
+      if (step?.showcards) {
+        for (const [seat, cards] of Object.entries(step.showcards)) {
+          showcards[seat] = cards
+        }
+      }
+
+      if (step?.showSeats) {
+        for (const seat of step.showSeats) {
+          shownSeats.add(seat)
+        }
+      }
+    }
+
+    // Return showcards only for seats that are fully shown
+    const played = {}
+    for (const [seat, cards] of Object.entries(showcards)) {
+      if (shownSeats.has(seat)) {
+        played[seat] = cards
+      }
+    }
+    return played
   })
 
   // Seats that have showcards should not be hidden
@@ -815,6 +852,7 @@ export function useDealPractice() {
     hiddenSeats: effectiveHiddenSeats,
     hands,
     showHcp,
+    showcardsPlayedCards,
     isComplete,
 
     // Computed: Auction & Lead

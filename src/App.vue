@@ -134,6 +134,7 @@
               :showHcp="practice.showHcp.value"
               :compact="true"
               :clickableSeat="practice.hasCardChoice.value ? practice.studentSeat.value : null"
+              :playedCards="practice.showcardsPlayedCards.value"
               @card-click="onCardClick"
             />
           </div>
