@@ -16,7 +16,7 @@
     <!-- Error state -->
     <div v-else-if="dataSync.hasError.value" class="status-content error">
       <span class="icon">&#10006;</span>
-      <span class="status-text">Sync failed</span>
+      <span class="status-text">{{ errorText }}</span>
       <span v-if="pendingCount > 0" class="badge">{{ pendingCount }}</span>
       <button class="retry-btn" @click.stop="handleRetry">Retry</button>
     </div>
@@ -44,6 +44,11 @@ const dataSync = useDataSync()
 const observationStore = useObservationStore()
 
 const pendingCount = computed(() => observationStore.pendingCount.value)
+
+const errorText = computed(() => {
+  if (dataSync.registrationFailed.value) return 'Not registered'
+  return 'Sync failed'
+})
 
 const statusClass = computed(() => {
   if (dataSync.isSyncing.value) return 'syncing'

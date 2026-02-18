@@ -13,6 +13,7 @@ const lastSyncAt = ref(null)
 const lastError = ref(null)
 const retryCount = ref(0)
 const isOnline = ref(navigator.onLine)
+const registrationFailed = ref(false) // True when user registration has failed
 
 // Sync configuration
 const MAX_RETRIES = 5
@@ -175,18 +176,22 @@ async function performSync() {
       const regResult = await registerUserWithServer(user)
       if (regResult.success) {
         userStore.updateUser(user.id, { serverRegistered: true })
+        registrationFailed.value = false
         result.userRegistered = true
         console.log('User registered with server')
       } else if (regResult.error === 'email_exists') {
         // Email already registered with different user_id - need recovery
         console.warn('Email already registered - user needs to recover account')
         // Don't try to sync observations - user doesn't exist in server DB
-        syncState.value = 'idle'
+        syncState.value = 'error'
         lastError.value = 'Account already exists. Please use recovery.'
+        registrationFailed.value = true
         return result
       } else {
         console.warn('User registration failed:', regResult.error)
-        // Continue anyway - user can be registered later
+        registrationFailed.value = true
+        lastError.value = `Registration failed: ${regResult.error}`
+        // Continue to try syncing - but note the error state
       }
     }
 
@@ -197,6 +202,7 @@ async function performSync() {
     }
 
     // 3. Sync pending observations
+    let hadSyncErrors = false
     if (user?.dataConsent) {
       const pending = observationStore.getPendingObservations()
       if (pending.length > 0) {
@@ -223,15 +229,24 @@ async function performSync() {
           observationStore.removeSyncedObservations(syncedIds)
         }
 
-        if (syncResult.errors?.length > 0) {
+        if (!syncResult.success) {
+          hadSyncErrors = true
+          lastError.value = syncResult.errors?.[0] || 'Observation sync failed'
+          console.warn('Observation sync failed:', syncResult.errors)
+        } else if (syncResult.errors?.length > 0) {
           console.warn('Sync errors:', syncResult.errors)
         }
       }
     }
 
-    syncState.value = 'idle'
-    lastSyncAt.value = new Date().toISOString()
-    retryCount.value = 0
+    // Set final state based on what happened
+    if (registrationFailed.value || hadSyncErrors) {
+      syncState.value = 'error'
+    } else {
+      syncState.value = 'idle'
+      lastSyncAt.value = new Date().toISOString()
+      retryCount.value = 0
+    }
     return result
   } catch (err) {
     console.error('Sync failed:', err)
@@ -385,6 +400,7 @@ export function useDataSync() {
     lastError,
     retryCount,
     isOnline,
+    registrationFailed,
 
     // Computed
     isSyncing,

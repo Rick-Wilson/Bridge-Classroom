@@ -247,11 +247,10 @@
       @switchUser="handleSwitchUser"
     />
 
-    <!-- Key Backup Modal (shown after new user registration) -->
-    <KeyBackupModal
-      :visible="userStore.showKeyBackupModal.value"
-      @close="userStore.dismissKeyBackupModal()"
-    />
+    <!-- Registration toast (brief confirmation after new user creation) -->
+    <div v-if="showRegistrationToast" class="registration-toast">
+      Account created — your data is encrypted and linked to your email for recovery.
+    </div>
 
     <!-- Progress Dashboard Modal -->
     <div v-if="showProgress" class="modal-overlay" @click.self="showProgress = false">
@@ -297,7 +296,6 @@ import FeedbackPanel from './components/FeedbackPanel.vue'
 import WelcomeScreen from './components/WelcomeScreen.vue'
 import SettingsPanel from './components/SettingsPanel.vue'
 import AssignmentBanner from './components/AssignmentBanner.vue'
-import KeyBackupModal from './components/KeyBackupModal.vue'
 import SyncStatus from './components/SyncStatus.vue'
 import ProgressDashboard from './components/ProgressDashboard.vue'
 import AccomplishmentsView from './components/AccomplishmentsView.vue'
@@ -336,6 +334,7 @@ const forceRedBoard = ref(null)
 // Intro PDF state
 const introUrl = ref(null)
 const showIntroPdf = ref(false)
+const showRegistrationToast = ref(false)
 const introPdfUrl = ref(null)
 
 // Auto-scroll to show current element (keep its first line visible)
@@ -450,6 +449,13 @@ onMounted(async () => {
 async function handleUserReady(user) {
   // User is now authenticated, app will show main content
   console.log('User ready:', user.firstName, user.lastName)
+
+  // Show brief registration toast if this is a new user (key backup modal was triggered)
+  if (userStore.showKeyBackupModal.value) {
+    userStore.dismissKeyBackupModal()
+    showRegistrationToast.value = true
+    setTimeout(() => { showRegistrationToast.value = false }, 4000)
+  }
 
   // Initialize data sync for the new user (register with server, fetch teacher key)
   await dataSync.initialize()
@@ -853,6 +859,29 @@ async function loadLessonFromUrl(collectionId, lessonId) {
 </script>
 
 <style>
+.registration-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2e7d32;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 3000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  animation: toast-fade 4s ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes toast-fade {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

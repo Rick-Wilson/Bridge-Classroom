@@ -43,7 +43,10 @@ pub async fn create_user(
         .bind(&req.user_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!("Failed to query user by id {}: {}", req.user_id, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })?;
 
     // Also check if email exists with a different user_id (e.g., user cleared localStorage)
     let existing_by_email = sqlx::query_as::<_, User>("SELECT * FROM users WHERE email = ? AND id != ?")
@@ -51,7 +54,10 @@ pub async fn create_user(
         .bind(&req.user_id)
         .fetch_optional(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!("Failed to query user by email {}: {}", req.email, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })?;
 
     // If email exists with different ID, tell client to use recovery flow
     if let Some(existing_user) = existing_by_email {
@@ -103,7 +109,10 @@ pub async fn create_user(
             .bind(&req.user_id)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(|e| {
+                tracing::error!("Failed to update user {} (with recovery key): {}", req.user_id, e);
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            })?;
         } else {
             sqlx::query(
                 r#"
@@ -122,7 +131,10 @@ pub async fn create_user(
             .bind(&req.user_id)
             .execute(&state.db)
             .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            .map_err(|e| {
+                tracing::error!("Failed to update user {}: {}", req.user_id, e);
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            })?;
         }
 
         tracing::info!("Updated existing user: {}", req.user_id);
@@ -148,11 +160,14 @@ pub async fn create_user(
         .bind(&recovery_encrypted_key)
         .execute(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!("Failed to insert new user {}: {}", user.id, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })?;
 
         tracing::info!("Created new user: {} (recovery: {})", user.id, recovery_encrypted_key.is_some());
 
-        // If admin grant is provided, store it
+        // If admin grant is provided, store it (non-fatal — user is already created)
         if let Some(admin_grant) = &req.admin_grant {
             let grant = SharingGrant {
                 id: uuid::Uuid::new_v4().to_string(),
@@ -165,7 +180,7 @@ pub async fn create_user(
                 revoked_at: None,
             };
 
-            sqlx::query(
+            match sqlx::query(
                 r#"
                 INSERT INTO sharing_grants (id, grantor_id, grantee_id, encrypted_payload,
                                            granted_at, expires_at, revoked, revoked_at)
@@ -183,12 +198,10 @@ pub async fn create_user(
             .bind(&grant.expires_at)
             .execute(&state.db)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to create admin grant: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-            })?;
-
-            tracing::info!("Created admin grant for user: {}", user.id);
+            {
+                Ok(_) => tracing::info!("Created admin grant for user: {}", user.id),
+                Err(e) => tracing::warn!("Failed to create admin grant for user {}: {} (user registration still succeeded)", user.id, e),
+            }
         }
     }
 
@@ -213,7 +226,10 @@ pub async fn get_users(
     let users = sqlx::query_as::<_, User>("SELECT * FROM users ORDER BY created_at DESC")
         .fetch_all(&state.db)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| {
+            tracing::error!("Failed to fetch users: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })?;
 
     let user_infos: Vec<UserInfo> = users.into_iter().map(UserInfo::from).collect();
 

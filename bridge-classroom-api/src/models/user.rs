@@ -13,6 +13,7 @@ pub struct User {
     pub data_consent: bool,
     pub created_at: String,
     pub updated_at: String,
+    pub recovery_encrypted_key: Option<String>,
 }
 
 /// Request to create or update a user
@@ -78,6 +79,7 @@ impl User {
             data_consent: req.data_consent.unwrap_or(true),
             created_at: now.clone(),
             updated_at: now,
+            recovery_encrypted_key: None,
         }
     }
 }
