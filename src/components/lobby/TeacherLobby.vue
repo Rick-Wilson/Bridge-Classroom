@@ -9,6 +9,9 @@
       <button class="action-btn create" @click="showCreateModal = true">
         + New Classroom
       </button>
+      <button class="action-btn assign" @click="showAssignModal = true">
+        + New Assignment
+      </button>
       <a v-if="hasLegacyDashboard" :href="legacyDashboardUrl" class="action-btn legacy">
         Legacy Dashboard
       </a>
@@ -46,6 +49,13 @@
       @close="showCreateModal = false"
       @classroom-created="handleClassroomCreated"
     />
+
+    <!-- Create assignment modal -->
+    <AssignmentCreateModal
+      v-if="showAssignModal"
+      @close="showAssignModal = false"
+      @assignment-created="handleAssignmentCreated"
+    />
   </div>
 </template>
 
@@ -56,6 +66,7 @@ import { useClassrooms } from '../../composables/useClassrooms.js'
 import CollectionGrid from './CollectionGrid.vue'
 import ClassroomCard from './ClassroomCard.vue'
 import ClassroomCreateModal from './ClassroomCreateModal.vue'
+import AssignmentCreateModal from './AssignmentCreateModal.vue'
 
 defineEmits(['select-collection'])
 
@@ -63,6 +74,7 @@ const userStore = useUserStore()
 const classroomStore = useClassrooms()
 
 const showCreateModal = ref(false)
+const showAssignModal = ref(false)
 const expandedId = ref(null)
 
 const userName = computed(() => {
@@ -91,6 +103,10 @@ function handleClassroomCreated(classroom) {
   showCreateModal.value = false
   // Auto-expand the newly created classroom
   expandedId.value = classroom.id
+}
+
+function handleAssignmentCreated(assignment) {
+  showAssignModal.value = false
 }
 
 function refreshClassrooms() {
@@ -164,6 +180,15 @@ onMounted(() => {
 
 .action-btn.create:hover {
   background: var(--green-dark, #2d6a4f);
+}
+
+.action-btn.assign {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.action-btn.assign:hover {
+  background: #bbdefb;
 }
 
 .action-btn.legacy {

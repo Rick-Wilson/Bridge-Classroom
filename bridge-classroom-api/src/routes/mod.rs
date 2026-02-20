@@ -1,6 +1,8 @@
+pub mod assignments;
 pub mod auth;
 pub mod classrooms;
 pub mod convention_cards;
+pub mod exercises;
 pub mod grants;
 pub mod keys;
 pub mod me;
@@ -9,9 +11,11 @@ pub mod recovery;
 pub mod users;
 pub mod viewers;
 
+pub use assignments::*;
 pub use auth::*;
 pub use classrooms::*;
 pub use convention_cards::*;
+pub use exercises::*;
 pub use grants::*;
 pub use keys::*;
 pub use me::*;

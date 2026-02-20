@@ -63,6 +63,22 @@ See you in class!</div>
         </div>
       </div>
 
+      <!-- Assignments for this classroom -->
+      <div v-if="classroomAssignments.length" class="assignments-section">
+        <h4>Assignments</h4>
+        <div class="assignment-list">
+          <div
+            v-for="a in classroomAssignments"
+            :key="a.id"
+            class="assignment-row"
+          >
+            <span class="assignment-name">{{ a.exercise_name }}</span>
+            <span v-if="a.due_at" class="assignment-due">Due {{ formatDate(a.due_at) }}</span>
+            <span class="assignment-boards">{{ a.total_boards }} boards</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Roster -->
       <ClassroomRoster
         v-if="detail"
@@ -79,6 +95,7 @@ See you in class!</div>
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useClassrooms } from '../../composables/useClassrooms.js'
+import { useAssignments } from '../../composables/useAssignments.js'
 import ClassroomRoster from './ClassroomRoster.vue'
 
 const props = defineProps({
@@ -89,26 +106,38 @@ const props = defineProps({
 const emit = defineEmits(['toggle', 'member-removed'])
 
 const classrooms = useClassrooms()
+const assignments = useAssignments()
 const detail = ref(null)
 const loadingDetail = ref(false)
 const linkCopied = ref(false)
 const emailCopied = ref(false)
+const classroomAssignments = ref([])
 
 const inviteUrl = computed(() => {
   return `https://bridge-classroom.com/#/join/${props.classroom.join_code}`
 })
 
-// Fetch detail when expanded
+// Fetch detail and assignments when expanded
 watch(() => props.expanded, async (isExpanded) => {
   if (isExpanded && !detail.value) {
     loadingDetail.value = true
-    const result = await classrooms.fetchClassroomDetail(props.classroom.id)
-    if (result?.success) {
-      detail.value = result.classroom
+    const [detailResult, assignmentsList] = await Promise.all([
+      classrooms.fetchClassroomDetail(props.classroom.id),
+      assignments.fetchClassroomAssignments(props.classroom.id)
+    ])
+    if (detailResult?.success) {
+      detail.value = detailResult.classroom
     }
+    classroomAssignments.value = assignmentsList || []
     loadingDetail.value = false
   }
 })
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
 
 async function copyInviteLink() {
   try {
@@ -327,6 +356,50 @@ async function handleRemoveMember(studentId) {
   margin-top: 8px;
   font-size: 13px;
   color: var(--text-secondary, #6b7280);
+}
+
+/* Assignments section */
+.assignments-section {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--card-border, #e0ddd7);
+}
+
+.assignments-section h4 {
+  font-size: 15px;
+  color: var(--text-primary, #1a1a1a);
+  margin: 0 0 8px 0;
+}
+
+.assignment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f8f9fa;
+  border-radius: var(--radius-button, 6px);
+  font-size: 13px;
+}
+
+.assignment-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--text-primary, #1a1a1a);
+}
+
+.assignment-due {
+  color: var(--text-secondary, #6b7280);
+}
+
+.assignment-boards {
+  color: var(--text-muted, #9ca3af);
+  white-space: nowrap;
 }
 
 .loading-roster {

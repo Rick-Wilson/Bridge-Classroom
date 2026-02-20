@@ -111,6 +111,20 @@ async fn main() -> anyhow::Result<()> {
             "/api/classrooms/:id/members/leave",
             post(routes::leave_classroom),
         )
+        // Exercise routes
+        .route("/api/exercises", post(routes::create_exercise).get(routes::list_exercises))
+        .route(
+            "/api/exercises/:id",
+            get(routes::get_exercise)
+                .put(routes::update_exercise)
+                .delete(routes::delete_exercise),
+        )
+        // Assignment routes
+        .route("/api/assignments", post(routes::create_assignment).get(routes::list_assignments))
+        .route(
+            "/api/assignments/:id",
+            get(routes::get_assignment).delete(routes::delete_assignment),
+        )
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);

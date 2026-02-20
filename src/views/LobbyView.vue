@@ -16,8 +16,9 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useUserStore } from '../composables/useUserStore.js'
+import { useAssignments } from '../composables/useAssignments.js'
 import CasualLobby from '../components/lobby/CasualLobby.vue'
 import StudentLobby from '../components/lobby/StudentLobby.vue'
 import TeacherLobby from '../components/lobby/TeacherLobby.vue'
@@ -26,17 +27,27 @@ import AdminLobby from '../components/lobby/AdminLobby.vue'
 defineEmits(['select-collection', 'show-become-teacher'])
 
 const userStore = useUserStore()
+const assignmentStore = useAssignments()
 
 const userRole = computed(() => {
   const user = userStore.currentUser.value
   return user?.role || 'student'
 })
 
-// TODO Phase 3: check for assignments
-const hasAssignments = computed(() => false)
+const hasAssignments = computed(() => {
+  return assignmentStore.studentAssignments.value.length > 0
+})
 const hasClassrooms = computed(() => {
   const user = userStore.currentUser.value
   return Array.isArray(user?.classrooms) && user.classrooms.length > 0
+})
+
+// Pre-fetch student assignments to determine lobby view
+onMounted(() => {
+  const user = userStore.currentUser.value
+  if (user && userRole.value === 'student') {
+    assignmentStore.fetchStudentAssignments(user.id)
+  }
 })
 </script>
 
