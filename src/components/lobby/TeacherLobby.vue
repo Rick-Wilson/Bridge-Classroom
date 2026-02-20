@@ -1,10 +1,12 @@
 <template>
   <div class="teacher-lobby">
+    <!-- Welcome section -->
     <div class="welcome-section">
       <h2 class="welcome-title">Welcome back, {{ userName }}</h2>
-      <p class="welcome-subtitle">{{ classroomSummary }}</p>
+      <p class="welcome-subtitle">{{ welcomeSubtitle }}</p>
     </div>
 
+    <!-- Quick actions -->
     <div class="quick-actions">
       <button class="action-btn create" @click="showCreateModal = true">
         + New Classroom
@@ -17,24 +19,41 @@
       </a>
     </div>
 
-    <!-- Classroom cards -->
-    <div v-if="classroomStore.teacherClassrooms.value.length" class="classrooms-section">
-      <h3 class="section-title">My Classrooms</h3>
-      <div class="classroom-cards">
-        <ClassroomCard
-          v-for="classroom in classroomStore.teacherClassrooms.value"
-          :key="classroom.id"
-          :classroom="classroom"
-          :expanded="expandedId === classroom.id"
-          @toggle="toggleExpand(classroom.id)"
-          @member-removed="refreshClassrooms"
-        />
-      </div>
+    <!-- Loading -->
+    <div v-if="dashboard.lobbyLoading.value && !dashboard.lobbyClassrooms.value.length" class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading dashboard...</p>
     </div>
 
-    <div v-else-if="!classroomStore.loading.value" class="empty-state">
-      <p class="empty-title">No classrooms yet</p>
-      <p class="empty-desc">Create a classroom and share the invite link with your students.</p>
+    <!-- Two-column layout -->
+    <div v-else class="dashboard-grid">
+      <!-- Left column: Classrooms -->
+      <div class="left-column">
+        <div v-if="dashboard.lobbyClassrooms.value.length" class="classrooms-section">
+          <h3 class="section-title">My Classrooms</h3>
+          <div class="classroom-cards">
+            <ClassroomCard
+              v-for="classroom in dashboard.lobbyClassrooms.value"
+              :key="classroom.id"
+              :classroom="classroom"
+              :expanded="expandedId === classroom.id"
+              @toggle="toggleExpand(classroom.id)"
+              @member-removed="refreshData"
+            />
+          </div>
+        </div>
+
+        <div v-else class="empty-state">
+          <p class="empty-title">No classrooms yet</p>
+          <p class="empty-desc">Create a classroom and share the invite link with your students.</p>
+        </div>
+      </div>
+
+      <!-- Right column: Attention + Activity -->
+      <div class="right-column">
+        <NeedsAttention :items="dashboard.needsAttention.value" />
+        <RecentActivity :events="dashboard.recentActivity.value" />
+      </div>
     </div>
 
     <!-- Lesson collections (teachers keep student features) -->
@@ -62,16 +81,18 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../../composables/useUserStore.js'
-import { useClassrooms } from '../../composables/useClassrooms.js'
+import { useTeacherDashboard } from '../../composables/useTeacherDashboard.js'
 import CollectionGrid from './CollectionGrid.vue'
 import ClassroomCard from './ClassroomCard.vue'
 import ClassroomCreateModal from './ClassroomCreateModal.vue'
 import AssignmentCreateModal from './AssignmentCreateModal.vue'
+import NeedsAttention from './NeedsAttention.vue'
+import RecentActivity from './RecentActivity.vue'
 
 defineEmits(['select-collection'])
 
 const userStore = useUserStore()
-const classroomStore = useClassrooms()
+const dashboard = useTeacherDashboard()
 
 const showCreateModal = ref(false)
 const showAssignModal = ref(false)
@@ -82,11 +103,17 @@ const userName = computed(() => {
   return user ? user.firstName : ''
 })
 
-const classroomSummary = computed(() => {
-  const count = classroomStore.teacherClassrooms.value.length
-  if (count === 0) return 'Get started by creating your first classroom.'
-  if (count === 1) return 'You have 1 active classroom.'
-  return `You have ${count} active classrooms.`
+const welcomeSubtitle = computed(() => {
+  const stats = dashboard.summaryStats.value
+  if (!stats || stats.classroomCount === 0) {
+    return 'Get started by creating your first classroom.'
+  }
+  const parts = []
+  parts.push(`${stats.classroomCount} active ${stats.classroomCount === 1 ? 'classroom' : 'classrooms'}`)
+  if (stats.openAssignmentCount > 0) {
+    parts.push(`${stats.openAssignmentCount} open ${stats.openAssignmentCount === 1 ? 'assignment' : 'assignments'}`)
+  }
+  return parts.join(', ') + '.'
 })
 
 // Legacy teacher dashboard
@@ -101,25 +128,26 @@ function toggleExpand(classroomId) {
 
 function handleClassroomCreated(classroom) {
   showCreateModal.value = false
-  // Auto-expand the newly created classroom
   expandedId.value = classroom.id
+  refreshData()
 }
 
-function handleAssignmentCreated(assignment) {
+function handleAssignmentCreated() {
   showAssignModal.value = false
+  refreshData()
 }
 
-function refreshClassrooms() {
+function refreshData() {
   const user = userStore.currentUser.value
   if (user) {
-    classroomStore.fetchTeacherClassrooms(user.id)
+    dashboard.loadTeacherLobbyData(user.id, true)
   }
 }
 
 onMounted(() => {
   const user = userStore.currentUser.value
   if (user) {
-    classroomStore.fetchTeacherClassrooms(user.id)
+    dashboard.loadTeacherLobbyData(user.id)
   }
 })
 </script>
@@ -200,6 +228,14 @@ onMounted(() => {
   background: var(--green-light, #b7e4c7);
 }
 
+/* Two-column dashboard grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
 .section-title {
   font-family: var(--font-heading, 'Source Serif 4', serif);
   font-size: 20px;
@@ -208,10 +244,16 @@ onMounted(() => {
 }
 
 .classrooms-section {
-  margin-bottom: 32px;
+  margin-bottom: 0;
 }
 
 .classroom-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.right-column {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -221,13 +263,32 @@ onMounted(() => {
   margin-top: 8px;
 }
 
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  grid-column: 1 / -1;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #2d6a4f;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .empty-state {
   text-align: center;
   padding: 32px;
   background: white;
   border-radius: var(--radius-card, 10px);
   border: 1px dashed var(--card-border, #e0ddd7);
-  margin-bottom: 32px;
 }
 
 .empty-title {
@@ -239,5 +300,12 @@ onMounted(() => {
 .empty-desc {
   color: var(--text-secondary, #6b7280);
   font-size: 14px;
+}
+
+/* Responsive: collapse to single column on mobile */
+@media (max-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -1,0 +1,140 @@
+<template>
+  <div class="recent-activity">
+    <h3 class="panel-title">Recent Activity</h3>
+    <div v-if="!events.length" class="empty-state">
+      No recent activity.
+    </div>
+    <div v-else class="activity-list">
+      <div
+        v-for="(event, i) in events"
+        :key="i"
+        class="activity-item"
+      >
+        <span class="event-icon" :class="event.type">{{ iconFor(event.type) }}</span>
+        <div class="event-content">
+          <span class="event-text">{{ describeEvent(event) }}</span>
+          <span class="event-time">{{ formatTimeSince(event.timestamp) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+defineProps({
+  events: { type: Array, default: () => [] }
+})
+
+function iconFor(type) {
+  switch (type) {
+    case 'assignment_completed': return '\u2714' // check mark
+    case 'student_joined': return '\u2795' // plus
+    default: return '\u2022'
+  }
+}
+
+function describeEvent(event) {
+  switch (event.type) {
+    case 'assignment_completed':
+      return `${event.student_name} completed ${event.exercise_name}`
+    case 'student_joined':
+      return `${event.student_name} joined ${event.classroom_name}`
+    default:
+      return ''
+  }
+}
+
+function formatTimeSince(timestamp) {
+  if (!timestamp) return ''
+  const diff = Date.now() - new Date(timestamp).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+</script>
+
+<style scoped>
+.recent-activity {
+  background: white;
+  border-radius: var(--radius-card, 10px);
+  border: 1px solid var(--card-border, #e0ddd7);
+  padding: 20px;
+}
+
+.panel-title {
+  font-family: var(--font-heading, 'Source Serif 4', serif);
+  font-size: 18px;
+  color: var(--green-dark, #2d6a4f);
+  margin: 0 0 16px 0;
+}
+
+.empty-state {
+  color: var(--text-muted, #9ca3af);
+  font-size: 14px;
+  text-align: center;
+  padding: 16px;
+}
+
+.activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-button, 6px);
+  font-size: 13px;
+}
+
+.activity-item:hover {
+  background: #f8f9fa;
+}
+
+.event-icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: white;
+}
+
+.event-icon.assignment_completed {
+  background: #4caf50;
+}
+
+.event-icon.student_joined {
+  background: #1565c0;
+}
+
+.event-content {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.event-text {
+  color: var(--text-primary, #1a1a1a);
+  line-height: 1.3;
+}
+
+.event-time {
+  color: var(--text-muted, #9ca3af);
+  font-size: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+</style>

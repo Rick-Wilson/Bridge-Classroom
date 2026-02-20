@@ -1,3 +1,4 @@
+pub mod admin;
 pub mod assignments;
 pub mod auth;
 pub mod classrooms;
@@ -8,9 +9,11 @@ pub mod keys;
 pub mod me;
 pub mod observations;
 pub mod recovery;
+pub mod teacher_dashboard;
 pub mod users;
 pub mod viewers;
 
+pub use admin::*;
 pub use assignments::*;
 pub use auth::*;
 pub use classrooms::*;
@@ -21,5 +24,6 @@ pub use keys::*;
 pub use me::*;
 pub use observations::*;
 pub use recovery::*;
+pub use teacher_dashboard::*;
 pub use users::*;
 pub use viewers::*;

@@ -7,6 +7,18 @@
         <div class="header-meta">
           <span class="join-badge">JOIN: {{ classroom.join_code }}</span>
           <span class="member-count">{{ classroom.member_count }} {{ classroom.member_count === 1 ? 'student' : 'students' }}</span>
+          <span v-if="classroom.open_assignment_count" class="stat-badge">{{ classroom.open_assignment_count }} {{ classroom.open_assignment_count === 1 ? 'assignment' : 'assignments' }}</span>
+          <span v-if="classroom.avg_completion_pct > 0" class="stat-badge completion">{{ classroom.avg_completion_pct }}% avg</span>
+        </div>
+        <!-- Per-assignment mini completion bars (from dashboard data) -->
+        <div v-if="classroom.assignments && classroom.assignments.length" class="mini-bars">
+          <div v-for="a in classroom.assignments" :key="a.id" class="mini-bar">
+            <span class="bar-label">{{ a.exercise_name }}</span>
+            <div class="bar-track">
+              <div class="bar-fill" :style="{ width: barWidth(a) }"></div>
+            </div>
+            <span class="bar-count">{{ a.students_completed }}/{{ a.students_total }}</span>
+          </div>
         </div>
       </div>
       <button class="expand-btn" :aria-label="expanded ? 'Collapse' : 'Expand'">
@@ -139,6 +151,11 @@ function formatDate(dateStr) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+function barWidth(assignment) {
+  if (!assignment.students_total) return '0%'
+  return Math.round((assignment.students_completed / assignment.students_total) * 100) + '%'
+}
+
 async function copyInviteLink() {
   try {
     await navigator.clipboard.writeText(inviteUrl.value)
@@ -234,6 +251,62 @@ async function handleRemoveMember(studentId) {
 
 .member-count {
   opacity: 0.85;
+}
+
+.stat-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.stat-badge.completion {
+  background: rgba(82, 183, 136, 0.3);
+}
+
+/* Mini completion bars in header */
+.mini-bars {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mini-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  opacity: 0.9;
+}
+
+.bar-label {
+  min-width: 100px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.bar-fill {
+  height: 100%;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.bar-count {
+  white-space: nowrap;
+  opacity: 0.8;
 }
 
 .expand-btn {

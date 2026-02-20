@@ -507,6 +507,55 @@ function clearCache() {
   selectedStudent.value = null
 }
 
+// ---- Teacher Lobby Dashboard Data (Phase 4) ----
+
+const lobbyClassrooms = ref([])
+const needsAttention = ref([])
+const recentActivity = ref([])
+const lobbyLoading = ref(false)
+const lobbyLastFetchedAt = ref(null)
+const LOBBY_CACHE_MS = 2 * 60 * 1000
+
+/**
+ * Load aggregated teacher lobby data from /api/teacher/dashboard
+ * @param {string} teacherId
+ * @param {boolean} forceRefresh
+ */
+async function loadTeacherLobbyData(teacherId, forceRefresh = false) {
+  if (!forceRefresh && lobbyLastFetchedAt.value) {
+    const age = Date.now() - new Date(lobbyLastFetchedAt.value).getTime()
+    if (age < LOBBY_CACHE_MS) {
+      return { success: true, cached: true }
+    }
+  }
+
+  lobbyLoading.value = true
+
+  try {
+    const response = await fetch(
+      `${API_URL}/teacher/dashboard?teacher_id=${encodeURIComponent(teacherId)}`,
+      { headers: { 'x-api-key': API_KEY } }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch teacher dashboard: ${response.status}`)
+    }
+
+    const data = await response.json()
+    lobbyClassrooms.value = data.classrooms || []
+    needsAttention.value = data.needs_attention || []
+    recentActivity.value = data.recent_activity || []
+    lobbyLastFetchedAt.value = new Date().toISOString()
+
+    return { success: true }
+  } catch (err) {
+    console.error('Failed to load teacher lobby data:', err)
+    return { success: false, error: err.message }
+  } finally {
+    lobbyLoading.value = false
+  }
+}
+
 export function useTeacherDashboard() {
   // Computed properties
   const totalStudents = computed(() => students.value.length)
@@ -528,6 +577,11 @@ export function useTeacherDashboard() {
 
   const hasData = computed(() => students.value.length > 0 || observations.value.length > 0)
 
+  const summaryStats = computed(() => ({
+    classroomCount: lobbyClassrooms.value.length,
+    openAssignmentCount: lobbyClassrooms.value.reduce((s, c) => s + (c.open_assignment_count || 0), 0)
+  }))
+
   return {
     // State
     students,
@@ -540,6 +594,12 @@ export function useTeacherDashboard() {
     selectedStudent,
     dateRange,
 
+    // Lobby state (Phase 4)
+    lobbyClassrooms,
+    needsAttention,
+    recentActivity,
+    lobbyLoading,
+
     // Computed
     totalStudents,
     totalObservations,
@@ -548,11 +608,13 @@ export function useTeacherDashboard() {
     isLoading,
     hasError,
     hasData,
+    summaryStats,
 
     // Methods
     initialize,
     loadDashboard,
     loadStudentObservations,
+    loadTeacherLobbyData,
     getClassrooms,
     getStudentsByClassroom,
     getClassroomStats,

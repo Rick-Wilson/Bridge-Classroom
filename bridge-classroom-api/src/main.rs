@@ -5,6 +5,7 @@ use axum::{
 };
 use sqlx::{Pool, Sqlite};
 use std::sync::Arc;
+use std::time::Instant;
 use tower_http::{
     cors::{Any, CorsLayer},
     trace::TraceLayer,
@@ -23,6 +24,7 @@ use config::Config;
 pub struct AppState {
     pub db: Pool<Sqlite>,
     pub config: Arc<Config>,
+    pub started_at: Instant,
 }
 
 #[tokio::main]
@@ -51,6 +53,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState {
         db,
         config: Arc::new(config.clone()),
+        started_at: Instant::now(),
     };
 
     // Build router
@@ -125,6 +128,11 @@ async fn main() -> anyhow::Result<()> {
             "/api/assignments/:id",
             get(routes::get_assignment).delete(routes::delete_assignment),
         )
+        // Teacher dashboard routes
+        .route("/api/teacher/dashboard", get(routes::teacher_dashboard))
+        // Admin routes
+        .route("/api/admin/stats", get(routes::admin_stats))
+        .route("/api/admin/health", get(routes::admin_health))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);
