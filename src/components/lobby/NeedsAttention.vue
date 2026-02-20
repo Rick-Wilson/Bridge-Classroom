@@ -27,7 +27,6 @@ function iconFor(type) {
   switch (type) {
     case 'due_soon': return '\u23F0' // alarm clock
     case 'low_score': return '\u26A0' // warning
-    case 'new_join': return '\u2795' // plus
     default: return '\u2022'
   }
 }
@@ -41,8 +40,6 @@ function describeItem(item) {
     }
     case 'low_score':
       return `${item.student_name} scored ${item.accuracy_pct}% on ${item.exercise_name} in ${item.classroom_name}`
-    case 'new_join':
-      return `${item.student_name} joined ${item.classroom_name}`
     default:
       return ''
   }
@@ -102,11 +99,6 @@ function daysUntil(dateStr) {
 .attention-item.low_score {
   background: #fff3f3;
   border-left: 3px solid #ef5350;
-}
-
-.attention-item.new_join {
-  background: #e3f2fd;
-  border-left: 3px solid #1565c0;
 }
 
 .item-icon {

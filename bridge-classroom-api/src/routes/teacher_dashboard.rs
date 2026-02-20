@@ -389,22 +389,9 @@ pub async fn teacher_dashboard(
             0
         };
 
-        // Recent joins (last 7 days)
+        // Recent joins (last 7 days) — activity only, not attention
         for member in &members {
             if member.joined_at >= seven_days_ago {
-                needs_attention.push(AttentionItem {
-                    item_type: "new_join".to_string(),
-                    assignment_id: None,
-                    exercise_name: None,
-                    classroom_name: classroom.name.clone(),
-                    student_name: Some(format!("{} {}", member.first_name, member.last_name)),
-                    due_at: None,
-                    lagging_count: None,
-                    total_students: None,
-                    accuracy_pct: None,
-                    joined_at: Some(member.joined_at.clone()),
-                });
-
                 recent_activity.push(ActivityEvent {
                     event_type: "student_joined".to_string(),
                     student_name: Some(format!("{} {}", member.first_name, member.last_name)),
@@ -426,13 +413,12 @@ pub async fn teacher_dashboard(
         });
     }
 
-    // Sort needs_attention: due_soon first, then low_score, then new_join
+    // Sort needs_attention: due_soon first, then low_score
     needs_attention.sort_by(|a, b| {
         let priority = |t: &str| match t {
             "due_soon" => 0,
             "low_score" => 1,
-            "new_join" => 2,
-            _ => 3,
+            _ => 2,
         };
         priority(&a.item_type).cmp(&priority(&b.item_type))
     });
