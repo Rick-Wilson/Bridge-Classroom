@@ -85,8 +85,9 @@ async function checkTeacherStatus() {
     isTeacher.value = true
     initialized.value = true
 
-    // Sync role if server confirms teacher status but local/server role is out of date
-    if (currentUser.role !== 'teacher') {
+    // Sync role if server confirms teacher status but local role is still 'student'
+    // Don't downgrade admin to teacher
+    if (currentUser.role === 'student') {
       userStore.updateUser(currentUser.id, { role: 'teacher' })
       // Also sync to server so backend checks (e.g. create classroom) work
       try {

@@ -67,6 +67,7 @@ async fn main() -> anyhow::Result<()> {
         // User routes
         .route("/api/users", post(routes::create_user))
         .route("/api/users", get(routes::get_users))
+        .route("/api/users/:user_id", get(routes::get_user))
         .route("/api/users/me", patch(routes::upgrade_role))
         // Viewer routes (teachers, partners, admin)
         .route("/api/viewers", post(routes::create_viewer))

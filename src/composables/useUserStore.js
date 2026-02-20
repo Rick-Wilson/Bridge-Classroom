@@ -533,6 +533,34 @@ async function claimRecoveryByCode(email, code, apiUrl) {
   }
 }
 
+/**
+ * Sync the current user's role from the server.
+ * Called on app startup to pick up role changes made server-side.
+ */
+async function syncRole() {
+  if (!currentUserId.value) return
+  const user = users.value[currentUserId.value]
+  if (!user) return
+
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+  const apiKey = import.meta.env.VITE_API_KEY || ''
+
+  try {
+    const res = await fetch(`${apiUrl}/users/${encodeURIComponent(user.id)}`, {
+      headers: { 'x-api-key': apiKey }
+    })
+    if (!res.ok) return
+
+    const data = await res.json()
+    if (data.success && data.user && data.user.role && data.user.role !== user.role) {
+      user.role = data.user.role
+      saveToStorage()
+    }
+  } catch {
+    // Best-effort — don't block startup
+  }
+}
+
 export function useUserStore() {
   // Computed properties
   const currentUser = computed(() => {
@@ -595,6 +623,9 @@ export function useUserStore() {
     // Account recovery
     requestRecovery,
     claimRecovery,
-    claimRecoveryByCode
+    claimRecoveryByCode,
+
+    // Role sync
+    syncRole
   }
 }

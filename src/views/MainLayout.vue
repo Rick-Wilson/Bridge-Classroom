@@ -446,6 +446,8 @@ onMounted(async () => {
   // Initialize data sync (fetches teacher key, registers user, syncs pending data)
   if (userStore.isAuthenticated.value) {
     await dataSync.initialize()
+    // Sync role from server (picks up admin/teacher changes made server-side)
+    await userStore.syncRole()
     // Load accomplishments data so board mastery strip can show prior observations
     const accomplishments = useAccomplishments()
     accomplishments.initialize()

@@ -1,5 +1,5 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
     http::{HeaderMap, StatusCode},
     Json,
 };
@@ -223,6 +223,35 @@ pub async fn create_user(
         user_id: req.user_id,
         existing_user: None,
     }))
+}
+
+/// GET /api/users/:user_id
+/// Get a single user's info (lightweight role sync)
+pub async fn get_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    if !validate_api_key(&headers, &state.config.api_key) {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
+    }
+
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
+        .bind(&user_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to fetch user {}: {}", user_id, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+        })?;
+
+    match user {
+        Some(u) => {
+            let info = UserInfo::from(u);
+            Ok(Json(serde_json::json!({ "success": true, "user": info })))
+        }
+        None => Err((StatusCode::NOT_FOUND, "User not found".to_string())),
+    }
 }
 
 /// GET /api/users
