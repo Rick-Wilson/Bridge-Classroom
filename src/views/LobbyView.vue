@@ -1,9 +1,11 @@
 <template>
   <div class="lobby-view">
-    <!-- Role-based lobby content -->
-    <AdminLobby v-if="userRole === 'admin'" />
-    <TeacherLobby v-else-if="userRole === 'teacher'"
+    <!-- Admin sees teacher dashboard by default, with toggle to admin panel -->
+    <AdminLobby v-if="showAdminPanel" @back="showAdminPanel = false" />
+    <TeacherLobby v-else-if="userRole === 'admin' || userRole === 'teacher'"
+      :is-admin="userRole === 'admin'"
       @select-collection="$emit('select-collection', $event)"
+      @show-admin="showAdminPanel = true"
     />
     <StudentLobby v-else-if="hasAssignments || hasClassrooms"
       @select-collection="$emit('select-collection', $event)"
@@ -16,7 +18,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../composables/useUserStore.js'
 import { useAssignments } from '../composables/useAssignments.js'
 import CasualLobby from '../components/lobby/CasualLobby.vue'
@@ -28,6 +30,7 @@ defineEmits(['select-collection', 'show-become-teacher'])
 
 const userStore = useUserStore()
 const assignmentStore = useAssignments()
+const showAdminPanel = ref(false)
 
 const userRole = computed(() => {
   const user = userStore.currentUser.value

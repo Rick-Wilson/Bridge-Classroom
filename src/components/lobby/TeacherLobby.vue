@@ -14,6 +14,9 @@
       <button class="action-btn assign" @click="showAssignModal = true">
         + New Assignment
       </button>
+      <button v-if="isAdmin" class="action-btn admin" @click="$emit('show-admin')">
+        Admin Panel
+      </button>
       <a v-if="hasLegacyDashboard" :href="legacyDashboardUrl" class="action-btn legacy">
         Legacy Dashboard
       </a>
@@ -89,7 +92,11 @@ import AssignmentCreateModal from './AssignmentCreateModal.vue'
 import NeedsAttention from './NeedsAttention.vue'
 import RecentActivity from './RecentActivity.vue'
 
-defineEmits(['select-collection'])
+defineProps({
+  isAdmin: { type: Boolean, default: false }
+})
+
+defineEmits(['select-collection', 'show-admin'])
 
 const userStore = useUserStore()
 const dashboard = useTeacherDashboard()
@@ -217,6 +224,15 @@ onMounted(() => {
 
 .action-btn.assign:hover {
   background: #bbdefb;
+}
+
+.action-btn.admin {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.action-btn.admin:hover {
+  background: #e9d5ff;
 }
 
 .action-btn.legacy {

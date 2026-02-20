@@ -1,6 +1,7 @@
 <template>
   <div class="admin-lobby">
     <div class="admin-header">
+      <button class="back-btn" @click="$emit('back')">← Back to Dashboard</button>
       <h2 class="admin-title">Admin Dashboard</h2>
       <p v-if="admin.stats.value" class="admin-subtitle">
         {{ admin.stats.value.total_observations.toLocaleString() }} total observations across {{ admin.stats.value.total_users }} users
@@ -47,6 +48,8 @@ import PopularLessons from './PopularLessons.vue'
 import DatabasePanel from './DatabasePanel.vue'
 import SystemHealth from './SystemHealth.vue'
 
+defineEmits(['back'])
+
 const admin = useAdminDashboard()
 const refreshing = ref(false)
 
@@ -69,12 +72,33 @@ onMounted(loadData)
 }
 
 .admin-header {
+  position: relative;
   text-align: center;
   padding: 32px;
   background: white;
   border-radius: var(--radius-card, 10px);
   border: 1px solid var(--card-border, #e0ddd7);
   margin-bottom: 24px;
+}
+
+.back-btn {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: none;
+  border: 1px solid var(--card-border, #e0ddd7);
+  border-radius: var(--radius-button, 6px);
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: #f3f4f6;
+  color: var(--text-primary, #1a1a1a);
 }
 
 .admin-title {
