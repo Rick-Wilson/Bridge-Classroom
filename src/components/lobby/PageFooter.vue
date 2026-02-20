@@ -2,6 +2,7 @@
   <footer class="page-footer">
     <span class="footer-brand">Bridge Classroom &middot; Free educational tool &middot; Provided as-is</span>
     <nav class="footer-links">
+      <a href="https://discord.gg/7PGejFZn" target="_blank" rel="noopener">Discord</a>
       <a href="https://github.com/Rick-Wilson/Bridge-Classroom" target="_blank" rel="noopener">GitHub</a>
     </nav>
   </footer>

@@ -40,7 +40,9 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 
 ## Deployment Architecture
 
-- **Frontend**: GitHub Pages at https://bridge-classroom.com (served from `docs/` directory)
+- **Website**: https://bridge-classroom.com
+- **Discord**: https://discord.gg/7PGejFZn
+- **Frontend**: GitHub Pages (served from `docs/` directory)
 - **Backend API**: Rust server running locally on Mac at port 3000
 - **Tunnel**: Cloudflare Tunnel routes https://api.bridge-classroom.com → localhost:3000
 - **Database**: SQLite at `bridge-classroom-api/data/bridge_classroom.db`
