@@ -3,6 +3,11 @@
     <header class="teacher-header">
       <h2>My Students</h2>
       <div class="header-actions">
+        <select v-if="classrooms.teacherClassrooms.value.length" v-model="selectedFilter" class="filter-select">
+          <option value="all">All Students</option>
+          <option v-for="c in classrooms.teacherClassrooms.value" :key="c.id" :value="c.id">{{ c.name }}</option>
+          <option value="none">No Classroom</option>
+        </select>
         <button class="anon-btn" :class="{ active: anon.isAnonymized.value }" @click="anon.toggleAnonymize()">
           {{ anon.isAnonymized.value ? 'Clear' : 'Anon' }}
         </button>
@@ -23,10 +28,16 @@
       <button @click="refresh">Try Again</button>
     </div>
 
-    <!-- Empty -->
+    <!-- Empty (no students at all) -->
     <div v-else-if="teacherRole.students.value.length === 0" class="empty-state">
       <h3>No Students Yet</h3>
       <p>Students will appear here once they register and grant you access.</p>
+    </div>
+
+    <!-- Empty (filter matched nothing) -->
+    <div v-else-if="sortedStudents.length === 0" class="empty-state">
+      <h3>No Matching Students</h3>
+      <p>No students match the selected filter.</p>
     </div>
 
     <!-- Student table -->
@@ -83,27 +94,80 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useTeacherRole } from '../composables/useTeacherRole.js'
+import { useClassrooms } from '../composables/useClassrooms.js'
+import { useUserStore } from '../composables/useUserStore.js'
 import { useAnonymizer } from '../composables/useAnonymizer.js'
 
 const emit = defineEmits(['close', 'select-student'])
 
 const teacherRole = useTeacherRole()
+const classrooms = useClassrooms()
+const userStore = useUserStore()
 const anon = useAnonymizer()
+
+const selectedFilter = ref('all')
+// Map of classroomId -> Set of student IDs
+const classroomMembers = ref({})
 
 onMounted(async () => {
   await teacherRole.loadAllStudentSummaries()
+  await loadClassroomMembers()
 })
+
+async function loadClassroomMembers() {
+  const user = userStore.currentUser.value
+  if (!user) return
+
+  // Ensure classrooms are loaded
+  if (!classrooms.teacherClassrooms.value.length) {
+    await classrooms.fetchTeacherClassrooms(user.id)
+  }
+
+  // Fetch details for each classroom to get member lists
+  const members = {}
+  await Promise.all(
+    classrooms.teacherClassrooms.value.map(async (c) => {
+      const result = await classrooms.fetchClassroomDetail(c.id)
+      if (result?.success) {
+        members[c.id] = new Set(result.classroom.members.map(m => m.student_id))
+      }
+    })
+  )
+  classroomMembers.value = members
+}
 
 async function refresh() {
   // Clear cache timestamps to force refetch
   teacherRole.studentObservations.value = {}
   await teacherRole.loadAllStudentSummaries()
+  await loadClassroomMembers()
 }
 
+// Set of all student IDs who are in at least one classroom
+const studentsInAnyClassroom = computed(() => {
+  const ids = new Set()
+  for (const memberSet of Object.values(classroomMembers.value)) {
+    for (const id of memberSet) ids.add(id)
+  }
+  return ids
+})
+
+const filteredStudents = computed(() => {
+  const all = teacherRole.students.value
+  if (selectedFilter.value === 'all') return all
+  if (selectedFilter.value === 'none') {
+    return all.filter(s => !studentsInAnyClassroom.value.has(s.id))
+  }
+  // Filter by specific classroom
+  const memberSet = classroomMembers.value[selectedFilter.value]
+  if (!memberSet) return all
+  return all.filter(s => memberSet.has(s.id))
+})
+
 const sortedStudents = computed(() => {
-  return [...teacherRole.students.value].sort((a, b) => {
+  return [...filteredStudents.value].sort((a, b) => {
     // Sort by most recent activity (most recent first), then alphabetically
     const aTime = summaries.value[a.id]?.lastObservationTime || ''
     const bTime = summaries.value[b.id]?.lastObservationTime || ''
@@ -317,6 +381,23 @@ function initials(student) {
 }
 
 /* Buttons */
+.filter-select {
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid #ddd;
+  background: white;
+  color: #333;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
 .anon-btn {
   padding: 8px 16px;
   border-radius: 6px;

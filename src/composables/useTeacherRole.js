@@ -74,8 +74,10 @@ async function checkTeacherStatus() {
     const usersData = await usersRes.json()
     const allUsers = usersData.users || []
 
+    // Filter out the teacher themselves (by ID or email) from the student list
+    const teacherEmail = currentUser.email?.toLowerCase()
     students.value = allUsers
-      .filter(u => studentIds.has(u.id))
+      .filter(u => studentIds.has(u.id) && u.id !== currentUser.id && u.email?.toLowerCase() !== teacherEmail)
       .sort((a, b) =>
         `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
       )
