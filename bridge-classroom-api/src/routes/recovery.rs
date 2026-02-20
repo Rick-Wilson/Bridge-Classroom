@@ -63,6 +63,7 @@ pub struct RecoveredUserData {
     pub email: String,
     pub secret_key: String,
     pub classroom: Option<String>,
+    pub role: String,
 }
 
 /// Response for recovery claim
@@ -452,15 +453,15 @@ pub async fn claim_recovery(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Get user data with recovery key
-    let user = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<String>)>(
-        "SELECT id, first_name, last_name, email, classroom, recovery_encrypted_key FROM users WHERE id = ?"
+    let user = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<String>, String)>(
+        "SELECT id, first_name, last_name, email, classroom, recovery_encrypted_key, role FROM users WHERE id = ?"
     )
     .bind(&user_id)
     .fetch_one(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let (id, first_name, last_name, email, classroom, recovery_encrypted_key) = user;
+    let (id, first_name, last_name, email, classroom, recovery_encrypted_key, role) = user;
 
     let encrypted_key = match recovery_encrypted_key {
         Some(k) => k,
@@ -497,6 +498,7 @@ pub async fn claim_recovery(
             email,
             secret_key,
             classroom,
+            role,
         }),
         error: None,
     }))
@@ -614,15 +616,15 @@ pub async fn claim_by_code(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     // Get user data with recovery key
-    let user = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<String>)>(
-        "SELECT id, first_name, last_name, email, classroom, recovery_encrypted_key FROM users WHERE id = ?"
+    let user = sqlx::query_as::<_, (String, String, String, String, Option<String>, Option<String>, String)>(
+        "SELECT id, first_name, last_name, email, classroom, recovery_encrypted_key, role FROM users WHERE id = ?"
     )
     .bind(&user_id)
     .fetch_one(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let (id, first_name, last_name, user_email, classroom, recovery_encrypted_key) = user;
+    let (id, first_name, last_name, user_email, classroom, recovery_encrypted_key, role) = user;
 
     let encrypted_key = match recovery_encrypted_key {
         Some(k) => k,
@@ -663,6 +665,7 @@ pub async fn claim_by_code(
             email: user_email,
             secret_key,
             classroom,
+            role,
         }),
         error: None,
     }))

@@ -325,6 +325,187 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // ---- Role column on users table ----
+    let has_role_column: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'role'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_role_column {
+        sqlx::query(r#"ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added role column to users table");
+    }
+
+    let has_teacher_terms_column: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'teacher_terms_accepted_at'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_teacher_terms_column {
+        sqlx::query(r#"ALTER TABLE users ADD COLUMN teacher_terms_accepted_at TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added teacher_terms_accepted_at column to users table");
+    }
+
+    // ---- Exercises table ----
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS exercises (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            created_by TEXT REFERENCES users(id),
+            curriculum_path TEXT,
+            visibility TEXT NOT NULL DEFAULT 'public',
+            created_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_exercises_created_by ON exercises(created_by)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_exercises_curriculum ON exercises(curriculum_path)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_exercises_visibility ON exercises(visibility)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- Exercise boards junction table ----
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS exercise_boards (
+            exercise_id TEXT NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+            deal_subfolder TEXT NOT NULL,
+            deal_number INTEGER NOT NULL,
+            sort_order INTEGER NOT NULL,
+            PRIMARY KEY (exercise_id, deal_subfolder, deal_number)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_exercise_boards_deal ON exercise_boards(deal_subfolder, deal_number)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- Classrooms table ----
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS classrooms (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            teacher_id TEXT NOT NULL REFERENCES users(id),
+            join_code TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_classrooms_teacher ON classrooms(teacher_id)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_classrooms_join_code ON classrooms(join_code)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- Classroom members table ----
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS classroom_members (
+            classroom_id TEXT NOT NULL REFERENCES classrooms(id) ON DELETE CASCADE,
+            student_id TEXT NOT NULL REFERENCES users(id),
+            joined_at TEXT NOT NULL,
+            PRIMARY KEY (classroom_id, student_id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_classroom_members_student ON classroom_members(student_id)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- Assignments table ----
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS assignments (
+            id TEXT PRIMARY KEY,
+            exercise_id TEXT NOT NULL REFERENCES exercises(id),
+            classroom_id TEXT REFERENCES classrooms(id),
+            student_id TEXT REFERENCES users(id),
+            assigned_by TEXT NOT NULL REFERENCES users(id),
+            assigned_at TEXT NOT NULL,
+            due_at TEXT,
+            sort_order INTEGER,
+            CHECK (
+                (classroom_id IS NOT NULL AND student_id IS NULL) OR
+                (classroom_id IS NULL AND student_id IS NOT NULL)
+            )
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_assignments_classroom ON assignments(classroom_id)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_assignments_student ON assignments(student_id)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_assignments_exercise ON assignments(exercise_id)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_assignments_assigned_by ON assignments(assigned_by)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- Compound index on observations for assignment progress queries ----
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_observations_deal_user ON observations(deal_subfolder, deal_number, user_id)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
     // View: sharing grants with human-readable names
     sqlx::query(
         r#"

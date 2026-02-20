@@ -1,6 +1,6 @@
 use axum::{
     http::{header, Method},
-    routing::{get, post},
+    routing::{get, patch, post},
     Router,
 };
 use sqlx::{Pool, Sqlite};
@@ -64,6 +64,7 @@ async fn main() -> anyhow::Result<()> {
         // User routes
         .route("/api/users", post(routes::create_user))
         .route("/api/users", get(routes::get_users))
+        .route("/api/users/me", patch(routes::upgrade_role))
         // Viewer routes (teachers, partners, admin)
         .route("/api/viewers", post(routes::create_viewer))
         .route("/api/viewers", get(routes::get_viewers))
@@ -118,7 +119,7 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
         // Allow any origin (for development)
         CorsLayer::new()
             .allow_origin(Any)
-            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE, Method::OPTIONS])
             .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
     } else {
         // Specific origins
@@ -129,7 +130,7 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
 
         CorsLayer::new()
             .allow_origin(allowed)
-            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::PATCH, Method::DELETE, Method::OPTIONS])
             .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, "x-api-key".parse().unwrap()])
     }
 }

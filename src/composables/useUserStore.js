@@ -100,6 +100,7 @@ async function createUser({ firstName, lastName, email, classrooms = [], dataCon
     classrooms,
     dataConsent,
     secretKey,
+    role: 'student',
     serverRegistered: false,
     adminGrantPayload, // Store for sending to server during registration
     createdAt: now,
@@ -148,6 +149,9 @@ function updateUser(userId, updates) {
   }
   if (updates.serverRegistered !== undefined) {
     user.serverRegistered = updates.serverRegistered
+  }
+  if (updates.role !== undefined) {
+    user.role = updates.role
   }
 
   user.updatedAt = new Date().toISOString()
@@ -452,6 +456,7 @@ async function claimRecovery(userId, token, apiUrl) {
       classrooms: data.user.classroom ? [data.user.classroom] : [],
       dataConsent: true,
       secretKey: data.user.secret_key,
+      role: data.user.role || 'student',
       serverRegistered: true,
       recoveredAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
@@ -507,6 +512,7 @@ async function claimRecoveryByCode(email, code, apiUrl) {
       classrooms: data.user.classroom ? [data.user.classroom] : [],
       dataConsent: true,
       secretKey: data.user.secret_key,
+      role: data.user.role || 'student',
       serverRegistered: true,
       recoveredAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),

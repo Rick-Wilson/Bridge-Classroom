@@ -1,0 +1,50 @@
+/* Bridge Classroom Design System Tokens */
+
+:root {
+  /* Typography */
+  --font-heading: 'Source Serif 4', serif;
+  --font-body: 'DM Sans', sans-serif;
+
+  /* Primary green palette */
+  --green-dark: #2d6a4f;
+  --green-mid: #40916c;
+  --green-accent: #52b788;
+  --green-light: #b7e4c7;
+  --green-pale: #d8f3dc;
+
+  /* Accent colors */
+  --blue: #3b82f6;
+  --blue-light: #dbeafe;
+  --purple: #8b5cf6;
+  --purple-light: #ede9fe;
+  --amber: #f59e0b;
+  --amber-light: #fef3c7;
+  --red: #ef4444;
+  --red-light: #fee2e2;
+
+  /* Neutrals */
+  --bg-warm: #f5f3ef;
+  --bg-white: #ffffff;
+  --card-border: #e0ddd7;
+  --card-shadow: rgba(0, 0, 0, 0.06);
+  --text-primary: #1a1a1a;
+  --text-secondary: #6b7280;
+  --text-muted: #9ca3af;
+
+  /* Status badge colors */
+  --badge-new-bg: #dbeafe;
+  --badge-new-text: #1d4ed8;
+  --badge-progress-bg: #fef3c7;
+  --badge-progress-text: #b45309;
+  --badge-complete-bg: #d1fae5;
+  --badge-complete-text: #047857;
+  --badge-overdue-bg: #fee2e2;
+  --badge-overdue-text: #b91c1c;
+
+  /* Layout */
+  --radius-card: 10px;
+  --radius-button: 6px;
+  --radius-badge: 12px;
+  --max-width: 1200px;
+  --header-height: 56px;
+}

@@ -1,0 +1,856 @@
+From: <Saved by Blink>
+Snapshot-Content-Location: file:///Users/rick/Downloads/classroom-invite-flow.html
+Subject: Bridge Classroom - Classroom Invitation Flow
+Date: Thu, 19 Feb 2026 20:31:25 -0800
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="text/html";
+	boundary="----MultipartBoundary--j0uc7x9Xd3u4klaPsBzWmMcO9Hjk4c8F8k3QmRd2bd----"
+
+
+------MultipartBoundary--j0uc7x9Xd3u4klaPsBzWmMcO9Hjk4c8F8k3QmRd2bd----
+Content-Type: text/html
+Content-ID: <frame-E8863BCA566D8378C12797794E1E96A2@mhtml.blink>
+Content-Transfer-Encoding: quoted-printable
+Content-Location: file:///Users/rick/Downloads/classroom-invite-flow.html
+
+<!DOCTYPE html><html lang=3D"en"><head><meta http-equiv=3D"Content-Type" co=
+ntent=3D"text/html; charset=3DUTF-8"><link rel=3D"stylesheet" type=3D"text/=
+css" href=3D"cid:css-3004d6a9-dc80-4088-9c22-b0dffbfe9ad4@mhtml.blink" />
+
+<meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=3D1.=
+0">
+<title>Bridge Classroom - Classroom Invitation Flow</title>
+<link href=3D"https://fonts.googleapis.com/css2?family=3DSource+Serif+4:ops=
+z,wght@8..60,400;8..60,600;8..60,700&amp;family=3DDM+Sans:wght@400;500;600;=
+700&amp;display=3Dswap" rel=3D"stylesheet">
+
+</head>
+<body>
+
+<!-- HEADER -->
+<header class=3D"header">
+  <div class=3D"header-left">
+    <div class=3D"logo-icon">=E2=99=A0</div>
+    <div class=3D"app-title">Bridge Classroom</div>
+  </div>
+</header>
+
+<!-- DEMO BAR -->
+<div class=3D"demo-bar">
+  <span class=3D"label">Teacher views:</span>
+  <button class=3D"demo-btn teacher-btn active">Create Classroom</button>
+  <button class=3D"demo-btn teacher-btn">Invite Link &amp; Roster</button>
+  <div class=3D"separator"></div>
+  <span class=3D"label">Student views:</span>
+  <button class=3D"demo-btn">Join (not logged in)</button>
+  <button class=3D"demo-btn">Join (logged in)</button>
+  <button class=3D"demo-btn">Joined!</button>
+</div>
+
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<!-- TEACHER: CREATE CLASSROOM     -->
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<div class=3D"view active" id=3D"view-create">
+  <div class=3D"main">
+    <div class=3D"create-card">
+      <div class=3D"create-card-header">
+        <h2>Create a Classroom</h2>
+        <p>Set up a group for your students. You'll get an invite link to s=
+hare.</p>
+      </div>
+      <div class=3D"create-card-body">
+        <div class=3D"form-group">
+          <label class=3D"form-label">Classroom Name</label>
+          <input class=3D"form-input" type=3D"text" value=3D"Beginning Brid=
+ge =E2=80=94 Spring 2026" placeholder=3D"e.g. Beginning Bridge =E2=80=94 Sp=
+ring 2026">
+          <div class=3D"form-hint">Students will see this name when they jo=
+in.</div>
+        </div>
+        <div class=3D"form-group">
+          <label class=3D"form-label">Description (optional)</label>
+          <textarea class=3D"form-input form-textarea" placeholder=3D"e.g. =
+Tuesday evenings, 6:30 PM at Stoneridge Creek. Covers lessons 1=E2=80=9320 =
+from Baker Bridge."></textarea>
+          <div class=3D"form-hint">A brief note for your students about the=
+ class schedule or focus.</div>
+        </div>
+        <div class=3D"form-actions">
+          <button class=3D"btn secondary">Cancel</button>
+          <button class=3D"btn primary">Create Classroom =E2=86=92</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<!-- TEACHER: INVITE LINK & ROSTER -->
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<div class=3D"view" id=3D"view-invite">
+  <div class=3D"main">
+    <div class=3D"invite-panel">
+
+      <div class=3D"invite-panel-header">
+        <div class=3D"invite-panel-title">Beginning Bridge =E2=80=94 Spring=
+ 2026</div>
+        <span class=3D"invite-panel-badge">Active</span>
+      </div>
+
+      <div class=3D"invite-panel-body">
+
+        <!-- Invite link -->
+        <div class=3D"invite-section">
+          <div class=3D"invite-section-title">Invite Link</div>
+          <p style=3D"font-size: 13px; color: var(--text-secondary); margin=
+-bottom: 10px;">
+            Share this link with your students. They'll be prompted to sign=
+ in or create an account, then join your classroom.
+          </p>
+          <div class=3D"invite-link-row">
+            <input class=3D"invite-link-input" readonly=3D"" value=3D"https=
+://bridge-classroom.com/join/BRG-4821">
+            <button class=3D"copy-btn">
+              <span>=F0=9F=93=8B</span> Copy Link
+            </button>
+          </div>
+        </div>
+
+        <!-- Email template -->
+        <div class=3D"invite-section">
+          <div class=3D"invite-section-title">Email Template</div>
+          <p style=3D"font-size: 13px; color: var(--text-secondary); margin=
+-bottom: 10px;">
+            Copy this message and paste it into your own email to invite st=
+udents.
+          </p>
+          <div class=3D"email-template">
+            <button class=3D"template-copy-btn">Copy</button>
+            <div class=3D"email-subject">Subject: Join our Bridge Classroom=
+ for practice exercises</div>
+            <p>Hi everyone,</p>
+            <br>
+            <p>I've set up an online practice tool for our bridge class. Yo=
+u can work through bidding exercises at your own pace, and I'll be able to =
+see your progress to help guide our lessons.</p>
+            <br>
+            <p>To join, click this link:</p>
+            <p><span class=3D"highlight-link">https://bridge-classroom.com/=
+join/BRG-4821</span></p>
+            <br>
+            <p>You'll need to create a free account (just your name and ema=
+il). Once you've joined, you'll see any exercises I assign in your lobby.</=
+p>
+            <br>
+            <p>The tool works on any device =E2=80=94 computer, tablet, or =
+phone =E2=80=94 and you can practice offline too.</p>
+            <br>
+            <p>See you in class!</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Members roster -->
+      <div class=3D"members-section">
+        <div class=3D"members-header">
+          <span class=3D"members-title">Class Roster</span>
+          <span class=3D"members-count">5 students</span>
+        </div>
+        <table class=3D"members-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Joined</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class=3D"member-name">Sarah Patel</div>
+                <div class=3D"member-email">sarah.patel@email.com</div>
+              </td>
+              <td><span class=3D"member-status active">Joined</span></td>
+              <td class=3D"member-date">Feb 12</td>
+              <td><button class=3D"member-action">Remove</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class=3D"member-name">James Morrison</div>
+                <div class=3D"member-email">j.morrison@email.com</div>
+              </td>
+              <td><span class=3D"member-status active">Joined</span></td>
+              <td class=3D"member-date">Feb 13</td>
+              <td><button class=3D"member-action">Remove</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class=3D"member-name">Diana Larson</div>
+                <div class=3D"member-email">dlarson@email.com</div>
+              </td>
+              <td><span class=3D"member-status active">Joined</span></td>
+              <td class=3D"member-date">Feb 14</td>
+              <td><button class=3D"member-action">Remove</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class=3D"member-name">Michael Chen</div>
+                <div class=3D"member-email">m.chen@email.com</div>
+              </td>
+              <td><span class=3D"member-status active">Joined</span></td>
+              <td class=3D"member-date">Feb 15</td>
+              <td><button class=3D"member-action">Remove</button></td>
+            </tr>
+            <tr>
+              <td>
+                <div class=3D"member-name">Alice Wright</div>
+                <div class=3D"member-email">awright@email.com</div>
+              </td>
+              <td><span class=3D"member-status active">Joined</span></td>
+              <td class=3D"member-date">Feb 17</td>
+              <td><button class=3D"member-action">Remove</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<!-- STUDENT: JOIN (NOT LOGGED IN) -->
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<div class=3D"view" id=3D"view-join-new">
+  <div class=3D"join-page">
+    <div class=3D"join-card">
+      <div class=3D"join-card-top">
+        <div class=3D"join-icon">=E2=99=A0</div>
+        <h2>Beginning Bridge =E2=80=94 Spring 2026</h2>
+        <div class=3D"teacher-name">Taught by R. Wilson</div>
+      </div>
+      <div class=3D"join-card-body">
+        <div class=3D"join-info">
+          You've been invited to join a bridge classroom. Sign in to your e=
+xisting account or create a new one to get started.
+        </div>
+        <div class=3D"join-actions">
+          <button class=3D"join-btn primary">Sign In to Join</button>
+          <div class=3D"join-divider">or</div>
+          <button class=3D"join-btn secondary">Create an Account</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<!-- STUDENT: JOIN CONFIRM (LOGGED IN) -->
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<div class=3D"view" id=3D"view-join-confirm">
+  <div class=3D"join-page">
+    <div class=3D"confirm-card">
+      <div class=3D"confirm-card-top">
+        <div class=3D"join-icon">=E2=99=A0</div>
+        <h2>Beginning Bridge =E2=80=94 Spring 2026</h2>
+        <div class=3D"teacher-name">Taught by R. Wilson</div>
+      </div>
+      <div class=3D"confirm-card-body">
+        <div class=3D"confirm-details">
+          <div class=3D"confirm-detail-row">
+            <span class=3D"confirm-detail-label">Classroom</span>
+            <span class=3D"confirm-detail-value">Beginning Bridge =E2=80=94=
+ Spring 2026</span>
+          </div>
+          <div class=3D"confirm-detail-row">
+            <span class=3D"confirm-detail-label">Teacher</span>
+            <span class=3D"confirm-detail-value">Rick Wilson</span>
+          </div>
+          <div class=3D"confirm-detail-row">
+            <span class=3D"confirm-detail-label">Your account</span>
+            <span class=3D"confirm-detail-value">Jane Doe (jane.doe@email.c=
+om)</span>
+          </div>
+        </div>
+
+        <div class=3D"confirm-note">
+          <strong>What joining means:</strong> Your teacher will be able to=
+ see your practice results (which exercises you've completed and your accur=
+acy) for assignments in this classroom. You can leave the classroom or revo=
+ke access at any time from your settings.
+        </div>
+
+        <div class=3D"confirm-actions">
+          <button class=3D"btn secondary">Decline</button>
+          <button class=3D"btn primary">Join Classroom</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<!-- STUDENT: JOIN SUCCESS          -->
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D -->
+<div class=3D"view" id=3D"view-join-success">
+  <div class=3D"join-page">
+    <div class=3D"success-card">
+      <div class=3D"success-check">=E2=9C=93</div>
+      <h2>You're In!</h2>
+      <p class=3D"success-desc">
+        You've joined <span class=3D"success-classroom-name">Beginning Brid=
+ge =E2=80=94 Spring 2026</span> with teacher R. Wilson.
+      </p>
+
+      <div class=3D"success-info-box">
+        <div class=3D"info-item">
+          <span class=3D"info-icon">=F0=9F=93=8B</span>
+          <span>Assignments from your teacher will appear in your lobby.</s=
+pan>
+        </div>
+        <div class=3D"info-item">
+          <span class=3D"info-icon">=F0=9F=91=81=EF=B8=8F</span>
+          <span>Your teacher can see your practice progress for assigned ex=
+ercises.</span>
+        </div>
+        <div class=3D"info-item">
+          <span class=3D"info-icon">=E2=9A=99=EF=B8=8F</span>
+          <span>You can leave this classroom or change sharing at any time =
+from Settings.</span>
+        </div>
+      </div>
+
+      <button class=3D"btn primary" style=3D"width: 100%;">Go to Lobby =E2=
+=86=92</button>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+</body></html>
+------MultipartBoundary--j0uc7x9Xd3u4klaPsBzWmMcO9Hjk4c8F8k3QmRd2bd----
+Content-Type: text/css
+Content-Transfer-Encoding: quoted-printable
+Content-Location: https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600;700&display=swap
+
+@charset "utf-8";
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 400; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 400; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 500; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 500; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 600; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 600; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 700; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 700; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gW8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2=
+E-FE2F; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gf8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gY8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+370-377, U+37A-37F, U+384-38A, U+38C, U+38E-3A1, U+3A3-3FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gU8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B=
+0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gV8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U=
++308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+=
+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gb8te1Xb7G.woff2") format("woff2"); unicod=
+e-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U=
++308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U=
++FEFF, U+FFFD; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gW8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2=
+E-FE2F; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gf8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gY8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+370-377, U+37A-37F, U+384-38A, U+38C, U+38E-3A1, U+3A3-3FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gU8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B=
+0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gV8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U=
++308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+=
+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gb8te1Xb7G.woff2") format("woff2"); unicod=
+e-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U=
++308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U=
++FEFF, U+FFFD; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gW8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2=
+E-FE2F; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gf8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gY8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+370-377, U+37A-37F, U+384-38A, U+38C, U+38E-3A1, U+3A3-3FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gU8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B=
+0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gV8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U=
++308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+=
+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gb8te1Xb7G.woff2") format("woff2"); unicod=
+e-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U=
++308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U=
++FEFF, U+FFFD; }
+------MultipartBoundary--j0uc7x9Xd3u4klaPsBzWmMcO9Hjk4c8F8k3QmRd2bd----
+Content-Type: text/css
+Content-Transfer-Encoding: quoted-printable
+Content-Location: cid:css-3004d6a9-dc80-4088-9c22-b0dffbfe9ad4@mhtml.blink
+
+@charset "utf-8";
+
+:root { --bg: #f5f3ef; --card-bg: #ffffff; --text-primary: #2c2c2c; --text-=
+secondary: #6b6b6b; --text-muted: #999; --green-dark: #2d6a4f; --green-mid:=
+ #40916c; --green-light: #e8f5ee; --green-accent: #52b788; --blue-dark: #1d=
+4e89; --blue-light: #e3edf7; --purple-dark: #5a3e8e; --amber-dark: #b8860b;=
+ --amber-light: #fdf6e3; --red-muted: #c0392b; --border: #e0ddd7; --border-=
+light: #ece9e3; --shadow-sm: 0 1px 3px rgba(0,0,0,0.06); --shadow-md: 0 4px=
+ 12px rgba(0,0,0,0.08); --shadow-lg: 0 8px 24px rgba(0,0,0,0.1); --shadow-o=
+verlay: 0 20px 60px rgba(0,0,0,0.2); --radius: 10px; --radius-sm: 6px; --ra=
+dius-lg: 16px; }
+
+* { margin: 0px; padding: 0px; box-sizing: border-box; }
+
+body { font-family: "DM Sans", sans-serif; background: var(--bg); color: va=
+r(--text-primary); min-height: 100vh; }
+
+.header { background: var(--card-bg); border-bottom: 1px solid var(--border=
+); padding: 0px 32px; height: 60px; display: flex; align-items: center; jus=
+tify-content: space-between; }
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+
+.logo-icon { width: 32px; height: 32px; background: var(--green-dark); bord=
+er-radius: 8px; display: flex; align-items: center; justify-content: center=
+; color: white; font-size: 16px; }
+
+.app-title { font-family: "Source Serif 4", serif; font-size: 20px; font-we=
+ight: 700; color: var(--green-dark); }
+
+.demo-bar { background: var(--card-bg); border-bottom: 1px solid var(--bord=
+er); padding: 10px 32px; display: flex; align-items: center; gap: 8px; font=
+-size: 13px; color: var(--text-secondary); flex-wrap: wrap; }
+
+.demo-bar span.label { font-weight: 600; margin-right: 4px; }
+
+.demo-bar .separator { width: 1px; height: 20px; background: var(--border);=
+ margin: 0px 8px; }
+
+.demo-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(-=
+-border); background: var(--card-bg); font-size: 12px; font-weight: 600; co=
+lor: var(--text-secondary); cursor: pointer; transition: 0.2s; white-space:=
+ nowrap; }
+
+.demo-btn:hover { border-color: var(--green-mid); color: var(--green-dark);=
+ }
+
+.demo-btn.active { background: var(--green-dark); color: white; border-colo=
+r: var(--green-dark); }
+
+.demo-btn.teacher-btn.active { background: var(--blue-dark); border-color: =
+var(--blue-dark); }
+
+.view { display: none; }
+
+.view.active { display: block; }
+
+.main { max-width: 800px; margin: 0px auto; padding: 32px; }
+
+.create-card { background: var(--card-bg); border: 1px solid var(--border);=
+ border-radius: var(--radius-lg); box-shadow: var(--shadow-md); overflow: h=
+idden; }
+
+.create-card-header { background: linear-gradient(135deg, rgb(45, 106, 79) =
+0%, rgb(29, 78, 137) 100%); padding: 28px 32px; color: white; }
+
+.create-card-header h2 { font-family: "Source Serif 4", serif; font-size: 2=
+2px; font-weight: 700; margin-bottom: 4px; }
+
+.create-card-header p { font-size: 14px; opacity: 0.85; }
+
+.create-card-body { padding: 28px 32px; }
+
+.form-group { margin-bottom: 20px; }
+
+.form-label { display: block; font-size: 13px; font-weight: 600; color: var=
+(--text-primary); margin-bottom: 6px; }
+
+.form-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+.form-input { width: 100%; padding: 10px 14px; border: 1px solid var(--bord=
+er); border-radius: var(--radius-sm); font-size: 14px; font-family: inherit=
+; color: var(--text-primary); background: var(--card-bg); transition: borde=
+r-color 0.2s; }
+
+.form-input:focus { outline: none; border-color: var(--green-mid); box-shad=
+ow: 0 0 0 3px var(--green-light); }
+
+.form-textarea { resize: vertical; min-height: 72px; }
+
+.form-actions { display: flex; gap: 10px; justify-content: flex-end; paddin=
+g-top: 8px; }
+
+.btn { padding: 10px 22px; border-radius: var(--radius-sm); font-size: 14px=
+; font-weight: 600; cursor: pointer; transition: 0.2s; border: 1px solid va=
+r(--border); font-family: inherit; }
+
+.btn.secondary { background: var(--card-bg); color: var(--text-secondary); =
+}
+
+.btn.secondary:hover { border-color: var(--green-mid); color: var(--green-d=
+ark); }
+
+.btn.primary { background: var(--green-dark); color: white; border-color: v=
+ar(--green-dark); }
+
+.btn.primary:hover { background: var(--green-mid); }
+
+.invite-panel { background: var(--card-bg); border: 1px solid var(--border)=
+; border-radius: var(--radius-lg); box-shadow: var(--shadow-md); overflow: =
+hidden; }
+
+.invite-panel-header { padding: 24px 32px; border-bottom: 1px solid var(--b=
+order-light); display: flex; align-items: center; justify-content: space-be=
+tween; }
+
+.invite-panel-title { font-family: "Source Serif 4", serif; font-size: 20px=
+; font-weight: 700; }
+
+.invite-panel-badge { font-size: 12px; font-weight: 600; color: var(--green=
+-dark); background: var(--green-light); padding: 4px 12px; border-radius: 2=
+0px; }
+
+.invite-panel-body { padding: 28px 32px; }
+
+.invite-section { margin-bottom: 28px; }
+
+.invite-section:last-child { margin-bottom: 0px; }
+
+.invite-section-title { font-size: 14px; font-weight: 600; color: var(--tex=
+t-primary); margin-bottom: 10px; }
+
+.invite-link-row { display: flex; gap: 8px; align-items: stretch; }
+
+.invite-link-input { flex: 1 1 0%; padding: 12px 16px; border: 1px solid va=
+r(--border); border-radius: var(--radius-sm); font-size: 14px; font-family:=
+ "DM Sans", monospace; color: var(--green-dark); background: var(--green-li=
+ght); font-weight: 500; letter-spacing: 0.01em; cursor: text; }
+
+.copy-btn { padding: 12px 20px; border: 1px solid var(--green-dark); border=
+-radius: var(--radius-sm); background: var(--green-dark); color: white; fon=
+t-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; tran=
+sition: 0.2s; white-space: nowrap; display: flex; align-items: center; gap:=
+ 6px; }
+
+.copy-btn:hover { background: var(--green-mid); }
+
+.copy-btn.copied { background: var(--green-accent); border-color: var(--gre=
+en-accent); }
+
+.email-template { background: var(--bg); border: 1px solid var(--border); b=
+order-radius: var(--radius); padding: 20px; font-size: 13px; line-height: 1=
+.6; color: var(--text-secondary); position: relative; }
+
+.email-template .email-subject { font-weight: 600; color: var(--text-primar=
+y); margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var=
+(--border-light); font-size: 14px; }
+
+.email-template .highlight-link { color: var(--green-dark); font-weight: 50=
+0; text-decoration: underline; }
+
+.template-copy-btn { position: absolute; top: 12px; right: 12px; padding: 5=
+px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); =
+background: var(--card-bg); font-size: 12px; font-weight: 600; color: var(-=
+-text-secondary); cursor: pointer; font-family: inherit; transition: 0.2s; =
+}
+
+.template-copy-btn:hover { border-color: var(--green-mid); color: var(--gre=
+en-dark); }
+
+.members-section { padding: 24px 32px; border-top: 1px solid var(--border-l=
+ight); }
+
+.members-header { display: flex; align-items: center; justify-content: spac=
+e-between; margin-bottom: 16px; }
+
+.members-title { font-size: 14px; font-weight: 600; color: var(--text-prima=
+ry); }
+
+.members-count { font-size: 13px; color: var(--text-muted); }
+
+.members-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+.members-table th { text-align: left; font-size: 11px; font-weight: 600; te=
+xt-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); =
+padding: 8px 0px; border-bottom: 1px solid var(--border); }
+
+.members-table td { padding: 10px 0px; border-bottom: 1px solid var(--borde=
+r-light); }
+
+.members-table tr:last-child td { border-bottom: none; }
+
+.member-name { font-weight: 500; color: var(--text-primary); }
+
+.member-email { color: var(--text-muted); font-size: 12px; }
+
+.member-status { font-size: 11px; font-weight: 700; text-transform: upperca=
+se; letter-spacing: 0.04em; padding: 2px 8px; border-radius: 4px; }
+
+.member-status.active { background: var(--green-light); color: var(--green-=
+dark); }
+
+.member-status.pending { background: var(--amber-light); color: var(--amber=
+-dark); }
+
+.member-date { color: var(--text-muted); font-size: 12px; }
+
+.member-action { color: var(--text-muted); font-size: 12px; cursor: pointer=
+; border: none; background: none; font-family: inherit; }
+
+.member-action:hover { color: var(--red-muted); }
+
+.join-page { display: flex; align-items: center; justify-content: center; m=
+in-height: calc(-120px + 100vh); padding: 32px; }
+
+.join-card { background: var(--card-bg); border: 1px solid var(--border); b=
+order-radius: var(--radius-lg); box-shadow: var(--shadow-lg); max-width: 46=
+0px; width: 100%; overflow: hidden; }
+
+.join-card-top { background: linear-gradient(135deg, rgb(45, 106, 79) 0%, r=
+gb(29, 78, 137) 100%); padding: 32px 28px; text-align: center; color: white=
+; }
+
+.join-card-top .join-icon { width: 52px; height: 52px; border-radius: 14px;=
+ background: rgba(255, 255, 255, 0.15); display: flex; align-items: center;=
+ justify-content: center; font-size: 24px; margin: 0px auto 14px; }
+
+.join-card-top h2 { font-family: "Source Serif 4", serif; font-size: 21px; =
+font-weight: 700; margin-bottom: 6px; }
+
+.join-card-top .teacher-name { font-size: 14px; opacity: 0.85; }
+
+.join-card-body { padding: 28px; }
+
+.join-info { text-align: center; font-size: 14px; color: var(--text-seconda=
+ry); line-height: 1.5; margin-bottom: 24px; }
+
+.join-actions { display: flex; flex-direction: column; gap: 10px; }
+
+.join-btn { width: 100%; padding: 12px; border-radius: var(--radius-sm); fo=
+nt-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer; tra=
+nsition: 0.2s; text-align: center; border: 1px solid; }
+
+.join-btn.primary { background: var(--green-dark); color: white; border-col=
+or: var(--green-dark); }
+
+.join-btn.primary:hover { background: var(--green-mid); }
+
+.join-btn.secondary { background: var(--card-bg); color: var(--green-dark);=
+ border-color: var(--border); }
+
+.join-btn.secondary:hover { border-color: var(--green-mid); }
+
+.join-divider { text-align: center; font-size: 12px; color: var(--text-mute=
+d); margin: 4px 0px; }
+
+.confirm-card { background: var(--card-bg); border: 1px solid var(--border)=
+; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); max-width:=
+ 480px; width: 100%; overflow: hidden; }
+
+.confirm-card-top { background: linear-gradient(135deg, rgb(45, 106, 79) 0%=
+, rgb(29, 78, 137) 100%); padding: 28px; text-align: center; color: white; =
+}
+
+.confirm-card-top .join-icon { width: 48px; height: 48px; border-radius: 12=
+px; background: rgba(255, 255, 255, 0.15); display: flex; align-items: cent=
+er; justify-content: center; font-size: 22px; margin: 0px auto 12px; }
+
+.confirm-card-top h2 { font-family: "Source Serif 4", serif; font-size: 20p=
+x; font-weight: 700; margin-bottom: 4px; }
+
+.confirm-card-top .teacher-name { font-size: 14px; opacity: 0.85; }
+
+.confirm-card-body { padding: 24px 28px; }
+
+.confirm-details { background: var(--bg); border-radius: var(--radius); pad=
+ding: 16px; margin-bottom: 20px; }
+
+.confirm-detail-row { display: flex; justify-content: space-between; paddin=
+g: 6px 0px; font-size: 14px; }
+
+.confirm-detail-label { color: var(--text-muted); }
+
+.confirm-detail-value { font-weight: 500; color: var(--text-primary); }
+
+.confirm-note { font-size: 13px; color: var(--text-secondary); line-height:=
+ 1.5; margin-bottom: 20px; padding: 12px 16px; background: var(--blue-light=
+); border-radius: var(--radius-sm); }
+
+.confirm-note strong { color: var(--blue-dark); }
+
+.confirm-actions { display: flex; gap: 10px; }
+
+.confirm-actions .btn { flex: 1 1 0%; text-align: center; }
+
+.success-card { background: var(--card-bg); border: 1px solid var(--border)=
+; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); max-width:=
+ 460px; width: 100%; text-align: center; padding: 40px 32px; }
+
+.success-check { width: 64px; height: 64px; border-radius: 50%; background:=
+ var(--green-light); color: var(--green-dark); display: flex; align-items: =
+center; justify-content: center; font-size: 28px; margin: 0px auto 16px; an=
+imation: 0.4s ease 0s 1 normal none running popIn; }
+
+@keyframes popIn {=20
+  0% { transform: scale(0.5); opacity: 0; }
+  70% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.success-card h2 { font-family: "Source Serif 4", serif; font-size: 22px; f=
+ont-weight: 700; margin-bottom: 8px; }
+
+.success-card .success-desc { font-size: 14px; color: var(--text-secondary)=
+; line-height: 1.5; margin-bottom: 24px; }
+
+.success-classroom-name { color: var(--green-dark); font-weight: 600; }
+
+.success-info-box { background: var(--bg); border-radius: var(--radius); pa=
+dding: 16px; margin-bottom: 24px; text-align: left; font-size: 13px; color:=
+ var(--text-secondary); line-height: 1.5; }
+
+.success-info-box .info-item { display: flex; align-items: flex-start; gap:=
+ 10px; padding: 6px 0px; }
+
+.info-icon { flex-shrink: 0; font-size: 14px; margin-top: 1px; }
+
+@media (max-width: 600px) {
+  .main { padding: 20px 16px; }
+  .create-card-header, .create-card-body { padding: 20px; }
+  .invite-panel-header, .invite-panel-body, .members-section { padding: 16p=
+x 20px; }
+  .join-card-body, .confirm-card-body { padding: 20px; }
+}
+------MultipartBoundary--j0uc7x9Xd3u4klaPsBzWmMcO9Hjk4c8F8k3QmRd2bd------

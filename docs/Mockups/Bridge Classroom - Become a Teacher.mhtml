@@ -1,0 +1,727 @@
+From: <Saved by Blink>
+Snapshot-Content-Location: file:///Users/rick/Downloads/become-teacher-flow.html
+Subject: Bridge Classroom - Become a Teacher
+Date: Thu, 19 Feb 2026 20:31:56 -0800
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="text/html";
+	boundary="----MultipartBoundary--DhuKFZgHeIHIbgp3saFBD2MrhmzQwwjDhCQ7W4MXQb----"
+
+
+------MultipartBoundary--DhuKFZgHeIHIbgp3saFBD2MrhmzQwwjDhCQ7W4MXQb----
+Content-Type: text/html
+Content-ID: <frame-75CD03015C227E4117071873A13187E5@mhtml.blink>
+Content-Transfer-Encoding: quoted-printable
+Content-Location: file:///Users/rick/Downloads/become-teacher-flow.html
+
+<!DOCTYPE html><html lang=3D"en"><head><meta http-equiv=3D"Content-Type" co=
+ntent=3D"text/html; charset=3DUTF-8"><link rel=3D"stylesheet" type=3D"text/=
+css" href=3D"cid:css-caec0bba-9676-4087-a318-4fac7bb6f978@mhtml.blink" />
+
+<meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=3D1.=
+0">
+<title>Bridge Classroom - Become a Teacher</title>
+<link href=3D"https://fonts.googleapis.com/css2?family=3DSource+Serif+4:ops=
+z,wght@8..60,400;8..60,600;8..60,700&amp;family=3DDM+Sans:wght@400;500;600;=
+700&amp;display=3Dswap" rel=3D"stylesheet">
+
+</head>
+<body class=3D"modal-open">
+
+<!-- HEADER -->
+<header class=3D"header">
+  <div class=3D"header-left">
+    <div class=3D"logo-icon">=E2=99=A0</div>
+    <div class=3D"app-title">Bridge Classroom</div>
+  </div>
+  <div class=3D"header-right">
+    <span class=3D"sync-badge">=E2=9C=93 Synced</span>
+    <a href=3D"file:///Users/rick/Downloads/become-teacher-flow.html#" clas=
+s=3D"nav-link">Progress</a>
+    <a href=3D"file:///Users/rick/Downloads/become-teacher-flow.html#" clas=
+s=3D"nav-link">Accomplishments</a>
+    <div class=3D"avatar-wrapper">
+      <div class=3D"avatar">JD</div>
+      <div class=3D"avatar-menu" id=3D"avatarMenu">
+        <div class=3D"avatar-menu-header">
+          <div class=3D"avatar-menu-name">Jane Doe</div>
+          <div class=3D"avatar-menu-email">jane.doe@email.com</div>
+        </div>
+        <button class=3D"avatar-menu-item">
+          <span class=3D"menu-icon">=F0=9F=91=A4</span> My Profile
+        </button>
+        <button class=3D"avatar-menu-item">
+          <span class=3D"menu-icon">=F0=9F=93=8A</span> My Progress
+        </button>
+        <button class=3D"avatar-menu-item">
+          <span class=3D"menu-icon">=F0=9F=94=97</span> Sharing Settings
+        </button>
+        <hr class=3D"avatar-menu-divider">
+        <button class=3D"avatar-menu-item highlight">
+          <span class=3D"menu-icon">=F0=9F=8E=93</span> Become a Teacher
+        </button>
+        <hr class=3D"avatar-menu-divider">
+        <button class=3D"avatar-menu-item">
+          <span class=3D"menu-icon">=E2=9A=99=EF=B8=8F</span> Settings
+        </button>
+        <button class=3D"avatar-menu-item" style=3D"color: var(--red-muted)=
+;">
+          <span class=3D"menu-icon">=E2=86=A9</span> Sign Out
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- DEMO BAR -->
+<div class=3D"demo-bar">
+  <span>Demo:</span>
+  <button class=3D"demo-btn active">Step 1: Overview</button>
+  <button class=3D"demo-btn">Step 2: Agreement</button>
+  <button class=3D"demo-btn">Step 3: Confirmed</button>
+</div>
+
+<!-- MAIN (placeholder) -->
+<main class=3D"main">
+  <div class=3D"placeholder-text">
+    <div class=3D"big">Lobby Content</div>
+    Click your avatar (top right) =E2=86=92 "Become a Teacher" to see the e=
+nrollment flow.<br>
+    Or use the demo buttons above to jump to each step.
+  </div>
+</main>
+
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D -->
+<!-- MODAL: BECOME A TEACHER              -->
+<!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D -->
+<div class=3D"modal-overlay open" id=3D"modalOverlay">
+  <div class=3D"modal">
+    <button class=3D"modal-close">=E2=9C=95</button>
+
+    <!-- Step indicators -->
+    <div class=3D"modal-steps">
+      <div class=3D"step-dot active" id=3D"dot1"></div>
+      <div class=3D"step-dot" id=3D"dot2"></div>
+      <div class=3D"step-dot" id=3D"dot3"></div>
+    </div>
+
+    <!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D -->
+    <!-- STEP 1: OVERVIEW         -->
+    <!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D -->
+    <div class=3D"modal-body step active" id=3D"step1">
+      <div class=3D"modal-icon green">=F0=9F=8E=93</div>
+      <h2 class=3D"modal-title">Become a Teacher</h2>
+      <p class=3D"modal-subtitle">
+        Upgrade your account to create classrooms, assign exercises to stud=
+ents, and track their progress.
+      </p>
+
+      <div class=3D"feature-list">
+        <div class=3D"feature-item">
+          <div class=3D"feature-icon">=F0=9F=93=8B</div>
+          <div class=3D"feature-text">
+            <strong>Create Classrooms</strong>
+            <span>Set up named groups with join codes. Students join with a=
+ simple code and you can see their progress.</span>
+          </div>
+        </div>
+        <div class=3D"feature-item">
+          <div class=3D"feature-icon">=F0=9F=93=9D</div>
+          <div class=3D"feature-text">
+            <strong>Assign Exercises</strong>
+            <span>Send curriculum exercises or custom board sets to your cl=
+ass. Students see assignments in their lobby.</span>
+          </div>
+        </div>
+        <div class=3D"feature-item">
+          <div class=3D"feature-icon">=F0=9F=93=8A</div>
+          <div class=3D"feature-text">
+            <strong>Track Progress</strong>
+            <span>See completion rates, accuracy, and identify students who=
+ may need extra help =E2=80=94 all from your dashboard.</span>
+          </div>
+        </div>
+        <div class=3D"feature-item">
+          <div class=3D"feature-icon">=E2=99=A0</div>
+          <div class=3D"feature-text">
+            <strong>Still a Student Too</strong>
+            <span>You keep full access to all lessons, exercises, and your =
+own practice history.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class=3D"modal-actions">
+        <button class=3D"modal-btn secondary">Not Now</button>
+        <button class=3D"modal-btn primary">Continue =E2=86=92</button>
+      </div>
+    </div>
+
+    <!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D -->
+    <!-- STEP 2: AGREEMENT        -->
+    <!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D -->
+    <div class=3D"modal-body step" id=3D"step2">
+      <div class=3D"modal-icon amber">=F0=9F=93=9C</div>
+      <h2 class=3D"modal-title">Terms of Use</h2>
+      <p class=3D"modal-subtitle">
+        Please review and accept the following before activating teacher fe=
+atures.
+      </p>
+
+      <div class=3D"disclaimer-box">
+        <h3>Bridge Classroom =E2=80=94 Teacher Agreement</h3>
+
+        <p>Bridge Classroom is a <strong>free, community educational tool</=
+strong> maintained by a single developer and hosted on personal infrastruct=
+ure. By activating teacher features, you acknowledge and agree to the follo=
+wing:</p>
+
+        <p><strong>Service Availability</strong></p>
+        <p>This service is provided as-is, with no guarantee of uptime, ava=
+ilability, or continuity. The platform may experience downtime due to maint=
+enance, infrastructure issues, or internet interruptions. The service may b=
+e modified, suspended, or discontinued at any time without prior notice.</p=
+>
+
+        <p><strong>Data &amp; Storage</strong></p>
+        <p>While reasonable care is taken to protect data, no warranties ar=
+e made regarding data preservation or backup. You are encouraged to export =
+your data regularly. Classroom rosters, assignment configurations, and stud=
+ent progress data may be lost in the event of a system failure.</p>
+
+        <p><strong>Student Data &amp; Privacy</strong></p>
+        <p>As a teacher, you will have access to your students' practice ob=
+servations (accuracy, completion, timestamps) for boards within your assign=
+ments and classrooms. You agree to:</p>
+        <ul>
+          <li>Use student data only for educational purposes</li>
+          <li>Not share individual student performance data publicly withou=
+t consent</li>
+          <li>Respect that students may revoke your viewing access at any t=
+ime</li>
+        </ul>
+
+        <p><strong>Your Responsibilities</strong></p>
+        <p>You are responsible for managing your own classrooms, communicat=
+ing with your students, and setting appropriate expectations about this too=
+l's capabilities and limitations. Bridge Classroom is a supplement to your =
+teaching, not a replacement for it.</p>
+
+        <p><strong>No Warranty</strong></p>
+        <p>This software is provided "as is", without warranty of any kind,=
+ express or implied. In no event shall the developer be liable for any clai=
+m, damages, or other liability arising from the use of this service.</p>
+
+        <p><strong>Open Source</strong></p>
+        <p>Bridge Classroom is open source software. You are welcome to ins=
+pect the code, report issues, and contribute improvements via GitHub.</p>
+      </div>
+
+      <div class=3D"agreement-row">
+        <div class=3D"agreement-checkbox" id=3D"agreeCheck"></div>
+        <div class=3D"agreement-text">
+          I have read and agree to the terms above. I understand that Bridg=
+e Classroom is a <strong>free, as-is service</strong> with no guarantees of=
+ uptime or data preservation.
+        </div>
+      </div>
+
+      <div class=3D"modal-actions">
+        <button class=3D"modal-btn secondary">=E2=86=90 Back</button>
+        <button class=3D"modal-btn primary" id=3D"activateBtn" disabled=3D"=
+">Activate Teacher Account</button>
+      </div>
+    </div>
+
+    <!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D -->
+    <!-- STEP 3: SUCCESS          -->
+    <!-- =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D -->
+    <div class=3D"modal-body step" id=3D"step3">
+      <div class=3D"success-checkmark">=E2=9C=93</div>
+      <h2 class=3D"modal-title">You're a Teacher!</h2>
+      <p class=3D"modal-subtitle">
+        Your account has been upgraded. Here's how to get started:
+      </p>
+
+      <div class=3D"next-steps">
+        <div class=3D"next-step-item">
+          <span class=3D"next-step-number">1</span>
+          <span>Create your first classroom from the teacher dashboard</spa=
+n>
+        </div>
+        <div class=3D"next-step-item">
+          <span class=3D"next-step-number">2</span>
+          <span>Share the join code with your students</span>
+        </div>
+        <div class=3D"next-step-item">
+          <span class=3D"next-step-number">3</span>
+          <span>Browse exercises and assign them to your class</span>
+        </div>
+      </div>
+
+      <p style=3D"font-size: 13px; color: var(--text-muted); text-align: ce=
+nter; margin-bottom: 20px;">
+        You can find your teacher dashboard on the lobby page.<br>
+        Need help? Visit our <a href=3D"file:///Users/rick/Downloads/become=
+-teacher-flow.html#" style=3D"color: var(--green-dark);">Discord</a> or che=
+ck the <a href=3D"file:///Users/rick/Downloads/become-teacher-flow.html#" s=
+tyle=3D"color: var(--green-dark);">documentation on GitHub</a>.
+      </p>
+
+      <div class=3D"modal-actions" style=3D"justify-content: center;">
+        <button class=3D"modal-btn primary" style=3D"min-width: 200px;">Go =
+to Dashboard =E2=86=92</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+
+
+
+
+</body></html>
+------MultipartBoundary--DhuKFZgHeIHIbgp3saFBD2MrhmzQwwjDhCQ7W4MXQb----
+Content-Type: text/css
+Content-Transfer-Encoding: quoted-printable
+Content-Location: https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600;700&display=swap
+
+@charset "utf-8";
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 400; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 400; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 500; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 500; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 600; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 600; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 700; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu6-K6z9mXgjU0.woff2") format("woff2"); unicode-=
+range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U+308,=
+ U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-=
+20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "DM Sans"; font-style: normal; font-weight: 700; =
+font-display: swap; src: url("https://fonts.gstatic.com/s/dmsans/v17/rP2Yp2=
+ywxg089UriI5-g4vlH9VoD8Cmcqbu0-K6z9mXg.woff2") format("woff2"); unicode-ran=
+ge: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U+308,=
+ U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF=
+, U+FFFD; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gW8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2=
+E-FE2F; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gf8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gY8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+370-377, U+37A-37F, U+384-38A, U+38C, U+38E-3A1, U+3A3-3FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gU8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B=
+0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gV8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U=
++308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+=
+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 400; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gb8te1Xb7G.woff2") format("woff2"); unicod=
+e-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U=
++308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U=
++FEFF, U+FFFD; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gW8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2=
+E-FE2F; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gf8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gY8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+370-377, U+37A-37F, U+384-38A, U+38C, U+38E-3A1, U+3A3-3FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gU8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B=
+0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gV8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U=
++308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+=
+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 600; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gb8te1Xb7G.woff2") format("woff2"); unicod=
+e-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U=
++308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U=
++FEFF, U+FFFD; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gW8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+460-52F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2=
+E-FE2F; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gf8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+301, U+400-45F, U+490-491, U+4B0-4B1, U+2116; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gY8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+370-377, U+37A-37F, U+384-38A, U+38C, U+38E-3A1, U+3A3-3FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gU8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+102-103, U+110-111, U+128-129, U+168-169, U+1A0-1A1, U+1AF-1B=
+0, U+300-301, U+303-304, U+308-309, U+323, U+329, U+1EA0-1EF9, U+20AB; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gV8te1Xb7GlMo.woff2") format("woff2"); uni=
+code-range: U+100-2BA, U+2BD-2C5, U+2C7-2CC, U+2CE-2D7, U+2DD-2FF, U+304, U=
++308, U+329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+=
+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+@font-face { font-family: "Source Serif 4"; font-style: normal; font-weight=
+: 700; font-display: swap; src: url("https://fonts.gstatic.com/s/sourceseri=
+f4/v14/vEFI2_tTDB4M7-auWDN0ahZJW1gb8te1Xb7G.woff2") format("woff2"); unicod=
+e-range: U+0-FF, U+131, U+152-153, U+2BB-2BC, U+2C6, U+2DA, U+2DC, U+304, U=
++308, U+329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U=
++FEFF, U+FFFD; }
+------MultipartBoundary--DhuKFZgHeIHIbgp3saFBD2MrhmzQwwjDhCQ7W4MXQb----
+Content-Type: text/css
+Content-Transfer-Encoding: quoted-printable
+Content-Location: cid:css-caec0bba-9676-4087-a318-4fac7bb6f978@mhtml.blink
+
+@charset "utf-8";
+
+:root { --bg: #f5f3ef; --card-bg: #ffffff; --text-primary: #2c2c2c; --text-=
+secondary: #6b6b6b; --text-muted: #999; --green-dark: #2d6a4f; --green-mid:=
+ #40916c; --green-light: #e8f5ee; --green-accent: #52b788; --blue-dark: #1d=
+4e89; --blue-light: #e3edf7; --amber-dark: #b8860b; --amber-light: #fdf6e3;=
+ --red-muted: #c0392b; --border: #e0ddd7; --border-light: #ece9e3; --shadow=
+-sm: 0 1px 3px rgba(0,0,0,0.06); --shadow-md: 0 4px 12px rgba(0,0,0,0.08); =
+--shadow-lg: 0 8px 24px rgba(0,0,0,0.1); --shadow-overlay: 0 20px 60px rgba=
+(0,0,0,0.2); --radius: 10px; --radius-sm: 6px; --radius-lg: 16px; }
+
+* { margin: 0px; padding: 0px; box-sizing: border-box; }
+
+body { font-family: "DM Sans", sans-serif; background: var(--bg); color: va=
+r(--text-primary); min-height: 100vh; }
+
+.header { background: var(--card-bg); border-bottom: 1px solid var(--border=
+); padding: 0px 32px; height: 60px; display: flex; align-items: center; jus=
+tify-content: space-between; }
+
+.header-left { display: flex; align-items: center; gap: 12px; }
+
+.logo-icon { width: 32px; height: 32px; background: var(--green-dark); bord=
+er-radius: 8px; display: flex; align-items: center; justify-content: center=
+; color: white; font-size: 16px; }
+
+.app-title { font-family: "Source Serif 4", serif; font-size: 20px; font-we=
+ight: 700; color: var(--green-dark); }
+
+.header-right { display: flex; align-items: center; gap: 20px; }
+
+.sync-badge { font-size: 13px; color: var(--green-mid); display: flex; alig=
+n-items: center; gap: 5px; }
+
+.nav-link { font-size: 14px; font-weight: 600; color: var(--text-secondary)=
+; text-decoration: none; padding: 6px 14px; border-radius: var(--radius-sm)=
+; transition: 0.2s; }
+
+.nav-link:hover { background: var(--green-light); color: var(--green-dark);=
+ }
+
+.avatar-wrapper { position: relative; }
+
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--=
+green-dark); color: white; display: flex; align-items: center; justify-cont=
+ent: center; font-size: 13px; font-weight: 700; cursor: pointer; transition=
+: box-shadow 0.2s; }
+
+.avatar:hover { box-shadow: 0 0 0 3px var(--green-light); }
+
+.avatar-menu { display: none; position: absolute; top: 44px; right: 0px; wi=
+dth: 220px; background: var(--card-bg); border: 1px solid var(--border); bo=
+rder-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden;=
+ z-index: 100; }
+
+.avatar-menu.open { display: block; }
+
+.avatar-menu-header { padding: 14px 16px; border-bottom: 1px solid var(--bo=
+rder-light); }
+
+.avatar-menu-name { font-weight: 600; font-size: 14px; }
+
+.avatar-menu-email { font-size: 12px; color: var(--text-muted); }
+
+.avatar-menu-item { display: flex; align-items: center; gap: 10px; padding:=
+ 10px 16px; font-size: 14px; color: var(--text-secondary); cursor: pointer;=
+ transition: background 0.15s; border: none; background: none; width: 100%;=
+ text-align: left; font-family: inherit; }
+
+.avatar-menu-item:hover { background: var(--green-light); color: var(--gree=
+n-dark); }
+
+.avatar-menu-item.highlight { color: var(--green-dark); font-weight: 600; }
+
+.avatar-menu-divider { border-right: none; border-bottom: none; border-left=
+: none; border-image: initial; border-top: 1px solid var(--border-light); m=
+argin: 0px; }
+
+.avatar-menu-item .menu-icon { width: 18px; text-align: center; font-size: =
+14px; flex-shrink: 0; }
+
+.demo-bar { background: var(--card-bg); border-bottom: 1px solid var(--bord=
+er); padding: 10px 32px; display: flex; align-items: center; gap: 12px; fon=
+t-size: 13px; color: var(--text-secondary); }
+
+.demo-bar span { font-weight: 600; }
+
+.demo-btn { padding: 6px 16px; border-radius: 20px; border: 1px solid var(-=
+-border); background: var(--card-bg); font-size: 13px; font-weight: 600; co=
+lor: var(--text-secondary); cursor: pointer; transition: 0.2s; }
+
+.demo-btn:hover { border-color: var(--green-mid); color: var(--green-dark);=
+ }
+
+.demo-btn.active { background: var(--green-dark); color: white; border-colo=
+r: var(--green-dark); }
+
+.main { max-width: 1200px; margin: 0px auto; padding: 28px 32px; transition=
+: filter 0.3s, opacity 0.3s; }
+
+body.modal-open .main { filter: blur(2px); opacity: 0.5; pointer-events: no=
+ne; }
+
+.placeholder-text { text-align: center; color: var(--text-muted); padding: =
+80px 20px; font-size: 15px; }
+
+.placeholder-text .big { font-family: "Source Serif 4", serif; font-size: 2=
+4px; color: var(--text-secondary); margin-bottom: 8px; }
+
+.modal-overlay { display: none; position: fixed; inset: 0px; background: rg=
+ba(0, 0, 0, 0.4); z-index: 1000; align-items: center; justify-content: cent=
+er; padding: 24px; }
+
+.modal-overlay.open { display: flex; }
+
+.modal { background: var(--card-bg); border-radius: var(--radius-lg); box-s=
+hadow: var(--shadow-overlay); max-width: 580px; width: 100%; max-height: 90=
+vh; overflow-y: auto; position: relative; }
+
+.modal-close { position: absolute; top: 16px; right: 16px; background: none=
+; border: none; font-size: 20px; color: var(--text-muted); cursor: pointer;=
+ width: 32px; height: 32px; border-radius: 50%; display: flex; align-items:=
+ center; justify-content: center; transition: 0.2s; }
+
+.modal-close:hover { background: var(--border-light); color: var(--text-pri=
+mary); }
+
+.modal-steps { display: flex; align-items: center; justify-content: center;=
+ gap: 8px; padding: 20px 24px 0px; }
+
+.step-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--=
+border); transition: 0.3s; }
+
+.step-dot.active { background: var(--green-dark); width: 24px; border-radiu=
+s: 4px; }
+
+.step-dot.done { background: var(--green-accent); }
+
+.modal-body { padding: 24px 32px 28px; }
+
+.modal-icon { width: 56px; height: 56px; border-radius: 14px; display: flex=
+; align-items: center; justify-content: center; font-size: 26px; margin: 0p=
+x auto 16px; }
+
+.modal-icon.green { background: var(--green-light); color: var(--green-dark=
+); }
+
+.modal-icon.blue { background: var(--blue-light); color: var(--blue-dark); =
+}
+
+.modal-icon.amber { background: var(--amber-light); color: var(--amber-dark=
+); }
+
+.modal-title { font-family: "Source Serif 4", serif; font-size: 22px; font-=
+weight: 700; text-align: center; margin-bottom: 8px; }
+
+.modal-subtitle { font-size: 14px; color: var(--text-secondary); text-align=
+: center; margin-bottom: 24px; line-height: 1.5; }
+
+.feature-list { display: flex; flex-direction: column; gap: 12px; margin-bo=
+ttom: 24px; }
+
+.feature-item { display: flex; gap: 12px; align-items: flex-start; }
+
+.feature-icon { width: 32px; height: 32px; border-radius: 8px; background: =
+var(--green-light); color: var(--green-dark); display: flex; align-items: c=
+enter; justify-content: center; font-size: 15px; flex-shrink: 0; margin-top=
+: 1px; }
+
+.feature-text { font-size: 14px; line-height: 1.45; }
+
+.feature-text strong { display: block; font-size: 14px; margin-bottom: 1px;=
+ }
+
+.feature-text span { color: var(--text-secondary); font-size: 13px; }
+
+.disclaimer-box { background: var(--bg); border: 1px solid var(--border); b=
+order-radius: var(--radius); padding: 20px; margin-bottom: 20px; max-height=
+: 260px; overflow-y: auto; font-size: 13px; line-height: 1.6; color: var(--=
+text-secondary); }
+
+.disclaimer-box h3 { font-family: "Source Serif 4", serif; font-size: 15px;=
+ font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+
+.disclaimer-box p { margin-bottom: 10px; }
+
+.disclaimer-box p:last-child { margin-bottom: 0px; }
+
+.disclaimer-box ul { margin: 8px 0px 10px 20px; }
+
+.disclaimer-box li { margin-bottom: 4px; }
+
+.agreement-row { display: flex; align-items: flex-start; gap: 10px; margin-=
+bottom: 24px; cursor: pointer; }
+
+.agreement-checkbox { width: 20px; height: 20px; border: 2px solid var(--bo=
+rder); border-radius: 4px; flex-shrink: 0; display: flex; align-items: cent=
+er; justify-content: center; transition: 0.2s; margin-top: 1px; cursor: poi=
+nter; }
+
+.agreement-checkbox.checked { background: var(--green-dark); border-color: =
+var(--green-dark); color: white; font-size: 12px; }
+
+.agreement-text { font-size: 13px; line-height: 1.45; color: var(--text-sec=
+ondary); }
+
+.agreement-text strong { color: var(--text-primary); }
+
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+.modal-btn { padding: 10px 22px; border-radius: var(--radius-sm); font-size=
+: 14px; font-weight: 600; cursor: pointer; transition: 0.2s; border: 1px so=
+lid var(--border); font-family: inherit; }
+
+.modal-btn.secondary { background: var(--card-bg); color: var(--text-second=
+ary); }
+
+.modal-btn.secondary:hover { border-color: var(--green-mid); color: var(--g=
+reen-dark); }
+
+.modal-btn.primary { background: var(--green-dark); color: white; border-co=
+lor: var(--green-dark); }
+
+.modal-btn.primary:hover { background: var(--green-mid); }
+
+.modal-btn.primary:disabled { background: var(--border); border-color: var(=
+--border); color: var(--text-muted); cursor: not-allowed; }
+
+.success-checkmark { width: 64px; height: 64px; border-radius: 50%; backgro=
+und: var(--green-light); color: var(--green-dark); display: flex; align-ite=
+ms: center; justify-content: center; font-size: 28px; margin: 0px auto 16px=
+; animation: 0.4s ease 0s 1 normal none running scaleIn; }
+
+@keyframes scaleIn {=20
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.next-steps { background: var(--bg); border-radius: var(--radius); padding:=
+ 16px 18px; margin-bottom: 20px; }
+
+.next-step-item { display: flex; align-items: center; gap: 10px; padding: 8=
+px 0px; font-size: 14px; color: var(--text-secondary); }
+
+.next-step-item + .next-step-item { border-top: 1px solid var(--border-ligh=
+t); }
+
+.next-step-number { width: 24px; height: 24px; border-radius: 50%; backgrou=
+nd: var(--green-dark); color: white; display: flex; align-items: center; ju=
+stify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+
+.step { display: none; }
+
+.step.active { display: block; }
+
+@media (max-width: 600px) {
+  .modal-body { padding: 20px; }
+  .modal { margin: 12px; }
+}
+------MultipartBoundary--DhuKFZgHeIHIbgp3saFBD2MrhmzQwwjDhCQ7W4MXQb------

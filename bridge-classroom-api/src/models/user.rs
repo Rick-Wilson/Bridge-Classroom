@@ -14,6 +14,8 @@ pub struct User {
     pub created_at: String,
     pub updated_at: String,
     pub recovery_encrypted_key: Option<String>,
+    pub role: String,
+    pub teacher_terms_accepted_at: Option<String>,
 }
 
 /// Request to create or update a user
@@ -56,6 +58,7 @@ pub struct UserInfo {
     pub last_name: String,
     pub email: String,
     pub classroom: Option<String>,
+    pub role: String,
     pub created_at: String,
 }
 
@@ -63,6 +66,22 @@ pub struct UserInfo {
 #[derive(Debug, Serialize)]
 pub struct UsersListResponse {
     pub users: Vec<UserInfo>,
+}
+
+/// Request to upgrade a user's role
+#[derive(Debug, Deserialize)]
+pub struct RoleUpgradeRequest {
+    pub user_id: String,
+    pub action: String,
+}
+
+/// Response after upgrading a user's role
+#[derive(Debug, Serialize)]
+pub struct RoleUpgradeResponse {
+    pub success: bool,
+    pub role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 impl User {
@@ -80,6 +99,8 @@ impl User {
             created_at: now.clone(),
             updated_at: now,
             recovery_encrypted_key: None,
+            role: "student".to_string(),
+            teacher_terms_accepted_at: None,
         }
     }
 }
@@ -92,6 +113,7 @@ impl From<User> for UserInfo {
             last_name: user.last_name,
             email: user.email,
             classroom: user.classroom,
+            role: user.role,
             created_at: user.created_at,
         }
     }
