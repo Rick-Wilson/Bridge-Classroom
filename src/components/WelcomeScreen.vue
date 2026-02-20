@@ -348,6 +348,8 @@ function handleAddNewUser() {
 function handleBackToReturning() {
   if (userStore.currentUser.value) {
     viewState.value = 'returning'
+  } else if (userStore.hasUsers.value) {
+    viewState.value = 'switcher'
   }
 }
 
@@ -545,7 +547,7 @@ function toggleClassroom(classroomId) {
               @click="handleSelectUser(user.id)"
             >
               <span class="user-name">{{ user.firstName }} {{ user.lastName }}</span>
-              <span v-if="user.classrooms.length" class="user-class">
+              <span v-if="user.classrooms?.length" class="user-class">
                 {{ user.classrooms.join(', ') }}
               </span>
             </button>

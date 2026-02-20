@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useUserStore } from '../composables/useUserStore.js'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useAssignmentStore } from '../composables/useAssignmentStore.js'
+import { useClassrooms } from '../composables/useClassrooms.js'
 
 const props = defineProps({
   visible: {
@@ -11,11 +12,12 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['close', 'switchUser', 'logout'])
+const emit = defineEmits(['close', 'switchUser', 'logout', 'become-teacher'])
 
 const userStore = useUserStore()
 const appConfig = useAppConfig()
 const assignmentStore = useAssignmentStore()
+const classroomStore = useClassrooms()
 
 // Edit mode state
 const isEditing = ref(false)
@@ -27,7 +29,7 @@ const editConsent = ref(true)
 const user = computed(() => userStore.currentUser.value)
 
 const classroomNames = computed(() => {
-  if (!user.value || !user.value.classrooms.length) {
+  if (!user.value || !user.value.classrooms?.length) {
     return 'No classroom assigned'
   }
 
@@ -80,6 +82,33 @@ function handleSwitchUser() {
 function handleClose() {
   isEditing.value = false
   emit('close')
+}
+
+const leavingClassroom = ref(null)
+
+async function handleLeaveClassroom(classroomId) {
+  if (!user.value) return
+  if (!confirm('Are you sure you want to leave this classroom? Your teacher will no longer see your progress for new assignments.')) return
+
+  leavingClassroom.value = classroomId
+  const result = await classroomStore.leaveClassroom(classroomId, user.value.id)
+  if (result.success) {
+    // Update local classrooms array
+    const current = user.value.classrooms || []
+    userStore.updateUser(user.value.id, {
+      classrooms: current.filter(id => id !== classroomId)
+    })
+  }
+  leavingClassroom.value = null
+}
+
+function handleRemoveFromDevice() {
+  if (!user.value) return
+  if (!confirm('Remove your account from this device? Your data on the server is not affected. You can recover your account later using your email.')) return
+  userStore.deleteUser(user.value.id)
+  appConfig.clearConfig()
+  emit('close')
+  emit('logout')
 }
 
 function formatDate(isoString) {
@@ -136,6 +165,14 @@ function formatDate(isoString) {
                 Switch User
               </button>
             </div>
+
+            <button
+              v-if="user?.role !== 'teacher' && user?.role !== 'admin'"
+              class="become-teacher-btn"
+              @click="emit('close'); emit('become-teacher')"
+            >
+              Become a Teacher
+            </button>
           </template>
 
           <template v-else>
@@ -234,6 +271,21 @@ function formatDate(isoString) {
           </template>
         </section>
 
+        <!-- My Classrooms -->
+        <section v-if="user && user.classrooms && user.classrooms.length" class="settings-section">
+          <h3>My Classrooms</h3>
+          <div v-for="classroomId in user.classrooms" :key="classroomId" class="classroom-row">
+            <span class="classroom-id">{{ classroomId }}</span>
+            <button
+              class="leave-btn"
+              :disabled="leavingClassroom === classroomId"
+              @click="handleLeaveClassroom(classroomId)"
+            >
+              {{ leavingClassroom === classroomId ? 'Leaving...' : 'Leave' }}
+            </button>
+          </div>
+        </section>
+
         <!-- Display Options -->
         <section class="settings-section">
           <h3>Display Options</h3>
@@ -249,11 +301,17 @@ function formatDate(isoString) {
           </div>
         </section>
 
-        <!-- Key Backup Section (Placeholder for Stage 2) -->
+        <!-- Data & Privacy -->
         <section class="settings-section">
           <h3>Data & Privacy</h3>
           <p class="section-note">
             Key backup and data export options will be available in a future update.
+          </p>
+          <button class="remove-device-btn" @click="handleRemoveFromDevice">
+            Remove account from this device
+          </button>
+          <p class="remove-note">
+            Removes your local data only. Your server account is not affected and can be recovered via email.
           </p>
         </section>
       </div>
@@ -538,5 +596,83 @@ function formatDate(isoString) {
   .button-row {
     flex-direction: column;
   }
+}
+
+.classroom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.classroom-id {
+  font-size: 14px;
+  color: #333;
+  font-family: monospace;
+}
+
+.leave-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.leave-btn:hover:not(:disabled) {
+  color: #ef4444;
+  border-color: #ef4444;
+  background: #fee2e2;
+}
+
+.leave-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.become-teacher-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--green-dark, #2d6a4f), #1d4e89);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.become-teacher-btn:hover {
+  opacity: 0.9;
+}
+
+.remove-device-btn {
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.remove-device-btn:hover {
+  color: #ef4444;
+  border-color: #ef4444;
+  background: #fee2e2;
+}
+
+.remove-note {
+  font-size: 12px;
+  color: #999;
+  margin-top: 6px;
 }
 </style>

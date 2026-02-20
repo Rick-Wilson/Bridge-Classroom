@@ -82,6 +82,19 @@ async function checkTeacherStatus() {
 
     isTeacher.value = true
     initialized.value = true
+
+    // Sync role if server confirms teacher status but local/server role is out of date
+    if (currentUser.role !== 'teacher') {
+      userStore.updateUser(currentUser.id, { role: 'teacher' })
+      // Also sync to server so backend checks (e.g. create classroom) work
+      try {
+        await fetch(`${API_URL}/users/me`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+          body: JSON.stringify({ user_id: currentUser.id, action: 'become_teacher' })
+        })
+      } catch { /* best-effort sync */ }
+    }
   } catch (err) {
     console.error('Failed to check teacher status:', err)
   }

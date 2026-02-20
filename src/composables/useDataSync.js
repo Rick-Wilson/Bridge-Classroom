@@ -44,11 +44,11 @@ async function registerUserWithServer(user) {
   try {
     const payload = {
       user_id: user.id,
-      first_name: user.firstName,
-      last_name: user.lastName,
-      email: user.email,
+      first_name: user.firstName || '',
+      last_name: user.lastName || '',
+      email: user.email || '',
       classroom: user.classrooms?.[0] || null,
-      data_consent: user.dataConsent
+      data_consent: user.dataConsent ?? true
     }
 
     // Include admin grant if available

@@ -1,6 +1,6 @@
 use axum::{
     http::{header, Method},
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post},
     Router,
 };
 use sqlx::{Pool, Sqlite};
@@ -75,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
         // Sharing grant routes
         .route("/api/grants", post(routes::create_grant))
         .route("/api/grants", get(routes::get_grants))
-        .route("/api/grants/:grant_id", axum::routing::delete(routes::revoke_grant))
+        .route("/api/grants/:grant_id", delete(routes::revoke_grant))
         // Observation routes
         .route("/api/observations", post(routes::submit_observations))
         .route("/api/observations", get(routes::get_observations))
@@ -95,7 +95,21 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/users/:user_id/cards", post(routes::link_card_to_user))
         .route(
             "/api/users/:user_id/cards/:card_id",
-            axum::routing::delete(routes::unlink_card_from_user),
+            delete(routes::unlink_card_from_user),
+        )
+        // Classroom routes
+        .route("/api/classrooms", post(routes::create_classroom))
+        .route("/api/classrooms", get(routes::list_classrooms))
+        .route("/api/classrooms/:id", get(routes::get_classroom))
+        .route("/api/join/:join_code", get(routes::get_join_info))
+        .route("/api/join/:join_code", post(routes::join_classroom))
+        .route(
+            "/api/classrooms/:id/members/:uid",
+            delete(routes::remove_member),
+        )
+        .route(
+            "/api/classrooms/:id/members/leave",
+            post(routes::leave_classroom),
         )
         .layer(cors)
         .layer(TraceLayer::new_for_http())

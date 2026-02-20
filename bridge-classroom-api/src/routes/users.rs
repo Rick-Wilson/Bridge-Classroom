@@ -22,8 +22,21 @@ fn validate_api_key(headers: &HeaderMap, expected_key: &str) -> bool {
 /// Register a new user
 pub async fn create_user(
     State(state): State<AppState>,
-    Json(req): Json<CreateUserRequest>,
+    body: String,
 ) -> Result<Json<CreateUserResponse>, (StatusCode, String)> {
+    // Manually deserialize with logging for debugging
+    let req: CreateUserRequest = match serde_json::from_str(&body) {
+        Ok(r) => r,
+        Err(e) => {
+            let preview = if body.len() > 500 { &body[..500] } else { &body };
+            tracing::error!("Failed to deserialize CreateUserRequest: {} | Body: {}", e, preview);
+            return Err((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                format!("Invalid request body: {}", e),
+            ));
+        }
+    };
+
     // Validate request
     if req.user_id.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "user_id is required".to_string()));

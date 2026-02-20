@@ -2,7 +2,9 @@
   <div class="lobby-view">
     <!-- Role-based lobby content -->
     <AdminLobby v-if="userRole === 'admin'" />
-    <TeacherLobby v-else-if="userRole === 'teacher'" />
+    <TeacherLobby v-else-if="userRole === 'teacher'"
+      @select-collection="$emit('select-collection', $event)"
+    />
     <StudentLobby v-else-if="hasAssignments || hasClassrooms"
       @select-collection="$emit('select-collection', $event)"
     />
@@ -30,11 +32,11 @@ const userRole = computed(() => {
   return user?.role || 'student'
 })
 
-// TODO Phase 3: check for assignments/classroom memberships
+// TODO Phase 3: check for assignments
 const hasAssignments = computed(() => false)
 const hasClassrooms = computed(() => {
-  // Check if user has classroom memberships (beyond the legacy URL-based classrooms)
-  return false
+  const user = userStore.currentUser.value
+  return Array.isArray(user?.classrooms) && user.classrooms.length > 0
 })
 </script>
 

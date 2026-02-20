@@ -38,7 +38,7 @@
         </div>
         <!-- User avatar with role badge -->
         <div class="user-avatar-group">
-          <span v-if="userRole !== 'student'" class="role-badge" :class="'role-' + userRole">{{ userRole }}</span>
+          <button v-if="userRole !== 'student'" class="role-badge" :class="'role-' + userRole" @click="returnToLobby" :title="'Return to ' + userRole + ' lobby'">{{ userRole }}</button>
           <button class="user-btn" @click="showSettings = true" :title="userName">
             {{ userInitials }}
           </button>
@@ -230,6 +230,8 @@
       :visible="showSettings"
       @close="showSettings = false"
       @switchUser="handleSwitchUser"
+      @logout="handleSwitchUser"
+      @become-teacher="showBecomeTeacher = true"
     />
 
     <!-- Registration toast (brief confirmation after new user creation) -->
@@ -268,6 +270,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { parsePbn, getDealTitle } from '../utils/pbnParser.js'
 import { stripControlDirectives, colorizeSuits, flowText } from '../utils/cardFormatting.js'
 import { useDealPractice } from '../composables/useDealPractice.js'
@@ -302,6 +305,9 @@ import IntroPdfViewer from '../components/IntroPdfViewer.vue'
 import LobbyView from './LobbyView.vue'
 import BecomeTeacherModal from '../components/BecomeTeacherModal.vue'
 import PageFooter from '../components/lobby/PageFooter.vue'
+
+// Router
+const router = useRouter()
 
 // Composables
 const appConfig = useAppConfig()
@@ -444,7 +450,7 @@ onMounted(async () => {
     const accomplishments = useAccomplishments()
     accomplishments.initialize()
     // Check if this user is a teacher
-    teacherRole.checkTeacherStatus()
+    await teacherRole.checkTeacherStatus()
   }
 })
 
@@ -466,7 +472,15 @@ async function handleUserReady(user) {
   const accomplishments = useAccomplishments()
   accomplishments.initialize()
   // Check if this user is a teacher
-  teacherRole.checkTeacherStatus()
+  await teacherRole.checkTeacherStatus()
+
+  // Check for pending classroom join (user was redirected here from /join/:code to sign in)
+  const pendingJoinCode = sessionStorage.getItem('pendingJoinCode')
+  if (pendingJoinCode) {
+    sessionStorage.removeItem('pendingJoinCode')
+    router.push({ name: 'join', params: { joinCode: pendingJoinCode } })
+    return
+  }
 }
 
 function handleSwitchUser() {
@@ -484,10 +498,10 @@ function handleSwitchUser() {
 }
 
 // Handle teacher role activation from BecomeTeacherModal
-function handleTeacherActivated() {
+async function handleTeacherActivated() {
   showBecomeTeacher.value = false
   // Refresh teacher status
-  teacherRole.checkTeacherStatus()
+  await teacherRole.checkTeacherStatus()
 }
 
 // Deals data
@@ -946,6 +960,9 @@ body {
   text-transform: capitalize;
   padding: 2px 8px;
   border-radius: var(--radius-badge, 12px);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .role-badge.role-teacher {
