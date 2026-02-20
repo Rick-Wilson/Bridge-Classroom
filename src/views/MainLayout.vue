@@ -1,13 +1,7 @@
 <template>
-  <!-- Teacher Dashboard (shown when mode=teacher in URL) -->
-  <TeacherDashboard
-    v-if="isTeacherMode"
-    @close="exitTeacherMode"
-  />
-
   <!-- Welcome Screen (shown when no authenticated user) -->
   <WelcomeScreen
-    v-else-if="!isAuthenticated"
+    v-if="!isAuthenticated"
     @userReady="handleUserReady"
   />
 
@@ -296,7 +290,6 @@ import AssignmentBanner from '../components/AssignmentBanner.vue'
 import SyncStatus from '../components/SyncStatus.vue'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
 import AccomplishmentsView from '../components/AccomplishmentsView.vue'
-import TeacherDashboard from '../components/teacher/TeacherDashboard.vue'
 import TeacherStudentList from '../components/TeacherStudentList.vue'
 import TeacherStudentDetail from '../components/TeacherStudentDetail.vue'
 import LessonBrowser from '../components/LessonBrowser.vue'
@@ -323,7 +316,6 @@ const practice = useDealPractice()
 const showSettings = ref(false)
 const showProgress = ref(false)
 const showAccomplishments = ref(false)
-const isTeacherMode = ref(false)
 const showTeacherView = ref(false)
 const selectedStudentId = ref(null)
 const selectedStudentName = ref('')
@@ -367,19 +359,6 @@ watch(() => practice.isComplete.value, (isComplete) => {
   }
 })
 
-// Check for teacher mode from URL
-function checkTeacherMode() {
-  const urlParams = new URLSearchParams(window.location.search)
-  isTeacherMode.value = urlParams.get('mode') === 'teacher'
-}
-
-function exitTeacherMode() {
-  isTeacherMode.value = false
-  // Remove mode param from URL without reload
-  const url = new URL(window.location.href)
-  url.searchParams.delete('mode')
-  window.history.replaceState({}, '', url.toString())
-}
 
 // User state
 const isAuthenticated = computed(() => userStore.isAuthenticated.value)
@@ -409,14 +388,6 @@ const appTitle = computed(() => {
 
 // Initialize on mount
 onMounted(async () => {
-  // Check if entering teacher mode
-  checkTeacherMode()
-
-  // If teacher mode, skip student initialization
-  if (isTeacherMode.value) {
-    return
-  }
-
   appConfig.initializeFromUrl()
   userStore.initialize()
 

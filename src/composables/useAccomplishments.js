@@ -1,7 +1,7 @@
 import { ref, computed } from 'vue'
 import { useStudentProgress } from './useStudentProgress.js'
 import { useUserStore } from './useUserStore.js'
-import { useTeacherAuth } from './useTeacherAuth.js'
+import { useTeacherRole } from './useTeacherRole.js'
 import { getSkillFromPath, getCategoryFromPath, getCategoryInfo } from '../utils/skillPath.js'
 
 // API configuration
@@ -54,7 +54,7 @@ function getObservations() {
  */
 async function fetchAccessibleUsers() {
   const userStore = useUserStore()
-  const teacherAuth = useTeacherAuth()
+  const teacherRole = useTeacherRole()
   const currentUser = userStore.currentUser.value
 
   if (!currentUser) {
@@ -71,36 +71,31 @@ async function fetchAccessibleUsers() {
   }]
 
   // If user has teacher/admin access, fetch other users they can view
-  if (teacherAuth.isAuthenticated.value) {
+  if (teacherRole.isTeacher.value && teacherRole.viewerId.value) {
     try {
-      const viewerId = teacherAuth.getViewerId?.() || null
-      if (viewerId) {
-        // Fetch grants to see which users shared access with us
-        const response = await fetch(`${API_URL}/grants?grantee_id=${viewerId}`, {
+      const response = await fetch(`${API_URL}/grants?grantee_id=${teacherRole.viewerId.value}`, {
+        headers: { 'x-api-key': API_KEY }
+      })
+
+      if (response.ok) {
+        const { grants } = await response.json()
+
+        const usersResponse = await fetch(`${API_URL}/users`, {
           headers: { 'x-api-key': API_KEY }
         })
 
-        if (response.ok) {
-          const { grants } = await response.json()
+        if (usersResponse.ok) {
+          const { users: allUsers } = await usersResponse.json()
+          const grantorIds = new Set(grants.map(g => g.grantor_id))
 
-          // Fetch user details for each grantor
-          const usersResponse = await fetch(`${API_URL}/users`, {
-            headers: { 'x-api-key': API_KEY }
-          })
-
-          if (usersResponse.ok) {
-            const { users: allUsers } = await usersResponse.json()
-            const grantorIds = new Set(grants.map(g => g.grantor_id))
-
-            for (const user of allUsers) {
-              if (grantorIds.has(user.id) && user.id !== currentUser.id) {
-                users.push({
-                  id: user.id,
-                  name: `${user.first_name} ${user.last_name}`,
-                  email: user.email,
-                  isSelf: false
-                })
-              }
+          for (const user of allUsers) {
+            if (grantorIds.has(user.id) && user.id !== currentUser.id) {
+              users.push({
+                id: user.id,
+                name: `${user.first_name} ${user.last_name}`,
+                email: user.email,
+                isSelf: false
+              })
             }
           }
         }

@@ -17,9 +17,6 @@
       <button v-if="isAdmin" class="action-btn admin" @click="$emit('show-admin')">
         Admin Panel
       </button>
-      <a v-if="hasLegacyDashboard" :href="legacyDashboardUrl" class="action-btn legacy">
-        Legacy Dashboard
-      </a>
     </div>
 
     <!-- Loading -->
@@ -121,12 +118,6 @@ const welcomeSubtitle = computed(() => {
     parts.push(`${stats.openAssignmentCount} open ${stats.openAssignmentCount === 1 ? 'assignment' : 'assignments'}`)
   }
   return parts.join(', ') + '.'
-})
-
-// Legacy teacher dashboard
-const hasLegacyDashboard = true
-const legacyDashboardUrl = computed(() => {
-  return `${window.location.origin}${window.location.pathname}?mode=teacher`
 })
 
 function toggleExpand(classroomId) {
@@ -233,15 +224,6 @@ onMounted(() => {
 
 .action-btn.admin:hover {
   background: #e9d5ff;
-}
-
-.action-btn.legacy {
-  background: var(--green-pale, #d8f3dc);
-  color: var(--green-dark, #2d6a4f);
-}
-
-.action-btn.legacy:hover {
-  background: var(--green-light, #b7e4c7);
 }
 
 /* Two-column dashboard grid */
