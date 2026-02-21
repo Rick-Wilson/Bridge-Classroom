@@ -116,7 +116,12 @@ pub async fn admin_stats(
 
     let now = chrono::Utc::now();
     let seven_days_ago = (now - chrono::Duration::days(7)).to_rfc3339();
-    let today_start = now.format("%Y-%m-%dT00:00:00").to_string();
+    // "Today" = local (Pacific) midnight, converted to UTC for comparison with stored timestamps
+    let local_now = chrono::Local::now();
+    let local_offset = *local_now.offset();
+    let local_midnight = local_now.date_naive().and_hms_opt(0, 0, 0).unwrap();
+    let local_midnight_utc = local_midnight.and_local_timezone(local_offset).unwrap().with_timezone(&chrono::Utc);
+    let today_start = local_midnight_utc.to_rfc3339();
 
     // Fetch all stats in parallel
     let total_users: CountRow = sqlx::query_as("SELECT COUNT(*) as count FROM users")
