@@ -24,7 +24,7 @@
       <!-- Announcement Management -->
       <div class="announcement-section">
         <h3 class="section-title">Site Announcement</h3>
-        <div v-if="ann.announcement.value" class="current-announcement" :class="ann.announcement.value.type">
+        <div v-if="ann.announcement.value && !editing" class="current-announcement" :class="ann.announcement.value.type">
           <div class="announcement-info">
             <span class="announcement-type-badge" :class="ann.announcement.value.type">{{ ann.announcement.value.type }}</span>
             <span class="announcement-message" v-html="renderMessage(ann.announcement.value.message)"></span>
@@ -33,11 +33,14 @@
             </span>
             <span v-else class="announcement-expires">No expiration</span>
           </div>
-          <button class="clear-btn" @click="handleClear" :disabled="clearing">
-            {{ clearing ? 'Clearing...' : 'Clear' }}
-          </button>
+          <div class="announcement-actions">
+            <button class="edit-btn" @click="startEdit">Edit</button>
+            <button class="clear-btn" @click="handleClear" :disabled="clearing">
+              {{ clearing ? 'Clearing...' : 'Clear' }}
+            </button>
+          </div>
         </div>
-        <div v-else class="announcement-form">
+        <div v-else-if="editing || !ann.announcement.value" class="announcement-form">
           <input
             v-model="newMessage"
             type="text"
@@ -57,8 +60,9 @@
               class="expiry-input"
               title="Optional expiration date"
             />
+            <button v-if="editing" class="cancel-btn" @click="cancelEdit">Cancel</button>
             <button class="publish-btn" @click="handlePublish" :disabled="!newMessage.trim() || publishing">
-              {{ publishing ? 'Publishing...' : 'Publish' }}
+              {{ publishing ? 'Publishing...' : editing ? 'Update' : 'Publish' }}
             </button>
           </div>
         </div>
@@ -104,6 +108,29 @@ const newType = ref('info')
 const newExpiry = ref('')
 const publishing = ref(false)
 const clearing = ref(false)
+const editing = ref(false)
+
+function startEdit() {
+  const a = ann.announcement.value
+  if (!a) return
+  newMessage.value = a.message
+  newType.value = a.type
+  // Convert ISO expiry back to datetime-local format
+  if (a.expires_at) {
+    const d = new Date(a.expires_at)
+    newExpiry.value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  } else {
+    newExpiry.value = ''
+  }
+  editing.value = true
+}
+
+function cancelEdit() {
+  editing.value = false
+  newMessage.value = ''
+  newType.value = 'info'
+  newExpiry.value = ''
+}
 
 async function handlePublish() {
   if (!newMessage.value.trim()) return
@@ -114,6 +141,7 @@ async function handlePublish() {
     newMessage.value = ''
     newType.value = 'info'
     newExpiry.value = ''
+    editing.value = false
   } catch (err) {
     console.error('Failed to publish announcement:', err)
   } finally {
@@ -334,6 +362,39 @@ onMounted(loadData)
   font-size: 12px;
   color: var(--text-muted, #9ca3af);
 }
+
+.announcement-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-btn {
+  padding: 6px 16px;
+  background: #e3f2fd;
+  color: #1565c0;
+  border: none;
+  border-radius: var(--radius-button, 6px);
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+}
+
+.edit-btn:hover { background: #bbdefb; }
+
+.cancel-btn {
+  padding: 8px 16px;
+  background: #f3f4f6;
+  color: var(--text-secondary, #6b7280);
+  border: 1px solid var(--card-border, #e0ddd7);
+  border-radius: var(--radius-button, 6px);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+}
+
+.cancel-btn:hover { background: #e5e7eb; }
 
 .clear-btn {
   padding: 6px 16px;
