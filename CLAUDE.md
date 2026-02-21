@@ -46,6 +46,13 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Backend API**: Rust server running locally on Mac at port 3000
 - **Tunnel**: Cloudflare Tunnel routes https://api.bridge-classroom.com → localhost:3000
 - **Database**: SQLite at `bridge-classroom-api/data/bridge_classroom.db`
+- **Database backups**: Nightly at 2AM Pacific via `com.bridgeclassroom.backup` launchd job
+  - Script: `bridge-classroom-api/scripts/backup-db.sh`
+  - Uses `sqlite3 .backup` for safe snapshots (handles WAL correctly)
+  - Local backups: `bridge-classroom-api/data/bridge_classroom_backup_YYYYMMDD.db`
+  - Google Drive backups: `My Drive/Bridge Classroom/Backups/`
+  - Retention: 14 most recent in each location
+  - Logs: `~/Library/Logs/bridge-classroom-backup.log`
 - **API logs**: `~/Library/Logs/bridge-classroom-api.log`
 - **Tunnel logs**: `~/Library/Logs/cloudflared-tunnel.log`
 - **Service management**: `launchctl list | grep -E "bridge|cloudflare"`
@@ -87,7 +94,7 @@ Users have one of three roles: `student`, `teacher`, `admin`. The lobby view (`s
 **Teacher Dashboard** (`GET /api/teacher/dashboard?teacher_id=X`):
 - Single aggregated endpoint returning all dashboard data in one round-trip
 - Classrooms with per-assignment completion stats
-- "Needs Attention" items: `due_soon`, `low_score`, `new_join`
+- "Needs Attention" items: `due_soon`, `low_score`
 - "Recent Activity" events: `assignment_completed`, `student_joined`
 - Two-column layout: classrooms (left 3fr) + attention/activity (right 2fr)
 
