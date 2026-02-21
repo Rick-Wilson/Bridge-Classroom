@@ -500,6 +500,24 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         .await
         .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // ---- Announcements table ----
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS announcements (
+            id TEXT PRIMARY KEY,
+            message TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'info',
+            created_by TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            expires_at TEXT,
+            active INTEGER NOT NULL DEFAULT 1
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
     // ---- Compound index on observations for assignment progress queries ----
     sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_observations_deal_user ON observations(deal_subfolder, deal_number, user_id)"#)
         .execute(pool)

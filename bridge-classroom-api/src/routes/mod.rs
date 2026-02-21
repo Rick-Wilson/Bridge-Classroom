@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod announcements;
 pub mod assignments;
 pub mod auth;
 pub mod classrooms;
@@ -14,6 +15,7 @@ pub mod users;
 pub mod viewers;
 
 pub use admin::*;
+pub use announcements::*;
 pub use assignments::*;
 pub use auth::*;
 pub use classrooms::*;

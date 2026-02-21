@@ -41,6 +41,8 @@
     </header>
 
     <main class="app-main">
+      <!-- Announcement Banner (site-wide, admin-controlled) -->
+      <AnnouncementBanner />
       <!-- Assignment Banner -->
       <AssignmentBanner />
       <!-- Teacher student view -->
@@ -263,7 +265,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { parsePbn, getDealTitle } from '../utils/pbnParser.js'
 import { stripControlDirectives, colorizeSuits, flowText } from '../utils/cardFormatting.js'
@@ -277,6 +279,7 @@ import { useStudentProgress } from '../composables/useStudentProgress.js'
 import { useObservationStore } from '../composables/useObservationStore.js'
 import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { useTeacherRole } from '../composables/useTeacherRole.js'
+import { useAnnouncement } from '../composables/useAnnouncement.js'
 
 import BridgeTable from '../components/BridgeTable.vue'
 import BiddingBox from '../components/BiddingBox.vue'
@@ -287,6 +290,7 @@ import FeedbackPanel from '../components/FeedbackPanel.vue'
 import WelcomeScreen from '../components/WelcomeScreen.vue'
 import SettingsPanel from '../components/SettingsPanel.vue'
 import AssignmentBanner from '../components/AssignmentBanner.vue'
+import AnnouncementBanner from '../components/AnnouncementBanner.vue'
 import SyncStatus from '../components/SyncStatus.vue'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
 import AccomplishmentsView from '../components/AccomplishmentsView.vue'
@@ -308,6 +312,7 @@ const userStore = useUserStore()
 const assignmentStore = useAssignmentStore()
 const dataSync = useDataSync()
 const teacherRole = useTeacherRole()
+const announcementStore = useAnnouncement()
 
 // Unified practice state - tag-driven, no modes
 const practice = useDealPractice()
@@ -384,6 +389,16 @@ const appTitle = computed(() => {
     return `${appConfig.teacherName.value}'s Bridge Classroom`
   }
   return 'Bridge Classroom'
+})
+
+// Announcement polling (every 5 minutes)
+let announcementPollInterval = null
+onMounted(() => {
+  announcementStore.loadAnnouncement()
+  announcementPollInterval = setInterval(() => announcementStore.loadAnnouncement(), 5 * 60 * 1000)
+})
+onUnmounted(() => {
+  if (announcementPollInterval) clearInterval(announcementPollInterval)
 })
 
 // Initialize on mount
