@@ -4,7 +4,7 @@
     class="announcement-banner"
     :class="ann.announcement.value.type"
   >
-    <span class="announcement-text">{{ ann.announcement.value.message }}</span>
+    <span class="announcement-text" v-html="renderMessage(ann.announcement.value.message)"></span>
     <button class="dismiss-btn" @click="ann.dismiss()" title="Dismiss">&times;</button>
   </div>
 </template>
@@ -13,6 +13,24 @@
 import { useAnnouncement } from '../composables/useAnnouncement.js'
 
 const ann = useAnnouncement()
+
+const circleColors = {
+  red: { bg: '#ef5350', fg: 'white' },
+  yellow: { bg: '#ffeb3b', fg: '#333' },
+  orange: { bg: '#ff9800', fg: 'white' },
+  green: { bg: '#4caf50', fg: 'white' },
+  grey: { bg: '#ccc', fg: '#666' }
+}
+
+function renderMessage(message) {
+  // Escape HTML first, then replace :color: tokens with inline circles
+  const escaped = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return escaped.replace(/:(\w+):/g, (match, color) => {
+    const c = circleColors[color.toLowerCase()]
+    if (!c) return match
+    return `<span class="ann-circle" style="background:${c.bg};color:${c.fg}"></span>`
+  })
+}
 </script>
 
 <style scoped>
@@ -48,6 +66,15 @@ const ann = useAnnouncement()
 .announcement-text {
   text-align: center;
   line-height: 1.4;
+}
+
+.announcement-text :deep(.ann-circle) {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin: 0 1px;
 }
 
 .dismiss-btn {

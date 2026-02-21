@@ -27,7 +27,7 @@
         <div v-if="ann.announcement.value" class="current-announcement" :class="ann.announcement.value.type">
           <div class="announcement-info">
             <span class="announcement-type-badge" :class="ann.announcement.value.type">{{ ann.announcement.value.type }}</span>
-            <span class="announcement-message">{{ ann.announcement.value.message }}</span>
+            <span class="announcement-message" v-html="renderMessage(ann.announcement.value.message)"></span>
             <span v-if="ann.announcement.value.expires_at" class="announcement-expires">
               Expires: {{ formatExpiry(ann.announcement.value.expires_at) }}
             </span>
@@ -135,6 +135,23 @@ async function handleClear() {
 function formatExpiry(dateStr) {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleString()
+}
+
+const circleColors = {
+  red: { bg: '#ef5350', fg: 'white' },
+  yellow: { bg: '#ffeb3b', fg: '#333' },
+  orange: { bg: '#ff9800', fg: 'white' },
+  green: { bg: '#4caf50', fg: 'white' },
+  grey: { bg: '#ccc', fg: '#666' }
+}
+
+function renderMessage(message) {
+  const escaped = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return escaped.replace(/:(\w+):/g, (match, color) => {
+    const c = circleColors[color.toLowerCase()]
+    if (!c) return match
+    return `<span class="ann-circle" style="background:${c.bg};color:${c.fg}"></span>`
+  })
 }
 
 async function loadData() {
@@ -302,6 +319,15 @@ onMounted(loadData)
 .announcement-message {
   font-size: 14px;
   color: var(--text-primary, #1a1a1a);
+}
+
+.announcement-message :deep(.ann-circle) {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin: 0 1px;
 }
 
 .announcement-expires {
