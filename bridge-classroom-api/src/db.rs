@@ -387,6 +387,22 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         tracing::info!("Added activity_cleared_at column to users table");
     }
 
+    // ---- Admin name correction column on users table ----
+    let has_name_corrected: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'name_corrected_at'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_name_corrected {
+        sqlx::query(r#"ALTER TABLE users ADD COLUMN name_corrected_at TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added name_corrected_at column to users table");
+    }
+
     // ---- Exercises table ----
     sqlx::query(
         r#"

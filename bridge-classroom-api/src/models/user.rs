@@ -16,6 +16,7 @@ pub struct User {
     pub recovery_encrypted_key: Option<String>,
     pub role: String,
     pub teacher_terms_accepted_at: Option<String>,
+    pub name_corrected_at: Option<String>,
 }
 
 /// Request to create or update a user
@@ -60,6 +61,8 @@ pub struct UserInfo {
     pub classroom: Option<String>,
     pub role: String,
     pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name_corrected_at: Option<String>,
 }
 
 /// Response containing list of users
@@ -101,6 +104,7 @@ impl User {
             recovery_encrypted_key: None,
             role: "student".to_string(),
             teacher_terms_accepted_at: None,
+            name_corrected_at: None,
         }
     }
 }
@@ -115,6 +119,7 @@ impl From<User> for UserInfo {
             classroom: user.classroom,
             role: user.role,
             created_at: user.created_at,
+            name_corrected_at: user.name_corrected_at,
         }
     }
 }

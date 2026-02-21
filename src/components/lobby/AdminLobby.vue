@@ -83,6 +83,59 @@
         :refreshing="refreshing"
         @refresh="handleRefresh"
       />
+
+      <!-- User Name Correction -->
+      <div class="name-correction-section">
+        <h3 class="section-title">Correct User Name</h3>
+        <div class="search-row">
+          <input
+            v-model="searchEmail"
+            type="text"
+            class="search-input"
+            placeholder="Search by name or email..."
+            @keydown.enter="handleSearchUser"
+          />
+          <button class="search-btn" @click="handleSearchUser" :disabled="searching || !searchEmail.trim()">
+            {{ searching ? 'Searching...' : 'Search' }}
+          </button>
+        </div>
+
+        <div v-if="searchResults.length" class="search-results">
+          <div
+            v-for="user in searchResults"
+            :key="user.id"
+            class="search-result-item"
+            :class="{ selected: selectedUser && selectedUser.id === user.id }"
+            @click="selectUser(user)"
+          >
+            <span class="result-name">{{ user.first_name }} {{ user.last_name }}</span>
+            <span class="result-email">{{ user.email }}</span>
+            <span v-if="user.name_corrected_at" class="corrected-badge">corrected</span>
+          </div>
+        </div>
+
+        <div v-if="searchDone && !searchResults.length" class="no-results">
+          No users found for "{{ searchEmail }}"
+        </div>
+
+        <div v-if="selectedUser" class="edit-form">
+          <div class="edit-row">
+            <div class="edit-field">
+              <label>First Name</label>
+              <input v-model="editFirstName" type="text" class="edit-input" />
+            </div>
+            <div class="edit-field">
+              <label>Last Name</label>
+              <input v-model="editLastName" type="text" class="edit-input" />
+            </div>
+            <button class="save-btn" @click="handleSaveCorrection" :disabled="saving || !editFirstName.trim() || !editLastName.trim()">
+              {{ saving ? 'Saving...' : 'Save' }}
+            </button>
+          </div>
+          <p v-if="saveSuccess" class="save-feedback success">Name corrected successfully.</p>
+          <p v-if="saveError" class="save-feedback error">{{ saveError }}</p>
+        </div>
+      </div>
     </template>
   </div>
 </template>
@@ -180,6 +233,82 @@ function renderMessage(message) {
     if (!c) return match
     return `<span class="ann-circle" style="background:${c.bg};color:${c.fg}"></span>`
   })
+}
+
+// Name correction state
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+const API_KEY = import.meta.env.VITE_API_KEY || ''
+const searchEmail = ref('')
+const searchResults = ref([])
+const searchDone = ref(false)
+const searching = ref(false)
+const selectedUser = ref(null)
+const editFirstName = ref('')
+const editLastName = ref('')
+const saving = ref(false)
+const saveSuccess = ref(false)
+const saveError = ref('')
+
+async function handleSearchUser() {
+  if (!searchEmail.value.trim()) return
+  searching.value = true
+  searchDone.value = false
+  searchResults.value = []
+  selectedUser.value = null
+  saveSuccess.value = false
+  saveError.value = ''
+  try {
+    const res = await fetch(
+      `${API_URL}/admin/users/search?q=${encodeURIComponent(searchEmail.value.trim())}`,
+      { headers: { 'x-api-key': API_KEY } }
+    )
+    if (!res.ok) throw new Error(`Search failed: ${res.status}`)
+    const data = await res.json()
+    searchResults.value = data.users || []
+  } catch (err) {
+    console.error('User search failed:', err)
+  } finally {
+    searching.value = false
+    searchDone.value = true
+  }
+}
+
+function selectUser(user) {
+  selectedUser.value = user
+  editFirstName.value = user.first_name
+  editLastName.value = user.last_name
+  saveSuccess.value = false
+  saveError.value = ''
+}
+
+async function handleSaveCorrection() {
+  if (!selectedUser.value || !editFirstName.value.trim() || !editLastName.value.trim()) return
+  saving.value = true
+  saveSuccess.value = false
+  saveError.value = ''
+  try {
+    const res = await fetch(
+      `${API_URL}/admin/users/${encodeURIComponent(selectedUser.value.id)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+        body: JSON.stringify({ first_name: editFirstName.value.trim(), last_name: editLastName.value.trim() })
+      }
+    )
+    if (!res.ok) throw new Error(`Save failed: ${res.status}`)
+    const data = await res.json()
+    if (data.success) {
+      saveSuccess.value = true
+      // Update the result in-place
+      selectedUser.value.first_name = data.user.first_name
+      selectedUser.value.last_name = data.user.last_name
+      selectedUser.value.name_corrected_at = data.user.name_corrected_at
+    }
+  } catch (err) {
+    saveError.value = err.message
+  } finally {
+    saving.value = false
+  }
 }
 
 async function loadData() {
@@ -471,12 +600,160 @@ onMounted(loadData)
 .publish-btn:hover { background: var(--green-dark, #2d6a4f); }
 .publish-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* Name correction section */
+.name-correction-section {
+  background: white;
+  border-radius: var(--radius-card, 10px);
+  border: 1px solid var(--card-border, #e0ddd7);
+  padding: 20px;
+  margin-top: 24px;
+}
+
+.search-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.search-input {
+  flex: 1;
+  padding: 8px 14px;
+  border: 1px solid var(--card-border, #e0ddd7);
+  border-radius: var(--radius-button, 6px);
+  font-size: 14px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--green-mid, #40916c);
+}
+
+.search-btn {
+  padding: 8px 20px;
+  background: var(--green-mid, #40916c);
+  color: white;
+  border: none;
+  border-radius: var(--radius-button, 6px);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+}
+
+.search-btn:hover { background: var(--green-dark, #2d6a4f); }
+.search-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-button, 6px);
+  cursor: pointer;
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+
+.search-result-item:hover { background: #f8f9fa; }
+.search-result-item.selected { background: #e3f2fd; border-color: #bbdefb; }
+
+.result-name { font-weight: 500; color: var(--text-primary, #1a1a1a); }
+.result-email { color: var(--text-secondary, #6b7280); }
+
+.corrected-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.no-results {
+  color: var(--text-muted, #9ca3af);
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+.edit-form {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--card-border, #e0ddd7);
+}
+
+.edit-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.edit-field {
+  flex: 1;
+}
+
+.edit-field label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 4px;
+}
+
+.edit-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--card-border, #e0ddd7);
+  border-radius: var(--radius-button, 6px);
+  font-size: 14px;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: var(--green-mid, #40916c);
+}
+
+.save-btn {
+  padding: 8px 20px;
+  background: var(--green-mid, #40916c);
+  color: white;
+  border: none;
+  border-radius: var(--radius-button, 6px);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  height: fit-content;
+}
+
+.save-btn:hover { background: var(--green-dark, #2d6a4f); }
+.save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.save-feedback {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.save-feedback.success { color: #2e7d32; }
+.save-feedback.error { color: #d32f2f; }
+
 @media (max-width: 768px) {
   .content-grid {
     grid-template-columns: 1fr;
   }
 
-  .form-row {
+  .form-row,
+  .edit-row {
     flex-direction: column;
   }
 }

@@ -552,10 +552,25 @@ async function syncRole() {
     if (!res.ok) return
 
     const data = await res.json()
-    if (data.success && data.user && data.user.role && data.user.role !== user.role) {
+    if (!data.success || !data.user) return
+
+    let changed = false
+
+    // Sync role
+    if (data.user.role && data.user.role !== user.role) {
       user.role = data.user.role
-      saveToStorage()
+      changed = true
     }
+
+    // Sync admin name corrections
+    if (data.user.name_corrected_at && data.user.name_corrected_at !== user.nameCorrectedAt) {
+      user.firstName = data.user.first_name
+      user.lastName = data.user.last_name
+      user.nameCorrectedAt = data.user.name_corrected_at
+      changed = true
+    }
+
+    if (changed) saveToStorage()
   } catch {
     // Best-effort — don't block startup
   }

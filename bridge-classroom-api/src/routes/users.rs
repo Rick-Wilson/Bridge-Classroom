@@ -1,8 +1,9 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::{HeaderMap, StatusCode},
     Json,
 };
+use serde::Deserialize;
 
 use crate::{
     models::{CreateUserRequest, CreateUserResponse, SharingGrant, User, UserInfo, UsersListResponse},
@@ -100,57 +101,105 @@ pub async fn create_user(
         None
     };
 
-    if existing_by_id.is_some() {
+    if let Some(ref existing) = existing_by_id {
         // User already exists - update their info
-        // Only update recovery key if a new one is provided
-        if let Some(ref encrypted_key) = recovery_encrypted_key {
-            sqlx::query(
-                r#"
-                UPDATE users
-                SET first_name = ?, last_name = ?, email = ?, classroom = ?,
-                    data_consent = ?, updated_at = ?, recovery_encrypted_key = ?
-                WHERE id = ?
-                "#,
-            )
-            .bind(&req.first_name)
-            .bind(&req.last_name)
-            .bind(&req.email)
-            .bind(&req.classroom)
-            .bind(req.data_consent.unwrap_or(true))
-            .bind(chrono::Utc::now().to_rfc3339())
-            .bind(encrypted_key)
-            .bind(&req.user_id)
-            .execute(&state.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to update user {} (with recovery key): {}", req.user_id, e);
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-            })?;
+        // If admin corrected the name, don't overwrite it from client sync
+        let name_protected = existing.name_corrected_at.is_some();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        if name_protected {
+            // Skip first_name/last_name — admin correction takes precedence
+            if let Some(ref encrypted_key) = recovery_encrypted_key {
+                sqlx::query(
+                    r#"
+                    UPDATE users
+                    SET email = ?, classroom = ?, data_consent = ?, updated_at = ?, recovery_encrypted_key = ?
+                    WHERE id = ?
+                    "#,
+                )
+                .bind(&req.email)
+                .bind(&req.classroom)
+                .bind(req.data_consent.unwrap_or(true))
+                .bind(&now)
+                .bind(encrypted_key)
+                .bind(&req.user_id)
+                .execute(&state.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to update user {} (name-protected, with recovery key): {}", req.user_id, e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+                })?;
+            } else {
+                sqlx::query(
+                    r#"
+                    UPDATE users
+                    SET email = ?, classroom = ?, data_consent = ?, updated_at = ?
+                    WHERE id = ?
+                    "#,
+                )
+                .bind(&req.email)
+                .bind(&req.classroom)
+                .bind(req.data_consent.unwrap_or(true))
+                .bind(&now)
+                .bind(&req.user_id)
+                .execute(&state.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to update user {} (name-protected): {}", req.user_id, e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+                })?;
+            }
         } else {
-            sqlx::query(
-                r#"
-                UPDATE users
-                SET first_name = ?, last_name = ?, email = ?, classroom = ?,
-                    data_consent = ?, updated_at = ?
-                WHERE id = ?
-                "#,
-            )
-            .bind(&req.first_name)
-            .bind(&req.last_name)
-            .bind(&req.email)
-            .bind(&req.classroom)
-            .bind(req.data_consent.unwrap_or(true))
-            .bind(chrono::Utc::now().to_rfc3339())
-            .bind(&req.user_id)
-            .execute(&state.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to update user {}: {}", req.user_id, e);
-                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
-            })?;
+            // Normal update — include first_name/last_name
+            if let Some(ref encrypted_key) = recovery_encrypted_key {
+                sqlx::query(
+                    r#"
+                    UPDATE users
+                    SET first_name = ?, last_name = ?, email = ?, classroom = ?,
+                        data_consent = ?, updated_at = ?, recovery_encrypted_key = ?
+                    WHERE id = ?
+                    "#,
+                )
+                .bind(&req.first_name)
+                .bind(&req.last_name)
+                .bind(&req.email)
+                .bind(&req.classroom)
+                .bind(req.data_consent.unwrap_or(true))
+                .bind(&now)
+                .bind(encrypted_key)
+                .bind(&req.user_id)
+                .execute(&state.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to update user {} (with recovery key): {}", req.user_id, e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+                })?;
+            } else {
+                sqlx::query(
+                    r#"
+                    UPDATE users
+                    SET first_name = ?, last_name = ?, email = ?, classroom = ?,
+                        data_consent = ?, updated_at = ?
+                    WHERE id = ?
+                    "#,
+                )
+                .bind(&req.first_name)
+                .bind(&req.last_name)
+                .bind(&req.email)
+                .bind(&req.classroom)
+                .bind(req.data_consent.unwrap_or(true))
+                .bind(&now)
+                .bind(&req.user_id)
+                .execute(&state.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to update user {}: {}", req.user_id, e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+                })?;
+            }
         }
 
-        tracing::info!("Updated existing user: {}", req.user_id);
+        tracing::info!("Updated existing user: {} (name_protected: {})", req.user_id, name_protected);
     } else {
         // Create new user
         let user = User::from_request(&req);
@@ -276,4 +325,98 @@ pub async fn get_users(
     let user_infos: Vec<UserInfo> = users.into_iter().map(UserInfo::from).collect();
 
     Ok(Json(UsersListResponse { users: user_infos }))
+}
+
+// ---- Admin user management ----
+
+#[derive(Debug, Deserialize)]
+pub struct AdminUserSearchQuery {
+    pub q: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AdminCorrectNameRequest {
+    pub first_name: String,
+    pub last_name: String,
+}
+
+/// GET /api/admin/users/search?q=X
+/// Searches by email, first_name, or last_name (partial, case-insensitive)
+pub async fn admin_search_user(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Query(query): Query<AdminUserSearchQuery>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    if !validate_api_key(&headers, &state.config.api_key) {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
+    }
+
+    let pattern = format!("%{}%", query.q);
+    let users = sqlx::query_as::<_, User>(
+        r#"SELECT * FROM users
+           WHERE email LIKE ?1 COLLATE NOCASE
+              OR first_name LIKE ?1 COLLATE NOCASE
+              OR last_name LIKE ?1 COLLATE NOCASE
+           ORDER BY email LIMIT 20"#,
+    )
+    .bind(&pattern)
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let user_infos: Vec<UserInfo> = users.into_iter().map(UserInfo::from).collect();
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "users": user_infos
+    })))
+}
+
+/// PATCH /api/admin/users/:id
+pub async fn admin_correct_name(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Path(user_id): Path<String>,
+    Json(body): Json<AdminCorrectNameRequest>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    if !validate_api_key(&headers, &state.config.api_key) {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+
+    let result = sqlx::query(
+        r#"
+        UPDATE users
+        SET first_name = ?, last_name = ?, name_corrected_at = ?, updated_at = ?
+        WHERE id = ?
+        "#,
+    )
+    .bind(body.first_name.trim())
+    .bind(body.last_name.trim())
+    .bind(&now)
+    .bind(&now)
+    .bind(&user_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    if result.rows_affected() == 0 {
+        return Err((StatusCode::NOT_FOUND, "User not found".to_string()));
+    }
+
+    let user = sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?")
+        .bind(&user_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let info = UserInfo::from(user);
+
+    tracing::info!("Admin corrected name for user {}: {} {}", user_id, info.first_name, info.last_name);
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "user": info
+    })))
 }
