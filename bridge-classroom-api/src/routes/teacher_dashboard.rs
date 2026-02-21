@@ -7,6 +7,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::AppState;
 
+// ---- Clear panel types ----
+
+#[derive(Debug, Deserialize)]
+pub struct ClearPanelRequest {
+    pub teacher_id: String,
+    pub panel: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ClearPanelResponse {
+    pub success: bool,
+}
+
 /// Validate API key from request headers
 fn validate_api_key(headers: &HeaderMap, expected_key: &str) -> bool {
     if let Some(header_key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
@@ -121,6 +134,12 @@ struct ObservationHit {
     correct: bool,
 }
 
+#[derive(sqlx::FromRow)]
+struct ClearedTimestamps {
+    attention_cleared_at: Option<String>,
+    activity_cleared_at: Option<String>,
+}
+
 // ---- Handler ----
 
 /// GET /api/teacher/dashboard?teacher_id=X
@@ -134,6 +153,18 @@ pub async fn teacher_dashboard(
     }
 
     let teacher_id = &query.teacher_id;
+
+    // Fetch cleared-at timestamps for filtering
+    let cleared: Option<ClearedTimestamps> = sqlx::query_as(
+        "SELECT attention_cleared_at, activity_cleared_at FROM users WHERE id = ?",
+    )
+    .bind(teacher_id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let attention_cleared_at = cleared.as_ref().and_then(|c| c.attention_cleared_at.clone());
+    let activity_cleared_at = cleared.as_ref().and_then(|c| c.activity_cleared_at.clone());
 
     // 1. Fetch teacher's classrooms with member counts
     let classrooms: Vec<ClassroomRow> = sqlx::query_as(
@@ -267,7 +298,11 @@ pub async fn teacher_dashboard(
                     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
                     if let Some((ts,)) = latest_obs {
-                        if ts >= seven_days_ago {
+                        let not_cleared = match &activity_cleared_at {
+                            Some(cleared) => ts > *cleared,
+                            None => true,
+                        };
+                        if ts >= seven_days_ago && not_cleared {
                             recent_activity.push(ActivityEvent {
                                 event_type: "assignment_completed".to_string(),
                                 student_name: Some(format!(
@@ -306,7 +341,11 @@ pub async fn teacher_dashboard(
                 let now_str = now.to_rfc3339();
                 if due_at > &now_str && due_at <= &seven_days_ahead {
                     let lagging = students_total - students_completed;
-                    if lagging > 0 {
+                    let not_cleared = match &attention_cleared_at {
+                        Some(cleared) => assignment.assigned_at > *cleared,
+                        None => true,
+                    };
+                    if lagging > 0 && not_cleared {
                         needs_attention.push(AttentionItem {
                             item_type: "due_soon".to_string(),
                             assignment_id: Some(assignment.id.clone()),
@@ -360,7 +399,11 @@ pub async fn teacher_dashboard(
                     // Only flag if they've attempted at least half the boards and accuracy is low
                     if attempted_count >= (total_boards as usize / 2) && attempted_count > 0 {
                         let accuracy = (correct_count * 100) / attempted_count;
-                        if accuracy < 50 {
+                        let not_cleared = match &attention_cleared_at {
+                            Some(cleared) => assignment.assigned_at > *cleared,
+                            None => true,
+                        };
+                        if accuracy < 50 && not_cleared {
                             needs_attention.push(AttentionItem {
                                 item_type: "low_score".to_string(),
                                 assignment_id: Some(assignment.id.clone()),
@@ -392,13 +435,19 @@ pub async fn teacher_dashboard(
         // Recent joins (last 7 days) — activity only, not attention
         for member in &members {
             if member.joined_at >= seven_days_ago {
-                recent_activity.push(ActivityEvent {
-                    event_type: "student_joined".to_string(),
-                    student_name: Some(format!("{} {}", member.first_name, member.last_name)),
-                    exercise_name: None,
-                    classroom_name: classroom.name.clone(),
-                    timestamp: member.joined_at.clone(),
-                });
+                let not_cleared = match &activity_cleared_at {
+                    Some(cleared) => member.joined_at > *cleared,
+                    None => true,
+                };
+                if not_cleared {
+                    recent_activity.push(ActivityEvent {
+                        event_type: "student_joined".to_string(),
+                        student_name: Some(format!("{} {}", member.first_name, member.last_name)),
+                        exercise_name: None,
+                        classroom_name: classroom.name.clone(),
+                        timestamp: member.joined_at.clone(),
+                    });
+                }
             }
         }
 
@@ -434,4 +483,32 @@ pub async fn teacher_dashboard(
         needs_attention,
         recent_activity,
     }))
+}
+
+/// POST /api/teacher/dashboard/clear
+pub async fn clear_dashboard_panel(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<ClearPanelRequest>,
+) -> Result<Json<ClearPanelResponse>, (StatusCode, String)> {
+    if !validate_api_key(&headers, &state.config.api_key) {
+        return Err((StatusCode::UNAUTHORIZED, "Invalid API key".to_string()));
+    }
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let column = match body.panel.as_str() {
+        "attention" => "attention_cleared_at",
+        "activity" => "activity_cleared_at",
+        _ => return Err((StatusCode::BAD_REQUEST, "Invalid panel name".to_string())),
+    };
+
+    let query = format!("UPDATE users SET {} = ? WHERE id = ?", column);
+    sqlx::query(&query)
+        .bind(&now)
+        .bind(&body.teacher_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(ClearPanelResponse { success: true }))
 }

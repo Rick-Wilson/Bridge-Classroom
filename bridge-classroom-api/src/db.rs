@@ -356,6 +356,37 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         tracing::info!("Added teacher_terms_accepted_at column to users table");
     }
 
+    // ---- Dashboard cleared-at columns on users table ----
+    let has_attention_cleared: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'attention_cleared_at'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_attention_cleared {
+        sqlx::query(r#"ALTER TABLE users ADD COLUMN attention_cleared_at TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added attention_cleared_at column to users table");
+    }
+
+    let has_activity_cleared: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'activity_cleared_at'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_activity_cleared {
+        sqlx::query(r#"ALTER TABLE users ADD COLUMN activity_cleared_at TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added activity_cleared_at column to users table");
+    }
+
     // ---- Exercises table ----
     sqlx::query(
         r#"

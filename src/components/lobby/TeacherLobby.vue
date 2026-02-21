@@ -51,8 +51,8 @@
 
       <!-- Right column: Attention + Activity -->
       <div class="right-column">
-        <NeedsAttention :items="dashboard.needsAttention.value" />
-        <RecentActivity :events="dashboard.recentActivity.value" />
+        <NeedsAttention :items="dashboard.needsAttention.value" @clear="handleClear('attention')" />
+        <RecentActivity :events="dashboard.recentActivity.value" @clear="handleClear('activity')" />
       </div>
     </div>
 
@@ -133,6 +133,13 @@ function handleClassroomCreated(classroom) {
 function handleAssignmentCreated() {
   showAssignModal.value = false
   refreshData()
+}
+
+function handleClear(panel) {
+  const user = userStore.currentUser.value
+  if (user) {
+    dashboard.clearPanel(user.id, panel)
+  }
 }
 
 function refreshData() {

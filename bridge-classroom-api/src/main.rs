@@ -131,6 +131,7 @@ async fn main() -> anyhow::Result<()> {
         )
         // Teacher dashboard routes
         .route("/api/teacher/dashboard", get(routes::teacher_dashboard))
+        .route("/api/teacher/dashboard/clear", post(routes::clear_dashboard_panel))
         // Announcement routes
         .route("/api/announcements/active", get(routes::get_active_announcement))
         .route("/api/admin/announcement", post(routes::set_announcement).delete(routes::clear_announcement))

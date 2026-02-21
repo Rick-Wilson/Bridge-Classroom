@@ -52,6 +52,34 @@ async function loadTeacherLobbyData(teacherId, forceRefresh = false) {
   }
 }
 
+/**
+ * Clear a dashboard panel (attention or activity)
+ * @param {string} teacherId
+ * @param {'attention'|'activity'} panel
+ */
+async function clearPanel(teacherId, panel) {
+  try {
+    const response = await fetch(`${API_URL}/teacher/dashboard/clear`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+      body: JSON.stringify({ teacher_id: teacherId, panel })
+    })
+
+    if (!response.ok) throw new Error(`Failed to clear: ${response.status}`)
+
+    if (panel === 'attention') {
+      needsAttention.value = []
+    } else if (panel === 'activity') {
+      recentActivity.value = []
+    }
+
+    return { success: true }
+  } catch (err) {
+    console.error('Failed to clear panel:', err)
+    return { success: false, error: err.message }
+  }
+}
+
 export function useTeacherDashboard() {
   const summaryStats = computed(() => ({
     classroomCount: lobbyClassrooms.value.length,
@@ -64,6 +92,7 @@ export function useTeacherDashboard() {
     recentActivity,
     lobbyLoading,
     summaryStats,
-    loadTeacherLobbyData
+    loadTeacherLobbyData,
+    clearPanel
   }
 }

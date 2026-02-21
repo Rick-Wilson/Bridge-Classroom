@@ -1,6 +1,9 @@
 <template>
   <div class="recent-activity">
-    <h3 class="panel-title">Recent Activity</h3>
+    <div class="panel-header">
+      <h3 class="panel-title">Recent Activity</h3>
+      <button v-if="events.length" class="clear-btn" @click="$emit('clear')">Clear</button>
+    </div>
     <div v-if="!events.length" class="empty-state">
       No recent activity.
     </div>
@@ -24,6 +27,8 @@
 defineProps({
   events: { type: Array, default: () => [] }
 })
+
+defineEmits(['clear'])
 
 function iconFor(type) {
   switch (type) {
@@ -65,11 +70,35 @@ function formatTimeSince(timestamp) {
   padding: 20px;
 }
 
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
 .panel-title {
   font-family: var(--font-heading, 'Source Serif 4', serif);
   font-size: 18px;
   color: var(--green-dark, #2d6a4f);
-  margin: 0 0 16px 0;
+  margin: 0;
+}
+
+.clear-btn {
+  padding: 4px 12px;
+  background: none;
+  border: 1px solid var(--card-border, #e0ddd7);
+  border-radius: var(--radius-button, 6px);
+  font-size: 12px;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  font-family: var(--font-body, 'DM Sans', sans-serif);
+  transition: all 0.2s;
+}
+
+.clear-btn:hover {
+  background: #f3f4f6;
+  color: var(--text-primary, #1a1a1a);
 }
 
 .empty-state {
