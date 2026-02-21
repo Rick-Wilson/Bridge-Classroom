@@ -1,153 +1,158 @@
 <template>
   <div class="progress-dashboard">
     <header class="dashboard-header">
-      <h2>Your Progress</h2>
+      <h2>Learning Progress</h2>
       <button class="close-btn" @click="$emit('close')">&times;</button>
     </header>
 
     <!-- Loading state -->
-    <div v-if="progress.isLoading.value" class="loading">
+    <div v-if="learning.isLoading.value" class="loading">
       <div class="spinner"></div>
       <p>Loading your progress...</p>
     </div>
 
     <!-- Error state -->
-    <div v-else-if="progress.hasError.value" class="error-state">
-      <p>Failed to load progress: {{ progress.error.value }}</p>
+    <div v-else-if="learning.hasError.value" class="error-state">
+      <p>Failed to load progress: {{ learning.error.value }}</p>
       <button @click="refresh">Try Again</button>
     </div>
 
-    <!-- No data state -->
-    <div v-else-if="!progress.hasData.value" class="empty-state">
-      <h3>No Practice Data Yet</h3>
-      <p>Complete some practice deals to see your progress here!</p>
+    <!-- Not enough data -->
+    <div v-else-if="!learning.learningData.value" class="empty-state">
+      <h3>Not Enough Data Yet</h3>
+      <p>Keep practicing the same boards and you'll see your learning trends here!</p>
+      <p class="empty-hint">Boards need at least 3 attempts to show a trend.</p>
       <button class="primary-btn" @click="$emit('close')">Start Practicing</button>
     </div>
 
-    <!-- Dashboard content -->
+    <!-- Learning content -->
     <div v-else class="dashboard-content">
-      <div v-for="day in dailyProgress" :key="day.date" class="day-card">
-        <div class="day-header">
-          <span class="day-date">{{ formatDate(day.date) }}</span>
-          <span class="day-summary">{{ day.totalBoards }} board{{ day.totalBoards !== 1 ? 's' : '' }} practiced</span>
+      <!-- Overall summary -->
+      <div class="overall-summary">
+        <div class="overall-label">Overall</div>
+        <div class="overall-trend">
+          <span class="pct early">{{ data.overallEarlyPct }}%</span>
+          <span class="arrow">&#8594;</span>
+          <span class="pct recent">{{ data.overallRecentPct }}%</span>
+          <span class="delta" :class="deltaClass(data.overallRecentPct - data.overallEarlyPct)">
+            {{ formatDelta(data.overallRecentPct - data.overallEarlyPct) }}
+          </span>
         </div>
-        <div class="day-lessons">
-          <div v-for="lesson in day.lessons" :key="lesson.subfolder" class="day-lesson-row">
-            <span class="day-lesson-name">{{ formatLessonName(lesson.subfolder) }}</span>
-            <div class="day-lesson-counts">
-              <span v-if="lesson.correctCount" class="count count-correct">{{ lesson.correctCount }}</span>
-              <span v-if="lesson.incorrectCount" class="count count-incorrect">{{ lesson.incorrectCount }}</span>
-            </div>
+        <div class="overall-bars">
+          <div class="bar-pair">
+            <div class="bar-label">Early</div>
+            <div class="bar-track"><div class="bar-fill early" :style="{ width: data.overallEarlyPct + '%' }"></div></div>
+          </div>
+          <div class="bar-pair">
+            <div class="bar-label">Now</div>
+            <div class="bar-track"><div class="bar-fill recent" :style="{ width: data.overallRecentPct + '%' }"></div></div>
+          </div>
+        </div>
+        <div class="overall-count">{{ data.totalBoardsAnalyzed }} boards analyzed</div>
+      </div>
+
+      <!-- Per-skill cards -->
+      <div v-for="skill in data.skillLearning" :key="skill.skillPath" class="skill-card">
+        <div class="skill-header" @click="toggleSkill(skill.skillPath)">
+          <div class="skill-info">
+            <span class="skill-name">{{ skill.skillName }}</span>
+            <span class="skill-meta">{{ skill.boardCount }} board{{ skill.boardCount !== 1 ? 's' : '' }} &middot; {{ skill.earlyPct }}% &#8594; {{ skill.recentPct }}%</span>
+          </div>
+          <span class="skill-delta" :class="deltaClass(skill.improvement)">
+            {{ formatDelta(skill.improvement) }}
+          </span>
+        </div>
+
+        <!-- Board details (expanded) -->
+        <div v-if="expandedSkills.has(skill.skillPath)" class="skill-boards">
+          <div
+            v-for="board in skill.boards"
+            :key="board.subfolder + board.number"
+            class="board-row"
+          >
+            <span class="board-name">{{ formatLesson(board.subfolder) }} #{{ board.number }}</span>
+            <span class="board-attempts">{{ board.attempts }}x</span>
+            <span class="board-trend">{{ board.earlyPct }}% &#8594; {{ board.recentPct }}%</span>
+            <span class="board-delta" :class="deltaClass(board.improvement)">
+              {{ formatDelta(board.improvement) }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Collapsed preview: top improved boards -->
+        <div v-else-if="skill.boards.length > 0" class="skill-preview">
+          <div
+            v-for="board in topBoards(skill.boards)"
+            :key="board.subfolder + board.number"
+            class="preview-row"
+          >
+            <span class="preview-name">{{ formatLesson(board.subfolder) }} #{{ board.number }}:</span>
+            <span class="preview-trend">{{ board.earlyPct }}% &#8594; {{ board.recentPct }}%</span>
+          </div>
+          <div v-if="skill.boards.length > 3" class="preview-more" @click="toggleSkill(skill.skillPath)">
+            +{{ skill.boards.length - 3 }} more boards...
           </div>
         </div>
       </div>
 
-      <div class="observation-total">{{ progress.totalObservations.value }} observations</div>
-
       <!-- Actions -->
       <div class="dashboard-actions">
-        <button class="secondary-btn" @click="refresh">
-          Refresh Data
-        </button>
-        <button class="primary-btn" @click="$emit('close')">
-          Continue Practicing
-        </button>
+        <button class="secondary-btn" @click="refresh">Refresh Data</button>
+        <button class="primary-btn" @click="$emit('close')">Continue Practicing</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue'
-import { useStudentProgress } from '../composables/useStudentProgress.js'
+import { ref, computed, onMounted } from 'vue'
+import { useLearningProgress } from '../composables/useLearningProgress.js'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
 
-const emit = defineEmits(['close'])
+defineEmits(['close'])
 
-const progress = useStudentProgress()
+const learning = useLearningProgress()
 const accomplishments = useAccomplishments()
+const expandedSkills = ref(new Set())
+
+const data = computed(() => learning.learningData.value)
 
 onMounted(async () => {
-  await progress.fetchProgress()
+  await learning.fetchProgress()
 })
 
 async function refresh() {
-  await progress.fetchProgress(true)
+  await learning.fetchProgress(true)
 }
 
-/**
- * Day-by-day progress: for each practice day, show lessons and per-board correct/incorrect.
- * Only counts each board once per day (correct if all observations for that board that day were correct).
- * Limited to 10 most recent practice days.
- */
-const dailyProgress = computed(() => {
-  const byDate = progress.getObservationsByDate()
-  const dates = Object.keys(byDate).sort().reverse().slice(0, 10)
-
-  return dates.map(date => {
-    const dayObs = byDate[date]
-
-    // Group by subfolder, then by board number
-    const lessonMap = {}
-    for (const obs of dayObs) {
-      const subfolder = obs.deal_subfolder || obs.deal?.subfolder
-      const boardNum = obs.deal_number ?? obs.deal?.deal_number
-      if (!subfolder || boardNum == null) continue
-
-      if (!lessonMap[subfolder]) {
-        lessonMap[subfolder] = {}
-      }
-      if (!lessonMap[subfolder][boardNum]) {
-        lessonMap[subfolder][boardNum] = []
-      }
-      lessonMap[subfolder][boardNum].push(obs)
-    }
-
-    // For each lesson, count boards correct vs incorrect for that day
-    const lessons = Object.entries(lessonMap)
-      .map(([subfolder, boards]) => {
-        let correctCount = 0
-        let incorrectCount = 0
-        for (const boardObs of Object.values(boards)) {
-          // A board is "correct" for the day if all observations that day were correct
-          const allCorrect = boardObs.every(o => o.correct)
-          if (allCorrect) {
-            correctCount++
-          } else {
-            incorrectCount++
-          }
-        }
-        return { subfolder, correctCount, incorrectCount }
-      })
-      .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
-
-    const totalBoards = lessons.reduce((sum, l) => sum + l.correctCount + l.incorrectCount, 0)
-
-    return { date, lessons, totalBoards }
-  })
-})
-
-function formatLessonName(folderName) {
-  return accomplishments.formatLessonName(folderName)
+function toggleSkill(skillPath) {
+  const next = new Set(expandedSkills.value)
+  if (next.has(skillPath)) {
+    next.delete(skillPath)
+  } else {
+    next.add(skillPath)
+  }
+  expandedSkills.value = next
 }
 
-function formatDate(dateStr) {
-  const date = new Date(dateStr + 'T00:00:00')
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
+function topBoards(boards) {
+  return boards.slice(0, 3)
+}
 
-  const todayStr = today.toISOString().split('T')[0]
-  const yesterdayStr = yesterday.toISOString().split('T')[0]
+function formatLesson(subfolder) {
+  return accomplishments.formatLessonName(subfolder)
+}
 
-  if (dateStr === todayStr) return 'Today'
-  if (dateStr === yesterdayStr) return 'Yesterday'
+function formatDelta(value) {
+  if (value > 0) return '+' + value
+  if (value < 0) return '' + value
+  return '0'
+}
 
-  return date.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric'
-  })
+function deltaClass(value) {
+  if (value > 0) return 'positive'
+  if (value < 0) return 'negative'
+  return 'neutral'
 }
 </script>
 
@@ -172,6 +177,7 @@ function formatDate(dateStr) {
   top: 0;
   background: white;
   z-index: 10;
+  border-radius: 12px 12px 0 0;
 }
 
 .dashboard-header h2 {
@@ -216,15 +222,10 @@ function formatDate(dateStr) {
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-.error-state {
-  color: #d32f2f;
-}
-
+.error-state { color: #d32f2f; }
 .error-state button {
   margin-top: 16px;
   padding: 8px 16px;
@@ -235,94 +236,223 @@ function formatDate(dateStr) {
   cursor: pointer;
 }
 
-.empty-state h3 {
-  color: #666;
+.empty-state h3 { color: #666; margin-bottom: 8px; }
+.empty-state p { color: #999; margin-bottom: 8px; }
+.empty-hint { font-size: 13px; margin-bottom: 20px; }
+
+/* Overall summary */
+.overall-summary {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.overall-label {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #999;
+  margin-bottom: 6px;
+}
+
+.overall-trend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.pct {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.pct.early { color: #999; }
+.pct.recent { color: #333; }
+
+.arrow {
+  color: #bbb;
+  font-size: 18px;
+}
+
+.delta {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.delta.positive { background: #e8f5e9; color: #2e7d32; }
+.delta.negative { background: #ffebee; color: #c62828; }
+.delta.neutral { background: #f5f5f5; color: #999; }
+
+.overall-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   margin-bottom: 8px;
 }
 
-.empty-state p {
-  color: #999;
-  margin-bottom: 20px;
+.bar-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-/* Day cards */
-.day-card {
+.bar-label {
+  font-size: 11px;
+  color: #999;
+  width: 32px;
+  text-align: right;
+}
+
+.bar-track {
+  flex: 1;
+  height: 8px;
+  background: #e8e8e8;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.bar-fill.early { background: #bdbdbd; }
+.bar-fill.recent { background: #4caf50; }
+
+.overall-count {
+  font-size: 12px;
+  color: #999;
+  text-align: center;
+}
+
+/* Skill cards */
+.skill-card {
   background: #fafafa;
   border-radius: 8px;
-  padding: 12px 14px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
 }
 
-.day-header {
+.skill-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-.day-date {
-  font-weight: 600;
+.skill-header:hover {
+  background: #f0f0f0;
+}
+
+.skill-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skill-name {
   font-size: 14px;
+  font-weight: 600;
   color: #333;
 }
 
-.day-summary {
+.skill-meta {
   font-size: 12px;
   color: #999;
 }
 
-.day-lessons {
+.skill-delta {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.skill-delta.positive { background: #e8f5e9; color: #2e7d32; }
+.skill-delta.negative { background: #ffebee; color: #c62828; }
+.skill-delta.neutral { background: #f5f5f5; color: #999; }
+
+/* Board details (expanded) */
+.skill-boards {
+  padding: 0 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.day-lesson-row {
+.board-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 4px 8px;
   background: white;
   border-radius: 4px;
+  font-size: 13px;
 }
 
-.day-lesson-name {
-  font-size: 13px;
+.board-name {
+  flex: 1;
   color: #555;
 }
 
-.day-lesson-counts {
-  display: flex;
-  gap: 6px;
+.board-attempts {
+  color: #bbb;
+  font-size: 11px;
 }
 
-.count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 11px;
+.board-trend {
+  color: #666;
+  font-size: 12px;
+}
+
+.board-delta {
   font-size: 12px;
   font-weight: 600;
+  min-width: 36px;
+  text-align: right;
 }
 
-.count-correct {
-  background: #4caf50;
-  color: white;
+.board-delta.positive { color: #2e7d32; }
+.board-delta.negative { color: #c62828; }
+.board-delta.neutral { color: #999; }
+
+/* Collapsed preview */
+.skill-preview {
+  padding: 0 14px 10px;
 }
 
-.count-incorrect {
-  background: #ef5350;
-  color: white;
-}
-
-.observation-total {
-  text-align: center;
+.preview-row {
   font-size: 12px;
+  color: #777;
+  padding: 2px 0;
+}
+
+.preview-name {
   color: #999;
-  margin-top: 12px;
+}
+
+.preview-trend {
+  color: #555;
+}
+
+.preview-more {
+  font-size: 12px;
+  color: #667eea;
+  cursor: pointer;
+  padding-top: 2px;
+}
+
+.preview-more:hover {
+  text-decoration: underline;
 }
 
 /* Actions */
