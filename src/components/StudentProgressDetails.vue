@@ -26,13 +26,13 @@
         <g v-for="(dn, i) in boardNums" :key="'label-' + dn">
           <rect
             :x="2" :y="PAD.t + i * BOARD_H + 3"
-            :width="Y_LABEL_W - 6" :height="BOARD_H - 6"
+            :width="Y_LABEL_W - 14" :height="BOARD_H - 6"
             rx="3"
             :fill="boardLabelColor(dn)"
             :fill-opacity="hasBoardData(dn) ? 0.12 : 0.05"
           />
           <text
-            :x="Y_LABEL_W - 8"
+            :x="Y_LABEL_W - 16"
             :y="PAD.t + i * BOARD_H + BOARD_H / 2 + 4"
             text-anchor="end" font-size="13"
             :fill="boardLabelColor(dn)"
