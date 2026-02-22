@@ -228,18 +228,47 @@ function parseSingleBoard(text) {
   // Preserve metadata for display/reference
   const metadata = metadataBlocks;
 
+  // Parse [Note "N:text"] tags for alert descriptions
+  const notes = {};
+  const noteRe = /\[Note\s+"(\d+):([^"]*)"\]/g;
+  let nm;
+  while ((nm = noteRe.exec(text)) !== null) notes[nm[1]] = nm[2];
+
   let auctionBids = [];
-  const auctionTagMatch = text.match(/\[Auction\s+"([NESW])"\]\s*\n([\s\S]*?)(?=\n\[|\n\{|$)/);
+  const auctionTagMatch = text.match(/\[Auction\s+"([NESW])"\]\s*\n([\s\S]*?)(?=\n\[(?!Note)|\n\{|$)/);
   if (auctionTagMatch) {
-    auctionBids = auctionTagMatch[2].trim().split(/\s+/)
-      .filter(b => b && !b.match(/^=\d+=$/)) // filter =1= style annotations
-      .filter(b => b !== "=" && !b.startsWith("="))
-      .map(b => {
-        if (b.toLowerCase() === "pass") return "Pass";
-        if (b.toLowerCase() === "dbl" || b.toLowerCase() === "double" || b.toLowerCase() === "x") return "Dbl";
-        if (b.toLowerCase() === "rdbl" || b.toLowerCase() === "redouble" || b.toLowerCase() === "xx") return "Rdbl";
-        return b;
-      });
+    const tokens = auctionTagMatch[2].trim().split(/\s+/).filter(Boolean);
+    // Walk tokens, pairing bids with =N= alert annotations
+    let i = 0;
+    while (i < tokens.length) {
+      const tok = tokens[i];
+      // Skip $N NAG annotations
+      if (/^\$\d+$/.test(tok)) { i++; continue; }
+      // Skip bare = or =N= (handled as lookahead below)
+      if (/^=\d*=?$/.test(tok)) { i++; continue; }
+      // Expand AP (All Pass) into 3 passes
+      if (tok === "AP") {
+        auctionBids.push({ bid: "Pass" }, { bid: "Pass" }, { bid: "Pass" });
+        i++; continue;
+      }
+      // Normalize bid
+      let bid;
+      const lo = tok.toLowerCase();
+      if (lo === "pass") bid = "Pass";
+      else if (lo === "dbl" || lo === "double" || lo === "x") bid = "Dbl";
+      else if (lo === "rdbl" || lo === "redouble" || lo === "xx") bid = "Rdbl";
+      else bid = tok;
+      // Check if next token is an =N= alert annotation
+      const entry = { bid };
+      if (i + 1 < tokens.length && /^=(\d+)=$/.test(tokens[i + 1])) {
+        const noteNum = tokens[i + 1].match(/^=(\d+)=$/)[1];
+        if (notes[noteNum]) entry.alert = notes[noteNum];
+        else entry.alert = "";
+        i++; // skip the =N= token
+      }
+      auctionBids.push(entry);
+      i++;
+    }
   }
   return {
     event: tags.Event || "", board: tags.Board || "",
@@ -315,7 +344,20 @@ function exportBoard(board) {
   if (board.skillPath) lines.push(`[SkillPath "${board.skillPath}"]`);
   if (board.auction.length) {
     lines.push(`[Auction "${board.dealer}"]`);
-    lines.push(board.auction.join(" "));
+    // Build auction line with =N= alert annotations
+    let alertNum = 0;
+    const alertNotes = [];
+    const bidTokens = board.auction.map(entry => {
+      const tok = entry.bid;
+      if (entry.alert != null && entry.alert !== undefined) {
+        alertNum++;
+        alertNotes.push(`[Note "${alertNum}:${entry.alert}"]`);
+        return `${tok} =${alertNum}=`;
+      }
+      return tok;
+    });
+    lines.push(bidTokens.join(" "));
+    alertNotes.forEach(n => lines.push(n));
   }
   if (board.scenes && board.scenes.length > 0) {
     const commentary = scenesToCommentary(board.scenes);
@@ -534,16 +576,26 @@ function BoardDiagram({ hands, visibility, compact, onSwapCards, highlightedCard
 }
 
 // ── Auction Display ────────────────────────────────────────────────
-function AuctionDisplay({ auction, dealer, compact }) {
+// auction entries are { bid, alert? } objects (or plain strings for legacy/preview "?" bids)
+function AuctionDisplay({ auction, dealer, compact, onBidClick }) {
   if (!auction.length) return (
     <div style={{ color: "#94a3b8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: 6 }}>
       No auction
     </div>
   );
+  // Build alert number map (only alerted bids get sequential numbers)
+  let alertNum = 0;
+  const alertMap = auction.map(entry => {
+    const e = typeof entry === "string" ? { bid: entry } : entry;
+    if (e.alert != null) { alertNum++; return { ...e, alertNum }; }
+    return e;
+  });
+
   const dealerIdx = SEATS.indexOf(dealer);
   const cells = [];
   for (let i = 0; i < dealerIdx; i++) cells.push(<td key={`e${i}`}></td>);
-  auction.forEach((bid, i) => {
+  alertMap.forEach((entry, i) => {
+    const bid = entry.bid;
     const isQuestion = bid === "?";
     let display = isQuestion ? "?" : bid.replace(/(\d)S/g, "$1♠").replace(/(\d)H/g, "$1♥")
       .replace(/(\d)D/g, "$1♦").replace(/(\d)C/g, "$1♣");
@@ -556,30 +608,239 @@ function AuctionDisplay({ auction, dealer, compact }) {
     else if (/\dD/.test(bid)) color = SUIT_COLORS.D;
     else if (bid.includes("C") && !bid.startsWith("Pa")) color = SUIT_COLORS.C;
     else if (/\dS/.test(bid)) color = SUIT_COLORS.S;
+    const clickable = onBidClick && !isQuestion;
     cells.push(
       <td key={i} style={{
         padding: compact ? "1px 4px" : "2px 6px", fontWeight: 600, color,
         fontSize: isQuestion ? (compact ? 14 : 16) : (compact ? 12 : 13),
         fontFamily: "'JetBrains Mono', monospace", textAlign: "center",
-        background,
-      }}>{display}</td>
+        background, cursor: clickable ? "pointer" : "default",
+        position: "relative",
+      }} onClick={clickable ? () => onBidClick(i) : undefined}>
+        {display}
+        {entry.alertNum && (
+          <sup style={{
+            fontSize: 8, fontWeight: 700, color: "#dc2626",
+            position: "absolute", top: 0, right: 0,
+          }}>{entry.alertNum}</sup>
+        )}
+      </td>
     );
   });
   const rows = [];
   for (let i = 0; i < cells.length; i += 4) {
     rows.push(<tr key={i}>{cells.slice(i, i + 4)}{Array.from({ length: Math.max(0, 4 - (cells.length - i)) }, (_, j) => <td key={`p${j}`}></td>)}</tr>);
   }
+  // Collect alert footnotes
+  const footnotes = alertMap.filter(e => e.alertNum);
   return (
-    <table style={{ borderCollapse: "collapse", width: "100%" }}>
-      <thead><tr>{SEATS.map(s => (
-        <th key={s} style={{
-          padding: "2px 6px", fontSize: 10, fontWeight: 700, color: "#64748b",
-          textTransform: "uppercase", letterSpacing: "0.05em",
-          borderBottom: "1px solid #e2e8f0", fontFamily: "'DM Sans', sans-serif",
-        }}>{s}</th>
-      ))}</tr></thead>
-      <tbody>{rows}</tbody>
-    </table>
+    <div>
+      <table style={{ borderCollapse: "collapse", width: "100%" }}>
+        <thead><tr>{SEATS.map(s => (
+          <th key={s} style={{
+            padding: "2px 6px", fontSize: 10, fontWeight: 700, color: "#64748b",
+            textTransform: "uppercase", letterSpacing: "0.05em",
+            borderBottom: "1px solid #e2e8f0", fontFamily: "'DM Sans', sans-serif",
+          }}>{s}</th>
+        ))}</tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+      {footnotes.length > 0 && (
+        <div style={{ padding: "4px 6px", fontSize: 11, color: "#64748b", borderTop: "1px solid #f1f5f9" }}>
+          {footnotes.map(f => (
+            <div key={f.alertNum} style={{ lineHeight: 1.4 }}>
+              <span style={{ color: "#dc2626", fontWeight: 700 }}>{f.alertNum}</span>: {f.alert}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Alert Dialog ───────────────────────────────────────────────────
+function AlertDialog({ bid, alert, onSave, onClear, onClose }) {
+  const [text, setText] = useState(alert || "");
+  const inputRef = useRef(null);
+  useEffect(() => { inputRef.current?.focus(); }, []);
+  const bidDisplay = bid.replace(/(\d)S/g, "$1♠").replace(/(\d)H/g, "$1♥")
+    .replace(/(\d)D/g, "$1♦").replace(/(\d)C/g, "$1♣");
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(15,23,42,0.4)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 110,
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: "#fff", borderRadius: 10, padding: 16, width: 320,
+        boxShadow: "0 12px 40px rgba(0,0,0,0.15)", fontFamily: "'DM Sans', sans-serif",
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", marginBottom: 10 }}>
+          Alert for <span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{bidDisplay}</span>
+        </div>
+        <input ref={inputRef} value={text} onChange={e => setText(e.target.value)}
+          placeholder="e.g. 8 or more HCP"
+          onKeyDown={e => { if (e.key === "Enter") { onSave(text); } if (e.key === "Escape") onClose(); }}
+          style={{
+            width: "100%", padding: "8px 10px", fontSize: 13, borderRadius: 6,
+            border: "1.5px solid #e2e8f0", outline: "none", fontFamily: "'DM Sans', sans-serif",
+            boxSizing: "border-box",
+          }} />
+        <div style={{ display: "flex", gap: 6, marginTop: 10, justifyContent: "flex-end" }}>
+          {alert != null && (
+            <button onClick={onClear} style={{
+              padding: "6px 12px", borderRadius: 5, border: "1px solid #fca5a5",
+              background: "#fef2f2", color: "#dc2626", fontSize: 12, fontWeight: 600,
+              cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}>Remove</button>
+          )}
+          <button onClick={onClose} style={{
+            padding: "6px 12px", borderRadius: 5, border: "1px solid #e2e8f0",
+            background: "#fff", color: "#64748b", fontSize: 12, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Cancel</button>
+          <button onClick={() => onSave(text)} style={{
+            padding: "6px 12px", borderRadius: 5, border: "none",
+            background: "#3b82f6", color: "#fff", fontSize: 12, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Save</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Auction Editor ─────────────────────────────────────────────────
+const BID_LEVELS = [1, 2, 3, 4, 5, 6, 7];
+const BID_SUITS = ["C", "D", "H", "S", "NT"];
+const SUIT_DISPLAY = { C: "♣", D: "♦", H: "♥", S: "♠", NT: "NT" };
+const SUIT_BTN_COLORS = { C: "#065f46", D: "#dc2626", H: "#dc2626", S: "#1e3a5f", NT: "#334155" };
+
+function AuctionEditor({ auction, dealer, onSave, onClose }) {
+  const [bids, setBids] = useState(() => auction.map(e => typeof e === "string" ? { bid: e } : { ...e }));
+
+  // Determine what bids are legal (must be higher than last real bid)
+  const lastRealBid = useMemo(() => {
+    for (let i = bids.length - 1; i >= 0; i--) {
+      const b = bids[i].bid;
+      if (b !== "Pass" && b !== "Dbl" && b !== "Rdbl") return b;
+    }
+    return null;
+  }, [bids]);
+
+  const lastBidLevel = lastRealBid ? parseInt(lastRealBid[0]) : 0;
+  const lastBidSuitIdx = lastRealBid ? BID_SUITS.indexOf(lastRealBid.slice(1)) : -1;
+
+  const canBid = (level, suit) => {
+    if (level > lastBidLevel) return true;
+    if (level === lastBidLevel && BID_SUITS.indexOf(suit) > lastBidSuitIdx) return true;
+    return false;
+  };
+
+  // Can double: last non-pass bid was by opponents (odd distance), not already doubled
+  const canDbl = useMemo(() => {
+    let dist = 0;
+    for (let i = bids.length - 1; i >= 0; i--) {
+      const b = bids[i].bid;
+      if (b === "Pass") { dist++; continue; }
+      if (b === "Dbl" || b === "Rdbl") return false;
+      return dist % 2 === 0; // opponent's bid
+    }
+    return false;
+  }, [bids]);
+
+  const canRdbl = useMemo(() => {
+    let dist = 0;
+    for (let i = bids.length - 1; i >= 0; i--) {
+      const b = bids[i].bid;
+      if (b === "Pass") { dist++; continue; }
+      if (b === "Rdbl") return false;
+      if (b === "Dbl") return dist % 2 === 0;
+      return false;
+    }
+    return false;
+  }, [bids]);
+
+  const addBid = (bid) => setBids(prev => [...prev, { bid }]);
+  const removeLast = () => setBids(prev => prev.slice(0, -1));
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+    }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: "#fff", borderRadius: 12, padding: 20, width: 380,
+        boxShadow: "0 12px 40px rgba(0,0,0,0.2)", fontFamily: "'DM Sans', sans-serif",
+      }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#0f172a", marginBottom: 12 }}>Edit Auction</div>
+
+        {/* Current auction display */}
+        <div style={{ marginBottom: 12, background: "#f8fafc", borderRadius: 8, padding: 8, minHeight: 50 }}>
+          <AuctionDisplay auction={bids} dealer={dealer} compact />
+        </div>
+
+        {/* Bidding box grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 3, marginBottom: 10 }}>
+          {BID_LEVELS.map(level => BID_SUITS.map(suit => {
+            const bid = `${level}${suit}`;
+            const enabled = canBid(level, suit);
+            const suitColor = SUIT_BTN_COLORS[suit];
+            return (
+              <button key={bid} onClick={() => enabled && addBid(bid)} disabled={!enabled}
+                style={{
+                  padding: "6px 2px", borderRadius: 4, border: "1px solid #e2e8f0",
+                  background: enabled ? "#fff" : "#f1f5f9", color: enabled ? suitColor : "#cbd5e1",
+                  fontSize: 12, fontWeight: 700, cursor: enabled ? "pointer" : "default",
+                  fontFamily: "'JetBrains Mono', monospace", opacity: enabled ? 1 : 0.4,
+                }}>
+                {level}{SUIT_DISPLAY[suit]}
+              </button>
+            );
+          }))}
+        </div>
+
+        {/* Special bids */}
+        <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+          <button onClick={() => addBid("Pass")} style={{
+            flex: 1, padding: "8px", borderRadius: 5, border: "1px solid #e2e8f0",
+            background: "#f0fdf4", color: "#16a34a", fontSize: 13, fontWeight: 700,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Pass</button>
+          <button onClick={() => canDbl && addBid("Dbl")} disabled={!canDbl} style={{
+            flex: 1, padding: "8px", borderRadius: 5, border: "1px solid #e2e8f0",
+            background: canDbl ? "#fef2f2" : "#f8fafc", color: canDbl ? "#dc2626" : "#cbd5e1",
+            fontSize: 13, fontWeight: 700, cursor: canDbl ? "pointer" : "default",
+            fontFamily: "'DM Sans', sans-serif", opacity: canDbl ? 1 : 0.4,
+          }}>Dbl</button>
+          <button onClick={() => canRdbl && addBid("Rdbl")} disabled={!canRdbl} style={{
+            flex: 1, padding: "8px", borderRadius: 5, border: "1px solid #e2e8f0",
+            background: canRdbl ? "#eff6ff" : "#f8fafc", color: canRdbl ? "#2563eb" : "#cbd5e1",
+            fontSize: 13, fontWeight: 700, cursor: canRdbl ? "pointer" : "default",
+            fontFamily: "'DM Sans', sans-serif", opacity: canRdbl ? 1 : 0.4,
+          }}>Rdbl</button>
+          <button onClick={removeLast} disabled={bids.length === 0} style={{
+            padding: "8px 12px", borderRadius: 5, border: "1px solid #e2e8f0",
+            background: bids.length ? "#fff" : "#f8fafc", color: bids.length ? "#64748b" : "#cbd5e1",
+            fontSize: 13, fontWeight: 700, cursor: bids.length ? "pointer" : "default",
+            fontFamily: "'DM Sans', sans-serif",
+          }}>⌫</button>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{
+            padding: "8px 16px", borderRadius: 6, border: "1px solid #e2e8f0",
+            background: "#fff", color: "#64748b", fontSize: 13, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Cancel</button>
+          <button onClick={() => { onSave(bids); onClose(); }} style={{
+            padding: "8px 16px", borderRadius: 6, border: "none",
+            background: "#3b82f6", color: "#fff", fontSize: 13, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Done</button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1204,6 +1465,8 @@ function BridgeCurator() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
+  const [showAuctionEditor, setShowAuctionEditor] = useState(false);
+  const [alertBidIdx, setAlertBidIdx] = useState(null); // index into auction for alert dialog
   const [dirty, setDirty] = useState(false);
   const [stickyTemplate, setStickyTemplate] = useState(null);
   const [stickyCategory, setStickyCategory] = useState("");
@@ -1274,7 +1537,8 @@ function BridgeCurator() {
 
     // Walk through auction
     for (let i = 0; i < auction.length; i++) {
-      const bid = auction[i];
+      const entry = auction[i];
+      const bid = typeof entry === "string" ? entry : entry.bid;
       const bidderIdx = (dealerIdx + i) % 4;
       const isStudent = bidderIdx === studentIdx;
 
@@ -1936,9 +2200,17 @@ function BridgeCurator() {
 
             {/* Auction */}
             <div style={panelStyle}>
-              <div style={panelHdr}>Auction</div>
+              <div style={{ ...panelHdr, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                Auction
+                <button onClick={() => setShowAuctionEditor(true)} style={{
+                  padding: "2px 8px", borderRadius: 4, border: "1px solid #e2e8f0",
+                  background: "#fff", color: "#64748b", fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}>Edit</button>
+              </div>
               <div style={{ padding: 8 }}>
-                <AuctionDisplay auction={board.auction} dealer={board.dealer} />
+                <AuctionDisplay auction={board.auction} dealer={board.dealer}
+                  onBidClick={(idx) => setAlertBidIdx(idx)} />
               </div>
             </div>
 
@@ -2126,6 +2398,42 @@ function BridgeCurator() {
       )}
       {showPreview && board && (
         <PreviewMode board={board} onClose={() => setShowPreview(false)} />
+      )}
+      {showAuctionEditor && board && (
+        <AuctionEditor
+          auction={board.auction}
+          dealer={board.dealer}
+          onSave={(newAuction) => {
+            updateBoard({ auction: newAuction });
+            setDirty(true);
+          }}
+          onClose={() => setShowAuctionEditor(false)}
+        />
+      )}
+      {alertBidIdx !== null && board && board.auction[alertBidIdx] && (
+        <AlertDialog
+          bid={board.auction[alertBidIdx].bid}
+          alert={board.auction[alertBidIdx].alert}
+          onSave={(text) => {
+            const newAuction = board.auction.map((e, i) =>
+              i === alertBidIdx ? { ...e, alert: text } : e
+            );
+            updateBoard({ auction: newAuction });
+            setDirty(true);
+            setAlertBidIdx(null);
+          }}
+          onClear={() => {
+            const newAuction = board.auction.map((e, i) => {
+              if (i !== alertBidIdx) return e;
+              const { alert, ...rest } = e;
+              return rest;
+            });
+            updateBoard({ auction: newAuction });
+            setDirty(true);
+            setAlertBidIdx(null);
+          }}
+          onClose={() => setAlertBidIdx(null)}
+        />
       )}
     </div>
   );
