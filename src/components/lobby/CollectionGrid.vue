@@ -10,6 +10,10 @@
         @click="$emit('select-collection', collection.id)"
       />
     </div>
+    <div v-if="appConfig.showLoadPbnOption.value" class="load-file-section">
+      <p>Or load your own PBN file:</p>
+      <input type="file" accept=".pbn" @change="$emit('load-file', $event)" />
+    </div>
   </div>
 </template>
 
@@ -17,7 +21,7 @@
 import { useAppConfig } from '../../composables/useAppConfig.js'
 import CollectionCard from './CollectionCard.vue'
 
-defineEmits(['select-collection'])
+defineEmits(['select-collection', 'load-file'])
 
 const appConfig = useAppConfig()
 const collections = appConfig.COLLECTIONS
@@ -46,5 +50,17 @@ const collections = appConfig.COLLECTIONS
   flex-wrap: wrap;
   gap: 16px;
   justify-content: center;
+}
+
+.load-file-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.load-file-section p {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #888;
 }
 </style>

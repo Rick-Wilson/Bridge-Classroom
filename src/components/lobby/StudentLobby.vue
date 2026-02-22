@@ -6,7 +6,7 @@
       :loading="assignmentsLoading"
       @select-assignment="handleSelectAssignment"
     />
-    <CollectionGrid @select-collection="$emit('select-collection', $event)" />
+    <CollectionGrid @select-collection="$emit('select-collection', $event)" @load-file="$emit('load-file', $event)" />
   </div>
 </template>
 
@@ -17,7 +17,7 @@ import { useAssignments } from '../../composables/useAssignments.js'
 import CollectionGrid from './CollectionGrid.vue'
 import AssignmentPanel from './AssignmentPanel.vue'
 
-const emit = defineEmits(['select-collection'])
+const emit = defineEmits(['select-collection', 'load-file'])
 
 const userStore = useUserStore()
 const assignmentStore = useAssignments()

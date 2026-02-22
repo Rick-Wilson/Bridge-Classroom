@@ -59,7 +59,7 @@
     <!-- Lesson collections (teachers keep student features) -->
     <div class="collections-section">
       <h3 class="section-title">Lesson Collections</h3>
-      <CollectionGrid @select-collection="$emit('select-collection', $event)" />
+      <CollectionGrid @select-collection="$emit('select-collection', $event)" @load-file="$emit('load-file', $event)" />
     </div>
 
     <!-- Create classroom modal -->
@@ -93,7 +93,7 @@ defineProps({
   isAdmin: { type: Boolean, default: false }
 })
 
-defineEmits(['select-collection', 'show-admin'])
+defineEmits(['select-collection', 'show-admin', 'load-file'])
 
 const userStore = useUserStore()
 const dashboard = useTeacherDashboard()

@@ -63,6 +63,7 @@
         v-else-if="!deals.length && !currentCollection"
         @select-collection="selectCollection"
         @show-become-teacher="showBecomeTeacher = true"
+        @load-file="onFileSelect"
       />
 
       <!-- Collection selected but no lesson loaded yet - show lesson browser inline -->
