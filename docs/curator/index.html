@@ -636,6 +636,62 @@ function TagToolbar({ onInsert, textareaRef }) {
   );
 }
 
+// ── Highlighted Textarea (overlay approach) ───────────────────────
+const TAG_HIGHLIGHT_STYLES = {
+  BID: { color: "#92400e", background: "#fef3c7" },
+  "choose-card": { color: "#065f46", background: "#d1fae5" },
+  PLAY: { color: "#1e40af", background: "#dbeafe" },
+  showcards: { color: "#6b21a8", background: "#f3e8ff" },
+  NEXT: { color: "#475569", background: "#f1f5f9" },
+  ROTATE: { color: "#475569", background: "#f1f5f9" },
+  show: { color: "#475569", background: "#f1f5f9" },
+};
+const TAG_RE = /\[(BID|choose-card|PLAY|showcards|NEXT|ROTATE|show)(\s[^\]]*)?\]/gi;
+
+function HighlightedTextarea({ value, onChange, placeholder, textareaRef, style }) {
+  const backdropRef = useRef(null);
+  const handleScroll = (e) => {
+    if (backdropRef.current) {
+      backdropRef.current.scrollTop = e.target.scrollTop;
+      backdropRef.current.scrollLeft = e.target.scrollLeft;
+    }
+  };
+  const highlighted = useMemo(() => {
+    let html = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    html = html.replace(TAG_RE, (match, tag, rest) => {
+      const key = Object.keys(TAG_HIGHLIGHT_STYLES).find(k => k.toLowerCase() === tag.toLowerCase());
+      const s = key ? TAG_HIGHLIGHT_STYLES[key] : null;
+      if (!s) return match;
+      return `<span style="color:${s.color};background:${s.background};border-radius:3px;padding:0 2px;font-weight:600">${match}</span>`;
+    });
+    if (html.endsWith("\n")) html += " ";
+    return html;
+  }, [value]);
+  const shared = {
+    fontSize: style.fontSize, fontFamily: style.fontFamily, lineHeight: style.lineHeight,
+    padding: style.padding, boxSizing: "border-box", whiteSpace: "pre-wrap", wordWrap: "break-word",
+    overflowWrap: "break-word", letterSpacing: "normal", tabSize: 4,
+  };
+  return (
+    <div style={{ position: "relative", width: "100%", height: "100%", minHeight: style.minHeight }}>
+      <div ref={backdropRef} dangerouslySetInnerHTML={{ __html: highlighted }} style={{
+        ...shared, position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+        overflow: "hidden", pointerEvents: "none", color: "#1e293b",
+        background: style.background || "#fafbfc",
+        borderRadius: style.borderRadius, border: style.border,
+      }} />
+      <textarea ref={textareaRef} value={value} onChange={onChange} onScroll={handleScroll}
+        placeholder={placeholder} style={{
+        ...shared, width: "100%", height: "100%", minHeight: style.minHeight,
+        position: "relative", color: "transparent", caretColor: "#1e293b",
+        background: "transparent", borderRadius: style.borderRadius,
+        border: style.border, resize: style.resize,
+        outline: "none",
+      }} />
+    </div>
+  );
+}
+
 // ── Filtered Combo Box ─────────────────────────────────────────────
 function FilteredCombo({ value, onChange, options, placeholder, label }) {
   const [open, setOpen] = useState(false);
@@ -1831,8 +1887,8 @@ function BridgeCurator() {
                   />
                 </div>
                 <div style={{ flex: 1, padding: 12 }}>
-                  <textarea
-                    ref={textareaRef}
+                  <HighlightedTextarea
+                    textareaRef={textareaRef}
                     value={currentScene.text}
                     onChange={(e) => updateScene(activeScene, { text: e.target.value })}
                     placeholder="Write your instructional narrative here. Use the tag toolbar above to insert control tags inline, or type them directly."

@@ -560,6 +560,12 @@ async function onFileSelect(event) {
       currentDealIndex.value = 0
       practice.loadDeal(dealsWithCategory[0])
       practice.resetStats()
+
+      // Cache board numbers for mastery tracking (same as collection lessons)
+      const boardMastery = useBoardMastery()
+      boardMastery.saveLessonBoardNumbers(category, dealsWithCategory.map(d => d.boardNumber))
+
+      currentLesson.value = { id: category, name: category, category }
     } else {
       alert('No deals found in the PBN file')
     }
