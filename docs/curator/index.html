@@ -235,7 +235,7 @@ function parseSingleBoard(text) {
   while ((nm = noteRe.exec(text)) !== null) notes[nm[1]] = nm[2];
 
   let auctionBids = [];
-  const auctionTagMatch = text.match(/\[Auction\s+"([NESW])"\]\s*\n([\s\S]*?)(?=\n\[(?!Note)|\n\{|$)/);
+  const auctionTagMatch = text.match(/\[Auction\s+"([NESW])"\]\s*\n([\s\S]*?)(?=\n\[|\n\{|$)/);
   if (auctionTagMatch) {
     const tokens = auctionTagMatch[2].trim().split(/\s+/).filter(Boolean);
     // Walk tokens, pairing bids with =N= alert annotations
