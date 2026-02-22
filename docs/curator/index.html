@@ -330,8 +330,58 @@ function exportIncludedBoards(boards) {
 
 function formatText(text) {
   return text
-    .replace(/\\S/g, "♠").replace(/\\H/g, "♥").replace(/\\D/g, "♦").replace(/\\C/g, "♣")
-    .replace(/\\s/g, "♠").replace(/\\h/g, "♥").replace(/\\d/g, "♦").replace(/\\c/g, "♣");
+    .replace(/\\S/g, "\u2660").replace(/\\H/g, "\u2665").replace(/\\D/g, "\u2666").replace(/\\C/g, "\u2663")
+    .replace(/\\s/g, "\u2660").replace(/\\h/g, "\u2665").replace(/\\d/g, "\u2666").replace(/\\c/g, "\u2663");
+}
+
+// Rich text renderer: colored suits + highlighted tags (for preview)
+const SUIT_REPLACE_RE = /\\[SsDdHhCc]/g;
+const FORMATTED_TAG_RE = /\[(BID|choose-card|PLAY|showcards|NEXT|ROTATE|show)(\s[^\]]*)?\]/gi;
+const FORMATTED_SPLIT_RE = /(\\[SsDdHhCc]|\[(BID|choose-card|PLAY|showcards|NEXT|ROTATE|show)(?:\s[^\]]*)?\])/gi;
+
+function FormattedText({ text }) {
+  if (!text) return null;
+  const parts = text.split(FORMATTED_SPLIT_RE);
+  const result = [];
+  let i = 0;
+  // split produces: [before, match, captureGroup1, captureGroup2?, before, match, ...]
+  // Walk the original string instead for clean token extraction
+  const tokens = [];
+  let lastIndex = 0;
+  const combined = new RegExp(FORMATTED_SPLIT_RE.source, "gi");
+  let m;
+  while ((m = combined.exec(text)) !== null) {
+    if (m.index > lastIndex) tokens.push({ type: "text", value: text.slice(lastIndex, m.index) });
+    tokens.push({ type: "special", value: m[0] });
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < text.length) tokens.push({ type: "text", value: text.slice(lastIndex) });
+
+  return React.createElement(React.Fragment, null, tokens.map((tok, idx) => {
+    if (tok.type === "text") return React.createElement("span", { key: idx }, tok.value);
+    // Suit symbol
+    const suitMatch = tok.value.match(/^\\([SsDdHhCc])$/);
+    if (suitMatch) {
+      const ch = suitMatch[1].toUpperCase();
+      const sym = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" }[ch];
+      const color = (ch === "H" || ch === "D") ? "#c0392b" : "#1a3a5c";
+      return React.createElement("span", { key: idx, style: { color, fontWeight: 600 } }, sym);
+    }
+    // Control tag
+    const tagMatch = tok.value.match(/^\[(\w[\w-]*)/i);
+    if (tagMatch) {
+      const tag = tagMatch[1];
+      const key = Object.keys(TAG_HIGHLIGHT_STYLES).find(k => k.toLowerCase() === tag.toLowerCase());
+      const s = key ? TAG_HIGHLIGHT_STYLES[key] : null;
+      if (s) {
+        return React.createElement("span", { key: idx, style: {
+          color: s.color, background: s.background, borderRadius: 3, padding: "0 3px", fontWeight: 600,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: "0.9em",
+        }}, tok.value);
+      }
+    }
+    return React.createElement("span", { key: idx }, tok.value);
+  }));
 }
 
 // ── Card Component (draggable) ─────────────────────────────────────
@@ -635,6 +685,13 @@ function HighlightedTextarea({ value, onChange, placeholder, textareaRef, style 
       const s = key ? TAG_HIGHLIGHT_STYLES[key] : null;
       if (!s) return match;
       return `<span style="color:${s.color};background:${s.background};border-radius:3px;padding:0 2px;font-weight:600">${match}</span>`;
+    });
+    // Color suit symbols: hearts/diamonds red, spades/clubs dark
+    html = html.replace(/\\([SsHhDdCc])/g, (match, ch) => {
+      const u = ch.toUpperCase();
+      const sym = { S: "\u2660", H: "\u2665", D: "\u2666", C: "\u2663" }[u];
+      const color = (u === "H" || u === "D") ? "#c0392b" : "#1a3a5c";
+      return `<span style="color:${color};font-weight:600">${sym}</span>`;
     });
     if (html.endsWith("\n")) html += " ";
     return html;
@@ -979,7 +1036,7 @@ function PreviewMode({ board, onClose }) {
           whiteSpace: "pre-wrap",
           minHeight: 60,
         }}>
-          {formatText(scene.text.trim()) || <em style={{ color: "#94a3b8" }}>No narrative for this step.</em>}
+          {scene.text.trim() ? <FormattedText text={scene.text.trim()} /> : <em style={{ color: "#94a3b8" }}>No narrative for this step.</em>}
         </div>
 
 
