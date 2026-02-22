@@ -978,58 +978,63 @@ function TemplatePicker({ onSelect, onClose, stickyTemplate }) {
 }
 
 // ── Preview Mode ───────────────────────────────────────────────────
-// Split scene text into segments at pause-type controls ([BID ...], [choose-card ...])
-const PAUSE_RE = /\[(BID|choose-card)\s+([^\]]+)\]/gi;
-
-function splitSceneSegments(text) {
-  const segments = [];
+// Build a flat list of steps from all scenes. Pauses at [BID], [choose-card], [NEXT].
+// [show X] changes visibility silently. Scene boundaries without [NEXT] flow automatically.
+function buildPreviewSteps(scenes) {
+  const fullText = scenes.map(s => s.text).join("\n");
+  const steps = [];
   let lastIndex = 0;
-  const re = new RegExp(PAUSE_RE.source, "gi");
+  let currentVis = scenes[0]?.visibility || "NESW";
+  const re = /\[(BID|choose-card|NEXT)\s*([^\]]*)\]/gi;
   let m;
-  while ((m = re.exec(text)) !== null) {
-    // Text up to this control (strip [show], [NEXT], [ROTATE] from display)
-    const before = text.slice(lastIndex, m.index);
-    const type = m[1].toUpperCase() === "CHOOSE-CARD" ? "CARD" : m[1].toUpperCase();
-    segments.push({ text: before, pause: { type, value: m[2].trim() } });
+  while ((m = re.exec(fullText)) !== null) {
+    const textBefore = fullText.slice(lastIndex, m.index);
+    // Update visibility from any [show X] in this chunk
+    const showMatches = [...textBefore.matchAll(/\[show\s+([NESW]+)\]/gi)];
+    if (showMatches.length > 0) currentVis = showMatches[showMatches.length - 1][1].toUpperCase();
+    const rawType = m[1].toUpperCase();
+    const type = rawType === "CHOOSE-CARD" ? "CARD" : rawType;
+    steps.push({
+      text: textBefore,
+      pause: { type, value: (m[2] || "").trim() },
+      visibility: currentVis,
+    });
     lastIndex = m.index + m[0].length;
   }
-  // Remaining text after last pause (or all text if no pauses)
-  const remaining = text.slice(lastIndex);
-  segments.push({ text: remaining, pause: null });
-  return segments;
+  // Remaining text after last pause
+  const remaining = fullText.slice(lastIndex);
+  const showMatches = [...remaining.matchAll(/\[show\s+([NESW]+)\]/gi)];
+  if (showMatches.length > 0) currentVis = showMatches[showMatches.length - 1][1].toUpperCase();
+  steps.push({ text: remaining, pause: null, visibility: currentVis });
+  return steps;
 }
 
-// Helper to strip structural tags from display text
-function stripStructuralTags(text) {
-  return text.replace(/\[(show|NEXT|ROTATE|showcards)(\s[^\]]*)?\]/gi, "").trim();
+// Strip structural tags from display text (but not [BID]/[choose-card]/[NEXT] — those are already consumed)
+function stripDisplayTags(text) {
+  return text.replace(/\[(show|ROTATE|showcards)(\s[^\]]*)?\]/gi, "").trim();
 }
 
 function PreviewMode({ board, onClose }) {
-  const [sceneIdx, setSceneIdx] = useState(0);
-  const [segIdx, setSegIdx] = useState(0);
+  const [stepIdx, setStepIdx] = useState(0);
   const scenes = board.scenes || [];
-  const scene = scenes[sceneIdx] || scenes[0];
-  if (!scene) return null;
+  const steps = useMemo(() => buildPreviewSteps(scenes), [scenes]);
+  const step = steps[stepIdx] || steps[0];
+  if (!step) return null;
 
-  const segments = useMemo(() => splitSceneSegments(scene.text || ""), [scene.text]);
-  const currentPause = segments[segIdx] ? segments[segIdx].pause : null;
+  const currentPause = step.pause;
 
-  // Prior segments text (dimmed grey) and current segment text (normal)
-  const priorText = stripStructuralTags(segments.slice(0, segIdx).map(s => s.text).join(""));
-  const currentText = stripStructuralTags(segments[segIdx] ? segments[segIdx].text : "");
+  // Prior steps text (dimmed) and current step text (normal)
+  const priorText = stripDisplayTags(steps.slice(0, stepIdx).map(s => s.text).join(""));
+  const currentText = stripDisplayTags(step.text);
 
-  // Count resolved BID pauses across all scenes up to current position
+  // Count resolved BID pauses before current step
   const resolvedBids = useMemo(() => {
     let count = 0;
-    for (let si = 0; si <= sceneIdx; si++) {
-      const segs = si === sceneIdx ? segments : splitSceneSegments(scenes[si].text || "");
-      const limit = si === sceneIdx ? segIdx : segs.length;
-      for (let sgi = 0; sgi < limit; sgi++) {
-        if (segs[sgi].pause && segs[sgi].pause.type === "BID") count++;
-      }
+    for (let i = 0; i < stepIdx; i++) {
+      if (steps[i].pause && steps[i].pause.type === "BID") count++;
     }
     return count;
-  }, [scenes, sceneIdx, segIdx, segments]);
+  }, [steps, stepIdx]);
 
   // Build progressive auction: show bids up to current point, "?" for pending student bid
   const isAtBidPause = currentPause && currentPause.type === "BID";
@@ -1058,33 +1063,19 @@ function PreviewMode({ board, onClose }) {
     return result;
   }, [board.auction, board.dealer, board.student, resolvedBids, isAtBidPause]);
 
-  const canPrev = sceneIdx > 0 || segIdx > 0;
-  const canNextSeg = segIdx < segments.length - 1;
-  const canNextScene = sceneIdx < scenes.length - 1;
-  const isEnd = !canNextSeg && !canNextScene;
+  const canPrev = stepIdx > 0;
+  const isEnd = stepIdx >= steps.length - 1 && !currentPause;
 
   function advance() {
-    if (canNextSeg) {
-      setSegIdx(segIdx + 1);
-    } else if (canNextScene) {
-      setSceneIdx(sceneIdx + 1);
-      setSegIdx(0);
-    }
+    if (stepIdx < steps.length - 1) setStepIdx(stepIdx + 1);
   }
 
   function goBack() {
-    if (segIdx > 0) {
-      setSegIdx(segIdx - 1);
-    } else if (sceneIdx > 0) {
-      const prevScene = scenes[sceneIdx - 1];
-      const prevSegs = splitSceneSegments(prevScene.text || "");
-      setSceneIdx(sceneIdx - 1);
-      setSegIdx(prevSegs.length - 1);
-    }
+    if (stepIdx > 0) setStepIdx(stepIdx - 1);
   }
 
-  // Pause button styles by type
-  const pauseBtnStyle = currentPause ? {
+  // Pause button styles
+  const pauseBtnStyles = {
     BID: {
       background: "linear-gradient(135deg, #f59e0b, #d97706)",
       boxShadow: "0 2px 8px rgba(245,158,11,0.3)",
@@ -1093,11 +1084,18 @@ function PreviewMode({ board, onClose }) {
       background: "linear-gradient(135deg, #10b981, #059669)",
       boxShadow: "0 2px 8px rgba(16,185,129,0.3)",
     },
-  }[currentPause.type] || {} : {};
+    NEXT: {
+      background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+      boxShadow: "none",
+    },
+  };
+  const pauseStyle = currentPause ? (pauseBtnStyles[currentPause.type] || pauseBtnStyles.NEXT) : {};
 
-  const fmtPauseLabel = currentPause ? formatText(
-    (currentPause.type === "BID" ? "BID " : "Play ") + currentPause.value
-  ) : "";
+  const pauseLabel = currentPause
+    ? currentPause.type === "BID" ? formatText("BID " + currentPause.value)
+    : currentPause.type === "CARD" ? formatText("Play " + currentPause.value)
+    : "NEXT"
+    : "";
 
   return (
     <div style={{
@@ -1120,7 +1118,7 @@ function PreviewMode({ board, onClose }) {
               Student Preview
             </span>
             <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>
-              Board {board.board || "—"} · Scene {sceneIdx + 1} of {scenes.length}
+              Board {board.board || "—"}
             </span>
           </div>
           <button onClick={onClose} style={{
@@ -1130,9 +1128,9 @@ function PreviewMode({ board, onClose }) {
           }}>Close</button>
         </div>
 
-        {/* Board view */}
+        {/* Board view — visibility updates from [show] tags */}
         <div style={{ padding: "16px 20px" }}>
-          <BoardDiagram hands={board.hands} visibility={scene.visibility} compact />
+          <BoardDiagram hands={board.hands} visibility={step.visibility} compact />
         </div>
 
         {/* Auction — progressive */}
@@ -1175,20 +1173,21 @@ function PreviewMode({ board, onClose }) {
           {currentPause ? (
             <button onClick={advance} style={{
               padding: "8px 24px", borderRadius: 8, border: "none",
-              color: "#fff", fontWeight: 700, fontSize: 15,
-              fontFamily: "'JetBrains Mono', monospace",
+              color: "#fff", fontWeight: 700,
+              fontSize: currentPause.type === "NEXT" ? 13 : 15,
+              fontFamily: currentPause.type === "NEXT" ? "'DM Sans', sans-serif" : "'JetBrains Mono', monospace",
               cursor: "pointer",
-              ...pauseBtnStyle,
-            }}>{fmtPauseLabel}</button>
+              ...pauseStyle,
+            }}>{pauseLabel}{currentPause.type === "NEXT" ? " →" : ""}</button>
           ) : (
-            <button onClick={advance} disabled={isEnd}
+            <button disabled={isEnd}
               style={{
                 padding: "8px 20px", borderRadius: 6, border: "none",
-                background: !isEnd ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "#f1f5f9",
-                color: !isEnd ? "#fff" : "#cbd5e1",
-                fontSize: 13, fontWeight: 600, cursor: !isEnd ? "pointer" : "default",
+                background: "#f1f5f9",
+                color: "#cbd5e1",
+                fontSize: 13, fontWeight: 600, cursor: "default",
                 fontFamily: "'DM Sans', sans-serif",
-              }}>{canNextScene ? "NEXT →" : "End"}</button>
+              }}>End</button>
           )}
         </div>
       </div>
