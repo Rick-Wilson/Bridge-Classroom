@@ -70,58 +70,58 @@ const TEMPLATES = {
     name: "Bidding", icon: "🗣", desc: "Student makes bidding decisions",
     defaultStudent: "S",
     scenes: [
-      { visibility: "S", text: "", prompts: [], showcards: [], hint: "Set up the bidding problem. Add a [BID] prompt." },
-      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Explain the correct bid and reveal all hands." },
+      { visibility: "S", text: "", showcards: [], hint: "Set up the bidding problem. Add a [BID] prompt." },
+      { visibility: "NESW", text: "", showcards: [], hint: "Explain the correct bid and reveal all hands." },
     ],
   },
   declaring: {
     name: "Declaring", icon: "🃏", desc: "Student plays as declarer",
     defaultStudent: "S",
     scenes: [
-      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Describe the opening lead and initial plan." },
-      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Walk through card play with [choose-card] prompts." },
-      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Reveal all hands and explain the full line." },
+      { visibility: "NS", text: "", showcards: [], hint: "Describe the opening lead and initial plan." },
+      { visibility: "NS", text: "", showcards: [], hint: "Walk through card play with [choose-card] prompts." },
+      { visibility: "NESW", text: "", showcards: [], hint: "Reveal all hands and explain the full line." },
     ],
   },
   bidding_declaring: {
     name: "Bidding + Declaring", icon: "🎯", desc: "Bidding then card play",
     defaultStudent: "S",
     scenes: [
-      { visibility: "S", text: "", prompts: [], showcards: [], hint: "First bidding decision." },
-      { visibility: "S", text: "", prompts: [], showcards: [], hint: "Continue the auction with [BID] prompts." },
-      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Transition to card play." },
-      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Full reveal and explanation." },
+      { visibility: "S", text: "", showcards: [], hint: "First bidding decision." },
+      { visibility: "S", text: "", showcards: [], hint: "Continue the auction with [BID] prompts." },
+      { visibility: "NS", text: "", showcards: [], hint: "Transition to card play." },
+      { visibility: "NESW", text: "", showcards: [], hint: "Full reveal and explanation." },
     ],
   },
   opening_lead: {
     name: "Opening Lead", icon: "➡️", desc: "Student selects the opening lead",
     defaultStudent: "W",
     scenes: [
-      { visibility: "W", text: "", prompts: [], showcards: [], hint: "Add a [choose-card] prompt for the lead." },
-      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Reveal all hands and explain the lead choice." },
+      { visibility: "W", text: "", showcards: [], hint: "Add a [choose-card] prompt for the lead." },
+      { visibility: "NESW", text: "", showcards: [], hint: "Reveal all hands and explain the lead choice." },
     ],
   },
   second_hand: {
     name: "2nd Hand Play", icon: "✌️", desc: "Student plays second to the trick",
     defaultStudent: "S",
     scenes: [
-      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Show the card led and ask for 2nd hand play." },
-      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Explain the correct play." },
+      { visibility: "NS", text: "", showcards: [], hint: "Show the card led and ask for 2nd hand play." },
+      { visibility: "NESW", text: "", showcards: [], hint: "Explain the correct play." },
     ],
   },
   third_hand: {
     name: "3rd Hand Play", icon: "🥉", desc: "Student plays third to the trick",
     defaultStudent: "E",
     scenes: [
-      { visibility: "NE", text: "", prompts: [], showcards: [], hint: "Show the lead and dummy, ask for 3rd hand play." },
-      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Explain the correct play." },
+      { visibility: "NE", text: "", showcards: [], hint: "Show the lead and dummy, ask for 3rd hand play." },
+      { visibility: "NESW", text: "", showcards: [], hint: "Explain the correct play." },
     ],
   },
   blank: {
     name: "Blank", icon: "📄", desc: "Start from scratch",
     defaultStudent: "S",
     scenes: [
-      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Build your own storyboard." },
+      { visibility: "NESW", text: "", showcards: [], hint: "Build your own storyboard." },
     ],
   },
 };
@@ -256,15 +256,15 @@ function parseSingleBoard(text) {
 function parseCommentary(text) {
   if (!text.trim()) return null;
   const scenes = [];
-  let current = { text: "", visibility: "NESW", prompts: [], showcards: [], hint: "" };
+  let current = { text: "", visibility: "NESW", showcards: [], hint: "" };
   const lines = text.split("\n");
   for (const line of lines) {
     const trimmed = line.trim();
     const showMatch = trimmed.match(/^\[show\s+([NESW]+)\]$/i);
     if (showMatch) {
-      if (current.text.trim() || current.prompts.length) {
+      if (current.text.trim()) {
         scenes.push(current);
-        current = { text: "", visibility: showMatch[1].toUpperCase(), prompts: [], showcards: [], hint: "" };
+        current = { text: "", visibility: showMatch[1].toUpperCase(), showcards: [], hint: "" };
       } else {
         current.visibility = showMatch[1].toUpperCase();
       }
@@ -272,37 +272,16 @@ function parseCommentary(text) {
     }
     const showcardsMatch = trimmed.match(/^\[showcards\s+(.+)\]$/i);
     if (showcardsMatch) { current.showcards.push(showcardsMatch[1]); continue; }
-    let remaining = line;
-    const bidRe = /\[BID\s+([^\]]+)\]/gi;
-    const cardRe = /\[choose-card\s+([^\]]+)\]/gi;
-    const playRe = /\[PLAY\s+([^\]]+)\]/gi;
-    let bm;
-    while ((bm = bidRe.exec(trimmed)) !== null) {
-      current.prompts.push({ type: "BID", value: bm[1] });
-      remaining = remaining.replace(bm[0], "");
-    }
-    while ((bm = cardRe.exec(trimmed)) !== null) {
-      current.prompts.push({ type: "CARD", value: bm[1] });
-      remaining = remaining.replace(bm[0], "");
-    }
-    while ((bm = playRe.exec(trimmed)) !== null) {
-      current.prompts.push({ type: "PLAY", value: bm[1] });
-      remaining = remaining.replace(bm[0], "");
-    }
     if (/\[NEXT\]/i.test(trimmed)) {
-      remaining = remaining.replace(/\[NEXT\]/i, "");
+      const remaining = line.replace(/\[NEXT\]/i, "");
       if (remaining.trim()) current.text += (current.text ? "\n" : "") + remaining;
       scenes.push(current);
-      current = { text: "", visibility: current.visibility, prompts: [], showcards: [], hint: "" };
+      current = { text: "", visibility: current.visibility, showcards: [], hint: "" };
       continue;
     }
-    if (/\[ROTATE\]/i.test(trimmed)) {
-      current.prompts.push({ type: "ROTATE" });
-      remaining = remaining.replace(/\[ROTATE\]/i, "");
-    }
-    if (remaining.trim()) current.text += (current.text ? "\n" : "") + remaining;
+    if (line.trim()) current.text += (current.text ? "\n" : "") + line;
   }
-  if (current.text.trim() || current.prompts.length || scenes.length === 0) scenes.push(current);
+  if (current.text.trim() || scenes.length === 0) scenes.push(current);
   return scenes;
 }
 
@@ -311,14 +290,7 @@ function scenesToCommentary(scenes) {
   scenes.forEach((scene, i) => {
     if (i > 0 || scene.visibility !== "NESW") out += `[show ${scene.visibility}]\n\n`;
     scene.showcards.forEach(sc => { out += `[showcards ${sc}]\n\n`; });
-    if (scene.text.trim()) out += scene.text.trim() + " ";
-    scene.prompts.forEach(p => {
-      if (p.type === "BID") out += `[BID ${p.value}] `;
-      else if (p.type === "CARD") out += `[choose-card ${p.value}] `;
-      else if (p.type === "PLAY") out += `[PLAY ${p.value}] `;
-      else if (p.type === "NEXT") out += `[NEXT]`;
-      else if (p.type === "ROTATE") out += `[ROTATE] `;
-    });
+    if (scene.text.trim()) out += scene.text.trim() + "\n";
     if (i < scenes.length - 1) out += "[NEXT]\n\n";
   });
   return out.trim();
@@ -829,9 +801,21 @@ function BoardNav({ boards, activeIdx, onSelect, includedCount }) {
 }
 
 // ── Scene Mini-card ────────────────────────────────────────────────
+function extractTagsFromText(text) {
+  const tags = [];
+  const re = /\[(BID|choose-card|PLAY|ROTATE)\s*([^\]]*)\]/gi;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const type = m[1].toUpperCase() === "CHOOSE-CARD" ? "CARD" : m[1].toUpperCase();
+    tags.push({ type, value: m[2].trim() || "" });
+  }
+  return tags;
+}
+
 function SceneMiniCard({ scene, index, isActive, onClick, onRemove, canRemove }) {
   const hasContent = scene.text.trim().length > 0;
-  const hasPrompts = scene.prompts.length > 0;
+  const textTags = extractTagsFromText(scene.text);
+  const hasPrompts = textTags.length > 0;
   return (
     <div onClick={onClick} style={{
       padding: "8px 10px", borderRadius: 6, cursor: "pointer",
@@ -858,7 +842,7 @@ function SceneMiniCard({ scene, index, isActive, onClick, onRemove, canRemove })
       </div>
       {hasPrompts && (
         <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap" }}>
-          {scene.prompts.map((p, j) => (
+          {textTags.map((p, j) => (
             <span key={j} style={{
               fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
               background: p.type === "BID" ? "#fef3c7" : p.type === "CARD" ? "#d1fae5" : "#f1f5f9",
@@ -998,45 +982,6 @@ function PreviewMode({ board, onClose }) {
           {formatText(scene.text.trim()) || <em style={{ color: "#94a3b8" }}>No narrative for this step.</em>}
         </div>
 
-        {/* Prompts display */}
-        {scene.prompts.length > 0 && (
-          <div style={{
-            padding: "12px 20px", display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap",
-          }}>
-            {scene.prompts.map((p, i) => {
-              if (p.type === "BID") {
-                const bidDisplay = p.value
-                  .replace(/\\S/g, "♠").replace(/\\H/g, "♥")
-                  .replace(/\\D/g, "♦").replace(/\\C/g, "♣");
-                return (
-                  <div key={i} style={{
-                    padding: "8px 20px", borderRadius: 8,
-                    background: "linear-gradient(135deg, #f59e0b, #d97706)",
-                    color: "#fff", fontWeight: 700, fontSize: 15,
-                    fontFamily: "'JetBrains Mono', monospace",
-                    boxShadow: "0 2px 8px rgba(245,158,11,0.3)",
-                  }}>
-                    BID: {bidDisplay}
-                  </div>
-                );
-              }
-              if (p.type === "CARD") {
-                return (
-                  <div key={i} style={{
-                    padding: "8px 20px", borderRadius: 8,
-                    background: "linear-gradient(135deg, #10b981, #059669)",
-                    color: "#fff", fontWeight: 700, fontSize: 15,
-                    fontFamily: "'JetBrains Mono', monospace",
-                    boxShadow: "0 2px 8px rgba(16,185,129,0.3)",
-                  }}>
-                    Play: {p.value}
-                  </div>
-                );
-              }
-              return null;
-            })}
-          </div>
-        )}
 
         {/* Navigation */}
         <div style={{
@@ -1088,7 +1033,7 @@ function BridgeCurator() {
   const ensureScenes = useCallback((b) => {
     if (b.scenes) return b;
     if (b.commentary && b.commentary.trim()) return { ...b, scenes: parseCommentary(b.commentary) };
-    return { ...b, scenes: [{ text: "", visibility: "NESW", prompts: [], showcards: [], hint: "" }] };
+    return { ...b, scenes: [{ text: "", visibility: "NESW", showcards: [], hint: "" }] };
   }, []);
 
   // ── Auto-generate bidding commentary from auction ───────
@@ -1175,19 +1120,14 @@ function BridgeCurator() {
       if (narrative) narrative += " ";
 
       if (bid === "Pass" && studentBidCount > 1) {
-        // Student passing later in the auction
-        narrative += "What do you bid?\n\n";
-        scenes.push({
-          visibility: studentVis, text: narrative,
-          prompts: [{ type: "BID", value: "Pass" }], showcards: [], hint: "",
-        });
+        narrative += "What do you bid?[BID Pass]";
       } else {
-        narrative += "What do you bid?\n\n";
-        scenes.push({
-          visibility: studentVis, text: narrative,
-          prompts: [{ type: "BID", value: fmtBidTag(bid) }], showcards: [], hint: "",
-        });
+        narrative += `What do you bid?[BID ${fmtBidTag(bid)}]`;
       }
+      scenes.push({
+        visibility: studentVis, text: narrative,
+        showcards: [], hint: "",
+      });
       narrative = "";
     }
 
@@ -1195,7 +1135,7 @@ function BridgeCurator() {
     scenes.push({
       visibility: "NESW",
       text: "\n\n",
-      prompts: [], showcards: [],
+      showcards: [],
       hint: "Explain the bidding and the final contract.",
     });
 
@@ -1227,16 +1167,16 @@ function BridgeCurator() {
             hint: i < tmplScenes.length ? tmplScenes[i].hint : "",
           });
         } else {
-          mergedScenes.push({ ...template, prompts: [...template.prompts], showcards: [...template.showcards] });
+          mergedScenes.push({ ...template, showcards: [...template.showcards] });
         }
       }
     } else if (templateKey === "bidding" && b.auction && b.auction.length > 0) {
       // No content — auto-generate bidding commentary from auction
       const autoScenes = generateBiddingCommentary(b);
-      mergedScenes = autoScenes || tmpl.scenes.map(s => ({ ...s, prompts: [...s.prompts], showcards: [...s.showcards] }));
+      mergedScenes = autoScenes || tmpl.scenes.map(s => ({ ...s, showcards: [...s.showcards] }));
     } else {
       // No content, no auction or non-bidding template — use template defaults
-      mergedScenes = tmpl.scenes.map(s => ({ ...s, prompts: [...s.prompts], showcards: [...s.showcards] }));
+      mergedScenes = tmpl.scenes.map(s => ({ ...s, showcards: [...s.showcards] }));
     }
     return {
       ...b,
@@ -1514,7 +1454,7 @@ function BridgeCurator() {
     setBoards(prev => prev.map((b, i) => {
       if (i !== activeBoard) return b;
       const prevScene = b.scenes[b.scenes.length - 1];
-      return { ...b, scenes: [...b.scenes, { text: "", visibility: prevScene?.visibility || "NESW", prompts: [], showcards: [], hint: "" }] };
+      return { ...b, scenes: [...b.scenes, { text: "", visibility: prevScene?.visibility || "NESW", showcards: [], hint: "" }] };
     }));
     setActiveScene(board?.scenes?.length || 0);
     setDirty(true);
@@ -1901,29 +1841,6 @@ function BridgeCurator() {
                     }}
                   />
                 </div>
-                {currentScene.prompts.length > 0 && (
-                  <div style={{
-                    padding: "8px 12px", borderTop: "1px solid #f1f5f9",
-                    display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center",
-                  }}>
-                    <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>Prompts:</span>
-                    {currentScene.prompts.map((p, j) => (
-                      <span key={j} style={{
-                        fontSize: 11, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
-                        background: p.type === "BID" ? "#fef3c7" : p.type === "CARD" ? "#d1fae5" : "#f1f5f9",
-                        color: p.type === "BID" ? "#92400e" : p.type === "CARD" ? "#065f46" : "#475569",
-                        fontFamily: "'JetBrains Mono', monospace",
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                      }}>
-                        {p.type}{p.value ? ` ${p.value}` : ""}
-                        <span onClick={() => {
-                          const next = [...currentScene.prompts]; next.splice(j, 1);
-                          updateScene(activeScene, { prompts: next });
-                        }} style={{ cursor: "pointer", color: "#94a3b8" }}>×</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
             <div style={panelStyle}>
