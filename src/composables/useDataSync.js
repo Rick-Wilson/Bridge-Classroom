@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
 import { useObservationStore } from './useObservationStore.js'
 import { useAccomplishments } from './useAccomplishments.js'
+import { logDiagnostic } from '../utils/diagnostics.js'
 
 // API configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
@@ -72,6 +73,7 @@ async function registerUserWithServer(user) {
 
     if (!response.ok) {
       const errorText = await response.text()
+      logDiagnostic('server_registration_http_error', `registerUserWithServer — HTTP ${response.status} for user ${user.id} (${user.email})`, errorText)
       return { success: false, error: `Server error: ${response.status} - ${errorText}` }
     }
 
@@ -88,7 +90,7 @@ async function registerUserWithServer(user) {
 
     return { success: result.success, userId: result.user_id }
   } catch (err) {
-    console.error('Failed to register user with server:', err)
+    logDiagnostic('server_registration_failed', `registerUserWithServer — fetch threw for user ${user.id} (${user.email})`, err)
     return { success: false, error: err.message }
   }
 }
@@ -181,14 +183,14 @@ async function performSync() {
         console.log('User registered with server')
       } else if (regResult.error === 'email_exists') {
         // Email already registered with different user_id - need recovery
-        console.warn('Email already registered - user needs to recover account')
+        logDiagnostic('server_registration_email_exists', `performSync — email already registered for user ${user.id} (${user.email})`)
         // Don't try to sync observations - user doesn't exist in server DB
         syncState.value = 'error'
         lastError.value = 'Account already exists. Please use recovery.'
         registrationFailed.value = true
         return result
       } else {
-        console.warn('User registration failed:', regResult.error)
+        logDiagnostic('server_registration_rejected', `performSync — registration failed for user ${user.id} (${user.email})`, regResult.error)
         registrationFailed.value = true
         lastError.value = `Registration failed: ${regResult.error}`
         // Continue to try syncing - but note the error state

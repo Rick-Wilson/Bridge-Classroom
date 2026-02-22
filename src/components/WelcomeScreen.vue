@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useUserStore } from '../composables/useUserStore.js'
+import { logDiagnostic, flush as flushDiagnostics } from '../utils/diagnostics.js'
 
 const emit = defineEmits(['userReady'])
 
@@ -145,7 +146,7 @@ async function checkEmailOnServer() {
 
   // If offline, skip server check and proceed with local registration
   if (!navigator.onLine) {
-    console.log('[DEBUG] Offline - skipping server check')
+    logDiagnostic('registration_offline', 'checkEmailOnServer — navigator.onLine is false, skipping server check')
     return true
   }
 
@@ -164,12 +165,15 @@ async function checkEmailOnServer() {
       return true
     } else {
       // Online but got an unexpected error - show it to the user
+      logDiagnostic('registration_email_check_unexpected', `checkEmailOnServer — unexpected result for ${emailToCheck}`, result.message)
+      await flushDiagnostics()
       errors.value.email = result.message || 'Unable to verify email. Please try again.'
       return false
     }
   } catch (err) {
     // Online but request failed (CORS, network error, etc.) - show error
-    console.error('Failed to check email on server:', err)
+    logDiagnostic('registration_email_check_failed', `checkEmailOnServer — fetch failed for ${emailToCheck}`, err)
+    await flushDiagnostics()
     if (isSafari) {
       errors.value.email = 'Safari is blocking the connection. Please try Chrome or Firefox, or enable Safari Developer Tools (Settings → Advanced → Show features for web developers).'
     } else {
@@ -198,7 +202,7 @@ async function handleRecoveryClaim(userId, token) {
       viewState.value = 'form'
     }
   } catch (err) {
-    console.error('[Recovery] Exception:', err)
+    logDiagnostic('recovery_claim_failed', `handleRecoveryClaim — claimRecovery threw for userId=${userId}`, err)
     recoveryError.value = 'Unable to complete recovery. Please try again.'
     viewState.value = 'form'
   } finally {
@@ -230,7 +234,7 @@ async function handleRequestRecovery() {
       recoveryError.value = result.message || 'Failed to send recovery link'
     }
   } catch (err) {
-    console.error('Recovery request failed:', err)
+    logDiagnostic('recovery_request_failed', `handleRequestRecovery — requestRecovery threw for ${recoveryEmail.value.trim()}`, err)
     recoveryError.value = 'Unable to connect to server. Please try again.'
   } finally {
     isLoading.value = false
@@ -261,7 +265,7 @@ async function handleClaimByCode() {
       recoveryError.value = result.error || 'Invalid code. Please check and try again.'
     }
   } catch (err) {
-    console.error('Recovery code claim failed:', err)
+    logDiagnostic('recovery_code_claim_failed', `handleClaimByCode — claimRecoveryByCode threw for ${recoveryEmail.value.trim()}`, err)
     recoveryError.value = 'Unable to connect to server. Please try again.'
   } finally {
     isLoading.value = false
@@ -310,8 +314,10 @@ async function handleSubmit() {
 
     emit('userReady', user)
   } catch (err) {
-    console.error('Failed to create user:', err)
-    errors.value.email = 'Failed to create account. Please try again.'
+    const detail = err instanceof Error ? err.message : String(err)
+    logDiagnostic('registration_create_user_failed', `handleSubmit — createUser threw for ${email.value.trim()}`, err)
+    await flushDiagnostics()
+    errors.value.email = `Failed to create account: ${detail}. Please try again.`
   } finally {
     isLoading.value = false
     loadingMessage.value = ''

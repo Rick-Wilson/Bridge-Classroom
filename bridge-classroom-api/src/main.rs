@@ -135,6 +135,8 @@ async fn main() -> anyhow::Result<()> {
         // Announcement routes
         .route("/api/announcements/active", get(routes::get_active_announcement))
         .route("/api/admin/announcement", post(routes::set_announcement).delete(routes::clear_announcement))
+        // Diagnostics routes
+        .route("/api/diagnostics", post(routes::log_diagnostics))
         // Admin routes
         .route("/api/admin/stats", get(routes::admin_stats))
         .route("/api/admin/health", get(routes::admin_health))
