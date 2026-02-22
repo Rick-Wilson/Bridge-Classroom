@@ -260,21 +260,28 @@ function parseCommentary(text) {
   const lines = text.split("\n");
   for (const line of lines) {
     const trimmed = line.trim();
+    // [show X] — keep in text AND use to set visibility
     const showMatch = trimmed.match(/^\[show\s+([NESW]+)\]$/i);
     if (showMatch) {
       if (current.text.trim()) {
         scenes.push(current);
-        current = { text: "", visibility: showMatch[1].toUpperCase(), showcards: [], hint: "" };
+        current = { text: line, visibility: showMatch[1].toUpperCase(), showcards: [], hint: "" };
       } else {
         current.visibility = showMatch[1].toUpperCase();
+        current.text += (current.text ? "\n" : "") + line;
       }
       continue;
     }
+    // [showcards X] — keep in text
     const showcardsMatch = trimmed.match(/^\[showcards\s+(.+)\]$/i);
-    if (showcardsMatch) { current.showcards.push(showcardsMatch[1]); continue; }
+    if (showcardsMatch) {
+      current.showcards.push(showcardsMatch[1]);
+      current.text += (current.text ? "\n" : "") + line;
+      continue;
+    }
+    // [NEXT] — keep in text at end of current scene, then split
     if (/\[NEXT\]/i.test(trimmed)) {
-      const remaining = line.replace(/\[NEXT\]/i, "");
-      if (remaining.trim()) current.text += (current.text ? "\n" : "") + remaining;
+      current.text += (current.text ? "\n" : "") + line;
       scenes.push(current);
       current = { text: "", visibility: current.visibility, showcards: [], hint: "" };
       continue;
@@ -286,14 +293,7 @@ function parseCommentary(text) {
 }
 
 function scenesToCommentary(scenes) {
-  let out = "";
-  scenes.forEach((scene, i) => {
-    if (i > 0 || scene.visibility !== "NESW") out += `[show ${scene.visibility}]\n\n`;
-    scene.showcards.forEach(sc => { out += `[showcards ${sc}]\n\n`; });
-    if (scene.text.trim()) out += scene.text.trim() + "\n";
-    if (i < scenes.length - 1) out += "[NEXT]\n\n";
-  });
-  return out.trim();
+  return scenes.map(s => s.text.trim()).join("\n");
 }
 
 function exportBoard(board) {
