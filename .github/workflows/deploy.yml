@@ -32,6 +32,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Copy standalone pages into dist
+        run: cp -r docs/curator dist/curator
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
