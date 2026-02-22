@@ -575,6 +575,20 @@ function BoardDiagram({ hands, visibility, compact, onSwapCards, highlightedCard
   );
 }
 
+// ── Suit symbol rendering for text ─────────────────────────────────
+function renderSuitText(text) {
+  if (!text) return text;
+  const parts = text.split(/(\\[SHDCshdc]s?|♠|♥|♦|♣)/g);
+  return parts.map((part, i) => {
+    const lo = part.toLowerCase();
+    if (lo === "\\s" || lo === "\\ss" || part === "♠") return <span key={i} style={{ color: SUIT_COLORS.S }}>♠</span>;
+    if (lo === "\\h" || lo === "\\hs" || part === "♥") return <span key={i} style={{ color: SUIT_COLORS.H }}>♥</span>;
+    if (lo === "\\d" || lo === "\\ds" || part === "♦") return <span key={i} style={{ color: SUIT_COLORS.D }}>♦</span>;
+    if (lo === "\\c" || lo === "\\cs" || part === "♣") return <span key={i} style={{ color: SUIT_COLORS.C }}>♣</span>;
+    return part;
+  });
+}
+
 // ── Auction Display ────────────────────────────────────────────────
 // auction entries are { bid, alert? } objects (or plain strings for legacy/preview "?" bids)
 function AuctionDisplay({ auction, dealer, compact, onBidClick }) {
@@ -645,7 +659,7 @@ function AuctionDisplay({ auction, dealer, compact, onBidClick }) {
         <div style={{ padding: "4px 6px", fontSize: 11, color: "#64748b", borderTop: "1px solid #f1f5f9" }}>
           {footnotes.map(f => (
             <div key={f.alertNum} style={{ lineHeight: 1.4 }}>
-              <span style={{ color: "#dc2626", fontWeight: 700 }}>{f.alertNum}</span>: {f.alert}
+              <span style={{ color: "#dc2626", fontWeight: 700 }}>{f.alertNum}</span>: {renderSuitText(f.alert)}
             </div>
           ))}
         </div>
