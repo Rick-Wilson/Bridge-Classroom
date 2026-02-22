@@ -14,15 +14,6 @@
         </div>
       </div>
 
-      <!-- Legend -->
-      <div class="sp-legend">
-        <span v-for="l in legend" :key="l.label" class="sp-legend-item">
-          <span class="sp-legend-dot" :style="{ backgroundColor: l.color }"></span>
-          {{ l.label }}
-        </span>
-        <span class="sp-legend-hint">line color = mastery status</span>
-      </div>
-
       <!-- Activity Chart -->
       <div v-if="activityChartData" class="sp-activity-chart">
         <div class="sp-activity-header">
@@ -68,6 +59,15 @@
             </span>
           </div>
         </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="sp-legend">
+        <span v-for="l in legend" :key="l.label" class="sp-legend-item">
+          <span class="sp-legend-dot" :style="{ backgroundColor: l.color }"></span>
+          {{ l.label }}
+        </span>
+        <span class="sp-legend-hint">line color = mastery status</span>
       </div>
 
       <!-- Lesson card grid -->
