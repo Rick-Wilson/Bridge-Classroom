@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bridge Curator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; }
+  </style>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+const { useState, useCallback, useRef, useEffect, useMemo } = React;
+
+// ── Constants ──────────────────────────────────────────────────────
+const SEATS = ["N", "E", "S", "W"];
+const SUIT_ORDER = ["S", "H", "D", "C"];
+const SUIT_SYMBOLS = { S: "♠", H: "♥", D: "♦", C: "♣" };
+const SUIT_COLORS = { S: "#1a3a5c", H: "#c0392b", D: "#e67e22", C: "#2d6a4f" };
+const RANK_ORDER = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"];
+const SEAT_NAMES = { N: "North", E: "East", S: "South", W: "West" };
+const VULNERABILITIES = ["None", "NS", "EW", "Both"];
+
+const SKILL_PATHS = [
+  "basic_bidding/major_suit_openings", "basic_bidding/minor_suit_openings",
+  "basic_bidding/notrump_openings",
+  "bidding_conventions/blackwood", "bidding_conventions/fourth_suit_forcing",
+  "bidding_conventions/help_suit_game_try", "bidding_conventions/jacoby_2nt_splinters",
+  "bidding_conventions/jacoby_transfers", "bidding_conventions/new_minor_forcing",
+  "bidding_conventions/ogust", "bidding_conventions/preemptive_bids",
+  "bidding_conventions/reverse_bids", "bidding_conventions/reverse_drury",
+  "bidding_conventions/roman_keycard", "bidding_conventions/stayman",
+  "bidding_conventions/strong_2c", "bidding_conventions/two_over_one",
+  "bidding_conventions/weak_2s",
+  "competitive_bidding/dont", "competitive_bidding/lebensohl",
+  "competitive_bidding/michaels_unusual", "competitive_bidding/negative_doubles",
+  "competitive_bidding/overcalls", "competitive_bidding/support_cuebids",
+  "competitive_bidding/takeout_doubles",
+  "declarer_play/elimination_plays", "declarer_play/entry_management",
+  "declarer_play/finessing", "declarer_play/holdup_plays",
+  "declarer_play/squeeze_plays", "declarer_play/suit_establishment",
+  "declarer_play/trump_management",
+  "defense/defensive_signals", "defense/opening_leads",
+  "defense/second_hand_play", "defense/third_hand_play",
+  "partnership_bidding/advanced_forcing", "partnership_bidding/basic_bidding",
+  "partnership_bidding/basic_major", "partnership_bidding/basic_notrump",
+  "partnership_bidding/blackwood", "partnership_bidding/jacoby_2nt",
+  "partnership_bidding/negative_doubles", "partnership_bidding/overcalls",
+  "partnership_bidding/roman_key_card", "partnership_bidding/stayman_transfers",
+  "partnership_bidding/two_club", "partnership_bidding/weak_twos",
+  "practice_deals/100_miscellaneous", "practice_deals/100_notrump",
+];
+
+const CATEGORIES = [
+  "Basic Bidding", "Bidding Conventions", "Competitive Bidding",
+  "Declarer Play", "Defense", "Partnership Bidding",
+  "Slam Bidding", "Card Play Techniques", "Practice Deals",
+];
+
+const DIFFICULTIES = ["beginner", "intermediate", "advanced"];
+
+// ── Lesson Templates ───────────────────────────────────────────────
+const TEMPLATES = {
+  bidding: {
+    name: "Bidding", icon: "🗣", desc: "Student makes bidding decisions",
+    defaultStudent: "S",
+    scenes: [
+      { visibility: "S", text: "", prompts: [], showcards: [], hint: "Set up the bidding problem. Add a [BID] prompt." },
+      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Explain the correct bid and reveal all hands." },
+    ],
+  },
+  declaring: {
+    name: "Declaring", icon: "🃏", desc: "Student plays as declarer",
+    defaultStudent: "S",
+    scenes: [
+      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Describe the opening lead and initial plan." },
+      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Walk through card play with [choose-card] prompts." },
+      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Reveal all hands and explain the full line." },
+    ],
+  },
+  bidding_declaring: {
+    name: "Bidding + Declaring", icon: "🎯", desc: "Bidding then card play",
+    defaultStudent: "S",
+    scenes: [
+      { visibility: "S", text: "", prompts: [], showcards: [], hint: "First bidding decision." },
+      { visibility: "S", text: "", prompts: [], showcards: [], hint: "Continue the auction with [BID] prompts." },
+      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Transition to card play." },
+      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Full reveal and explanation." },
+    ],
+  },
+  opening_lead: {
+    name: "Opening Lead", icon: "➡️", desc: "Student selects the opening lead",
+    defaultStudent: "W",
+    scenes: [
+      { visibility: "W", text: "", prompts: [], showcards: [], hint: "Add a [choose-card] prompt for the lead." },
+      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Reveal all hands and explain the lead choice." },
+    ],
+  },
+  second_hand: {
+    name: "2nd Hand Play", icon: "✌️", desc: "Student plays second to the trick",
+    defaultStudent: "S",
+    scenes: [
+      { visibility: "NS", text: "", prompts: [], showcards: [], hint: "Show the card led and ask for 2nd hand play." },
+      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Explain the correct play." },
+    ],
+  },
+  third_hand: {
+    name: "3rd Hand Play", icon: "🥉", desc: "Student plays third to the trick",
+    defaultStudent: "E",
+    scenes: [
+      { visibility: "NE", text: "", prompts: [], showcards: [], hint: "Show the lead and dummy, ask for 3rd hand play." },
+      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Explain the correct play." },
+    ],
+  },
+  blank: {
+    name: "Blank", icon: "📄", desc: "Start from scratch",
+    defaultStudent: "S",
+    scenes: [
+      { visibility: "NESW", text: "", prompts: [], showcards: [], hint: "Build your own storyboard." },
+    ],
+  },
+};
+
+// ── PBN Parser ─────────────────────────────────────────────────────
+function parsePBNDeal(dealStr) {
+  const hands = { N: [], E: [], S: [], W: [] };
+  if (!dealStr) return hands;
+  const match = dealStr.match(/([NESW]):(.+)/);
+  if (!match) return hands;
+  const firstSeat = match[1];
+  const handStrs = match[2].split(/\s+/);
+  const seatOrder = [...SEATS.slice(SEATS.indexOf(firstSeat)), ...SEATS.slice(0, SEATS.indexOf(firstSeat))];
+  handStrs.forEach((h, i) => {
+    const seat = seatOrder[i];
+    if (!seat || h === "-") return; // skip unknown hands
+    const suits = h.split(".");
+    SUIT_ORDER.forEach((suit, si) => {
+      const ranks = suits[si] || "";
+      for (const r of ranks) hands[seat].push(suit + r);
+    });
+  });
+  return hands;
+}
+
+function handToDealString(hands, firstSeat = "N") {
+  const seatOrder = [...SEATS.slice(SEATS.indexOf(firstSeat)), ...SEATS.slice(0, SEATS.indexOf(firstSeat))];
+  const parts = seatOrder.map(seat => {
+    return SUIT_ORDER.map(suit => {
+      return hands[seat]
+        .filter(c => c[0] === suit)
+        .map(c => c[1])
+        .sort((a, b) => RANK_ORDER.indexOf(a) - RANK_ORDER.indexOf(b))
+        .join("");
+    }).join(".");
+  });
+  return firstSeat + ":" + parts.join(" ");
+}
+
+function parsePBNFile(text) {
+  const boards = [];
+  // Strategy: split on [Event lines, which mark the start of each board record.
+  // If no [Event tags, fall back to splitting on [Board or [Dealer.
+  const hasEvent = /^\[Event\s+"/m.test(text);
+  const splitTag = hasEvent ? "Event" : (/^\[Board\s+"/m.test(text) ? "Board" : "Dealer");
+  const splitRegex = new RegExp(`^\\[${splitTag}\\s+"`, "m");
+
+  const lines = text.split("\n");
+  let currentLines = [];
+  let inBoard = false;
+  let inCommentary = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    // Track whether we're inside a { } commentary block
+    if (!inCommentary && trimmed.includes("{")) inCommentary = true;
+    if (inCommentary && trimmed.includes("}")) inCommentary = false;
+
+    // Only split on the chosen tag, and not while inside a commentary block
+    if (!inCommentary && splitRegex.test(trimmed)) {
+      if (currentLines.length > 0 && inBoard) {
+        boards.push(parseSingleBoard(currentLines.join("\n")));
+      }
+      currentLines = [line];
+      inBoard = true;
+    } else {
+      currentLines.push(line);
+    }
+  }
+  if (currentLines.length > 0 && inBoard) boards.push(parseSingleBoard(currentLines.join("\n")));
+  if (boards.length === 0 && text.trim()) boards.push(parseSingleBoard(text));
+  return boards;
+}
+
+function parseSingleBoard(text) {
+  const tags = {};
+  const tagRegex = /\[(\w+)\s+"([^"]*)"\]/g;
+  let m;
+  while ((m = tagRegex.exec(text)) !== null) tags[m[1]] = m[2];
+
+  // Extract ALL commentary blocks { ... }
+  const commentBlocks = [];
+  const commentBlockRe = /\{([^}]*)\}/g;
+  let cm;
+  while ((cm = commentBlockRe.exec(text)) !== null) {
+    commentBlocks.push(cm[1].trim());
+  }
+
+  // Classify commentary: metadata vs lesson content
+  // Metadata blocks are short, single-line, and start with keywords like Shape, HCP, Losers
+  const metadataPatterns = /^(Shape|HCP|Losers|Points|Controls|DOP)\b/i;
+  const metadataBlocks = [];
+  const lessonBlocks = [];
+  for (const block of commentBlocks) {
+    if (metadataPatterns.test(block) && !block.includes("\n") && block.length < 100) {
+      metadataBlocks.push(block);
+    } else {
+      lessonBlocks.push(block);
+    }
+  }
+
+  // Lesson commentary is the combined lesson blocks (usually 0 or 1)
+  const commentary = lessonBlocks.join("\n\n");
+  // Preserve metadata for display/reference
+  const metadata = metadataBlocks;
+
+  let auctionBids = [];
+  const auctionTagMatch = text.match(/\[Auction\s+"([NESW])"\]\s*\n([\s\S]*?)(?=\n\[|\n\{|$)/);
+  if (auctionTagMatch) {
+    auctionBids = auctionTagMatch[2].trim().split(/\s+/)
+      .filter(b => b && !b.match(/^=\d+=$/)) // filter =1= style annotations
+      .filter(b => b !== "=" && !b.startsWith("="))
+      .map(b => {
+        if (b.toLowerCase() === "pass") return "Pass";
+        if (b.toLowerCase() === "dbl" || b.toLowerCase() === "double" || b.toLowerCase() === "x") return "Dbl";
+        if (b.toLowerCase() === "rdbl" || b.toLowerCase() === "redouble" || b.toLowerCase() === "xx") return "Rdbl";
+        return b;
+      });
+  }
+  return {
+    event: tags.Event || "", board: tags.Board || "",
+    dealer: tags.Dealer || "N", vulnerable: tags.Vulnerable || "None",
+    deal: tags.Deal || "", hands: parsePBNDeal(tags.Deal || ""),
+    auction: auctionBids, student: tags.Student || "",
+    category: tags.Category || "", difficulty: tags.Difficulty || "",
+    skillPath: tags.SkillPath || "", commentary, metadata,
+    scenes: null, templateKey: null, included: true, rawText: text,
+  };
+}
+
+// ── Commentary Parser ──────────────────────────────────────────────
+function parseCommentary(text) {
+  if (!text.trim()) return null;
+  const scenes = [];
+  let current = { text: "", visibility: "NESW", prompts: [], showcards: [], hint: "" };
+  const lines = text.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const showMatch = trimmed.match(/^\[show\s+([NESW]+)\]$/i);
+    if (showMatch) {
+      if (current.text.trim() || current.prompts.length) {
+        scenes.push(current);
+        current = { text: "", visibility: showMatch[1].toUpperCase(), prompts: [], showcards: [], hint: "" };
+      } else {
+        current.visibility = showMatch[1].toUpperCase();
+      }
+      continue;
+    }
+    const showcardsMatch = trimmed.match(/^\[showcards\s+(.+)\]$/i);
+    if (showcardsMatch) { current.showcards.push(showcardsMatch[1]); continue; }
+    let remaining = line;
+    const bidRe = /\[BID\s+([^\]]+)\]/gi;
+    const cardRe = /\[choose-card\s+([^\]]+)\]/gi;
+    const playRe = /\[PLAY\s+([^\]]+)\]/gi;
+    let bm;
+    while ((bm = bidRe.exec(trimmed)) !== null) {
+      current.prompts.push({ type: "BID", value: bm[1] });
+      remaining = remaining.replace(bm[0], "");
+    }
+    while ((bm = cardRe.exec(trimmed)) !== null) {
+      current.prompts.push({ type: "CARD", value: bm[1] });
+      remaining = remaining.replace(bm[0], "");
+    }
+    while ((bm = playRe.exec(trimmed)) !== null) {
+      current.prompts.push({ type: "PLAY", value: bm[1] });
+      remaining = remaining.replace(bm[0], "");
+    }
+    if (/\[NEXT\]/i.test(trimmed)) {
+      remaining = remaining.replace(/\[NEXT\]/i, "");
+      if (remaining.trim()) current.text += (current.text ? "\n" : "") + remaining;
+      scenes.push(current);
+      current = { text: "", visibility: current.visibility, prompts: [], showcards: [], hint: "" };
+      continue;
+    }
+    if (/\[ROTATE\]/i.test(trimmed)) {
+      current.prompts.push({ type: "ROTATE" });
+      remaining = remaining.replace(/\[ROTATE\]/i, "");
+    }
+    if (remaining.trim()) current.text += (current.text ? "\n" : "") + remaining;
+  }
+  if (current.text.trim() || current.prompts.length || scenes.length === 0) scenes.push(current);
+  return scenes;
+}
+
+function scenesToCommentary(scenes) {
+  let out = "";
+  scenes.forEach((scene, i) => {
+    if (i > 0 || scene.visibility !== "NESW") out += `[show ${scene.visibility}]\n\n`;
+    scene.showcards.forEach(sc => { out += `[showcards ${sc}]\n\n`; });
+    if (scene.text.trim()) out += scene.text.trim() + " ";
+    scene.prompts.forEach(p => {
+      if (p.type === "BID") out += `[BID ${p.value}] `;
+      else if (p.type === "CARD") out += `[choose-card ${p.value}] `;
+      else if (p.type === "PLAY") out += `[PLAY ${p.value}] `;
+      else if (p.type === "NEXT") out += `[NEXT]`;
+      else if (p.type === "ROTATE") out += `[ROTATE] `;
+    });
+    if (i < scenes.length - 1) out += "[NEXT]\n\n";
+  });
+  return out.trim();
+}
+
+function exportBoard(board) {
+  const lines = [];
+  if (board.event) lines.push(`[Event "${board.event}"]`);
+  if (board.board) lines.push(`[Board "${board.board}"]`);
+  lines.push(`[Dealer "${board.dealer}"]`);
+  lines.push(`[Vulnerable "${board.vulnerable}"]`);
+  // Regenerate deal string from hands (reflects any card swaps)
+  const hasCards = Object.values(board.hands).some(h => h.length > 0);
+  if (hasCards) {
+    lines.push(`[Deal "${handToDealString(board.hands)}"]`);
+  } else if (board.deal) {
+    lines.push(`[Deal "${board.deal}"]`);
+  }
+  if (board.student) lines.push(`[Student "${board.student}"]`);
+  if (board.category) lines.push(`[Category "${board.category}"]`);
+  if (board.difficulty) lines.push(`[Difficulty "${board.difficulty}"]`);
+  if (board.skillPath) lines.push(`[SkillPath "${board.skillPath}"]`);
+  if (board.auction.length) {
+    lines.push(`[Auction "${board.dealer}"]`);
+    lines.push(board.auction.join(" "));
+  }
+  if (board.scenes && board.scenes.length > 0) {
+    const commentary = scenesToCommentary(board.scenes);
+    if (commentary) lines.push(`{${commentary}}`);
+  }
+  return lines.join("\n");
+}
+
+function exportIncludedBoards(boards) {
+  return boards.filter(b => b.included).map(b => exportBoard(b)).join("\n\n");
+}
+
+function formatText(text) {
+  return text
+    .replace(/\\S/g, "♠").replace(/\\H/g, "♥").replace(/\\D/g, "♦").replace(/\\C/g, "♣")
+    .replace(/\\s/g, "♠").replace(/\\h/g, "♥").replace(/\\d/g, "♦").replace(/\\c/g, "♣");
+}
+
+// ── Card Component (draggable) ─────────────────────────────────────
+function DraggableCard({ card, seat, dimmed, highlighted, onDragStart, onDragOver, onDrop }) {
+  const suit = card[0];
+  const rank = card.substring(1);
+  const displayRank = rank === "T" ? "10" : rank;
+  const [isOver, setIsOver] = useState(false);
+
+  return (
+    <span
+      draggable
+      onDragStart={(e) => {
+        const el = document.createElement("span");
+        el.textContent = SUIT_SYMBOLS[suit] + displayRank;
+        el.style.cssText = `position:absolute;top:-100px;font-size:18px;font-weight:700;color:${SUIT_COLORS[suit]};font-family:'JetBrains Mono',monospace;background:#fff;padding:4px 8px;border-radius:4px;border:2px solid ${SUIT_COLORS[suit]}`;
+        document.body.appendChild(el);
+        e.dataTransfer.setDragImage(el, 20, 16);
+        setTimeout(() => document.body.removeChild(el), 0);
+        e.dataTransfer.setData("text/plain", JSON.stringify({ card, seat }));
+        if (onDragStart) onDragStart(card, seat);
+      }}
+      onDragOver={(e) => { e.preventDefault(); setIsOver(true); }}
+      onDragLeave={() => setIsOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setIsOver(false);
+        try {
+          const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+          if (onDrop) onDrop(data.card, data.seat, card, seat);
+        } catch {}
+      }}
+      style={{
+        display: "inline-flex", alignItems: "center",
+        padding: "0px 2px", margin: "0px",
+        borderRadius: 3,
+        color: SUIT_COLORS[suit],
+        fontWeight: 700,
+        fontSize: 12,
+        fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+        opacity: dimmed ? 0.35 : 1,
+        cursor: "grab",
+        background: highlighted ? "rgba(250, 204, 21, 0.35)" : isOver ? "#fef3c7" : "transparent",
+        border: isOver ? "1.5px solid #f59e0b" : "1.5px solid transparent",
+        boxShadow: highlighted ? "0 0 8px rgba(250, 204, 21, 0.6)" : "none",
+        transition: "background 0.3s ease, box-shadow 0.3s ease",
+        userSelect: "none",
+        lineHeight: 1.2,
+      }}
+    >
+      {displayRank}
+    </span>
+  );
+}
+
+// ── Hand Display (always shown, dimmed if hidden) ──────────────────
+function HandDisplay({ hand, seat, visible, onSwapCards, highlightedCards }) {
+  const bySuit = useMemo(() => {
+    const m = {};
+    SUIT_ORDER.forEach(s => { m[s] = []; });
+    hand.forEach(c => m[c[0]].push(c));
+    Object.keys(m).forEach(s => {
+      m[s].sort((a, b) => RANK_ORDER.indexOf(a[1]) - RANK_ORDER.indexOf(b[1]));
+    });
+    return m;
+  }, [hand]);
+
+  const dimmed = !visible;
+
+  return (
+    <div style={{
+      padding: "5px 6px", borderRadius: 6, minWidth: 100,
+      background: dimmed ? "#f8fafc" : "#fff",
+      border: dimmed ? "1.5px dashed #cbd5e1" : "1.5px solid #3b82f6",
+      transition: "all 0.15s ease",
+    }}>
+      <div style={{
+        fontSize: 10, fontWeight: 700, textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        color: dimmed ? "#94a3b8" : "#3b82f6",
+        marginBottom: 2,
+        fontFamily: "'DM Sans', sans-serif",
+        display: "flex", alignItems: "center", gap: 4,
+      }}>
+        {SEAT_NAMES[seat]}
+        {dimmed && <span style={{ fontSize: 8, fontWeight: 400, fontStyle: "italic", textTransform: "none" }}>hidden</span>}
+      </div>
+      {SUIT_ORDER.map(suit => (
+        <div key={suit} style={{ display: "flex", alignItems: "center", gap: 0, minHeight: 18, lineHeight: 1.1 }}>
+          <span style={{
+            color: SUIT_COLORS[suit], fontWeight: 700, fontSize: 12, width: 14, textAlign: "center",
+            opacity: dimmed ? 0.35 : 1, flexShrink: 0,
+          }}>
+            {SUIT_SYMBOLS[suit]}
+          </span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 0 }}>
+            {bySuit[suit].length > 0 ? bySuit[suit].map(c => (
+              <DraggableCard
+                key={c}
+                card={c}
+                seat={seat}
+                dimmed={dimmed}
+                highlighted={!!(highlightedCards && highlightedCards[c + ":" + seat])}
+                onDrop={onSwapCards}
+              />
+            )) : (
+              <span style={{ color: "#cbd5e1", fontSize: 12, fontStyle: "italic", opacity: dimmed ? 0.35 : 1, padding: "0 4px" }}>—</span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Board Diagram ──────────────────────────────────────────────────
+function BoardDiagram({ hands, visibility, compact, onSwapCards, highlightedCards }) {
+  const vis = (seat) => visibility.includes(seat);
+  return (
+    <div style={{
+      display: "grid", gridTemplateColumns: "1fr auto 1fr",
+      gridTemplateRows: "auto auto auto",
+      gap: compact ? 4 : 6, alignItems: "center", justifyItems: "center",
+      padding: compact ? 6 : 8,
+    }}>
+      <div style={{ gridColumn: "2", gridRow: "1" }}>
+        <HandDisplay hand={hands.N} seat="N" visible={vis("N")} onSwapCards={onSwapCards} highlightedCards={highlightedCards} />
+      </div>
+      <div style={{ gridColumn: "1", gridRow: "2", justifySelf: "end" }}>
+        <HandDisplay hand={hands.W} seat="W" visible={vis("W")} onSwapCards={onSwapCards} highlightedCards={highlightedCards} />
+      </div>
+      <div style={{
+        gridColumn: "2", gridRow: "2", width: compact ? 40 : 48, height: compact ? 40 : 48,
+        borderRadius: "50%",
+        background: "linear-gradient(135deg, #1e293b, #334155)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        color: "#94a3b8", fontSize: compact ? 8 : 9, fontWeight: 700,
+        fontFamily: "'DM Sans', sans-serif",
+      }}>
+        <div style={{ textAlign: "center", lineHeight: 1.3 }}>
+          <div>N</div><div>W · E</div><div>S</div>
+        </div>
+      </div>
+      <div style={{ gridColumn: "3", gridRow: "2", justifySelf: "start" }}>
+        <HandDisplay hand={hands.E} seat="E" visible={vis("E")} onSwapCards={onSwapCards} highlightedCards={highlightedCards} />
+      </div>
+      <div style={{ gridColumn: "2", gridRow: "3" }}>
+        <HandDisplay hand={hands.S} seat="S" visible={vis("S")} onSwapCards={onSwapCards} highlightedCards={highlightedCards} />
+      </div>
+    </div>
+  );
+}
+
+// ── Auction Display ────────────────────────────────────────────────
+function AuctionDisplay({ auction, dealer, compact }) {
+  if (!auction.length) return (
+    <div style={{ color: "#94a3b8", fontSize: 12, fontStyle: "italic", textAlign: "center", padding: 6 }}>
+      No auction
+    </div>
+  );
+  const dealerIdx = SEATS.indexOf(dealer);
+  const cells = [];
+  for (let i = 0; i < dealerIdx; i++) cells.push(<td key={`e${i}`}></td>);
+  auction.forEach((bid, i) => {
+    let display = bid.replace(/(\d)S/g, "$1♠").replace(/(\d)H/g, "$1♥")
+      .replace(/(\d)D/g, "$1♦").replace(/(\d)C/g, "$1♣");
+    let color = "#334155";
+    if (/\dH/.test(bid)) color = SUIT_COLORS.H;
+    else if (/\dD/.test(bid)) color = SUIT_COLORS.D;
+    else if (bid.includes("C") && !bid.startsWith("Pa")) color = SUIT_COLORS.C;
+    else if (/\dS/.test(bid)) color = SUIT_COLORS.S;
+    cells.push(
+      <td key={i} style={{
+        padding: compact ? "1px 4px" : "2px 6px", fontWeight: 600, color,
+        fontSize: compact ? 12 : 13,
+        fontFamily: "'JetBrains Mono', monospace", textAlign: "center",
+      }}>{display}</td>
+    );
+  });
+  const rows = [];
+  for (let i = 0; i < cells.length; i += 4) {
+    rows.push(<tr key={i}>{cells.slice(i, i + 4)}{Array.from({ length: Math.max(0, 4 - (cells.length - i)) }, (_, j) => <td key={`p${j}`}></td>)}</tr>);
+  }
+  return (
+    <table style={{ borderCollapse: "collapse", width: "100%" }}>
+      <thead><tr>{SEATS.map(s => (
+        <th key={s} style={{
+          padding: "2px 6px", fontSize: 10, fontWeight: 700, color: "#64748b",
+          textTransform: "uppercase", letterSpacing: "0.05em",
+          borderBottom: "1px solid #e2e8f0", fontFamily: "'DM Sans', sans-serif",
+        }}>{s}</th>
+      ))}</tr></thead>
+      <tbody>{rows}</tbody>
+    </table>
+  );
+}
+
+// ── Visibility Toggle ──────────────────────────────────────────────
+function VisibilityToggle({ visibility, onChange }) {
+  const toggle = (seat) => {
+    const next = visibility.includes(seat)
+      ? visibility.replace(seat, "")
+      : SEATS.filter(s => s === seat || visibility.includes(s)).join("");
+    onChange(next || "");
+  };
+  return (
+    <div style={{ display: "flex", gap: 3 }}>
+      {SEATS.map(seat => (
+        <button key={seat} onClick={() => toggle(seat)} style={{
+          width: 28, height: 28, borderRadius: 5, border: "none",
+          fontWeight: 700, fontSize: 12, cursor: "pointer",
+          fontFamily: "'DM Sans', sans-serif",
+          background: visibility.includes(seat) ? "#3b82f6" : "#f1f5f9",
+          color: visibility.includes(seat) ? "#fff" : "#94a3b8",
+          transition: "all 0.12s ease",
+        }}>{seat}</button>
+      ))}
+    </div>
+  );
+}
+
+// ── Tag Toolbar ────────────────────────────────────────────────────
+function TagToolbar({ onInsert, textareaRef }) {
+  const [expandedTag, setExpandedTag] = useState(null);
+  const [tagValue, setTagValue] = useState("");
+  const insertAtCursor = (tagText) => {
+    const ta = textareaRef.current;
+    if (!ta) { onInsert(tagText, 0); return; }
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const text = ta.value;
+    onInsert(text.slice(0, start) + tagText + text.slice(end), start + tagText.length);
+  };
+  const tagBtn = (label, color, bg) => ({
+    padding: "3px 8px", borderRadius: 4, border: "none",
+    background: bg, color, fontSize: 11, fontWeight: 700,
+    cursor: "pointer", fontFamily: "'JetBrains Mono', monospace",
+  });
+  const handleSubmit = () => {
+    if (!tagValue.trim()) return;
+    const tag = expandedTag === "BID" ? `[BID ${tagValue.trim()}]`
+      : expandedTag === "CARD" ? `[choose-card ${tagValue.trim()}]`
+      : expandedTag === "PLAY" ? `[PLAY ${tagValue.trim()}]`
+      : expandedTag === "SHOWCARDS" ? `[showcards ${tagValue.trim()}]`
+      : "";
+    if (tag) insertAtCursor(tag);
+    setTagValue(""); setExpandedTag(null);
+  };
+  if (expandedTag) {
+    const ph = { BID: "e.g. 3\\H", CARD: "e.g. SQ or any:S9,S4", PLAY: "e.g. S:H5", SHOWCARDS: "e.g. E:S7 S:S5" };
+    return (
+      <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: "#64748b" }}>{expandedTag}:</span>
+        <input autoFocus value={tagValue} onChange={e => setTagValue(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") handleSubmit(); if (e.key === "Escape") setExpandedTag(null); }}
+          placeholder={ph[expandedTag]}
+          style={{ width: 140, padding: "3px 6px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: 12, fontFamily: "'JetBrains Mono', monospace" }}
+        />
+        <button onClick={handleSubmit} style={tagBtn("✓", "#065f46", "#d1fae5")}>Insert</button>
+        <button onClick={() => setExpandedTag(null)} style={tagBtn("×", "#64748b", "#f1f5f9")}>Cancel</button>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
+      <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, marginRight: 2 }}>Tags:</span>
+      <button onClick={() => setExpandedTag("BID")} style={tagBtn("BID", "#92400e", "#fef3c7")}>BID</button>
+      <button onClick={() => setExpandedTag("CARD")} style={tagBtn("choose-card", "#065f46", "#d1fae5")}>CARD</button>
+      <button onClick={() => setExpandedTag("PLAY")} style={tagBtn("PLAY", "#1e40af", "#dbeafe")}>PLAY</button>
+      <button onClick={() => setExpandedTag("SHOWCARDS")} style={tagBtn("showcards", "#6b21a8", "#f3e8ff")}>SHOWCARDS</button>
+      <button onClick={() => insertAtCursor("[NEXT]")} style={tagBtn("NEXT", "#475569", "#f1f5f9")}>NEXT</button>
+      <button onClick={() => insertAtCursor("[ROTATE]")} style={tagBtn("ROTATE", "#475569", "#f1f5f9")}>ROTATE</button>
+    </div>
+  );
+}
+
+// ── Filtered Combo Box ─────────────────────────────────────────────
+function FilteredCombo({ value, onChange, options, placeholder, label }) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!filter) return options;
+    const lower = filter.toLowerCase();
+    return options.filter(o => o.toLowerCase().includes(lower));
+  }, [options, filter]);
+
+  const displayValue = value || "";
+  // Show the last segment of a path nicely
+  const formatOption = (opt) => {
+    if (opt.includes("/")) {
+      const parts = opt.split("/");
+      return (
+        <span>
+          <span style={{ color: "#94a3b8", fontSize: 10 }}>{parts.slice(0, -1).join("/")}/</span>
+          <span style={{ fontWeight: 600 }}>{parts[parts.length - 1].replace(/_/g, " ")}</span>
+        </span>
+      );
+    }
+    return opt;
+  };
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <input
+        value={open ? filter : displayValue}
+        onChange={(e) => { setFilter(e.target.value); if (!open) setOpen(true); }}
+        onFocus={() => { setOpen(true); setFilter(""); }}
+        placeholder={placeholder}
+        style={{
+          width: "100%", padding: "4px 8px", borderRadius: 4,
+          border: open ? "1.5px solid #3b82f6" : "1px solid #cbd5e1",
+          fontSize: 12, fontFamily: "'DM Sans', sans-serif",
+          color: "#1e293b", boxSizing: "border-box",
+          background: "#fff",
+        }}
+      />
+      {open && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0,
+          maxHeight: 200, overflow: "auto", background: "#fff",
+          border: "1px solid #e2e8f0", borderRadius: "0 0 6px 6px",
+          boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 50,
+        }}>
+          {filtered.length === 0 && filter && (
+            <div
+              onClick={() => { onChange(filter); setOpen(false); setFilter(""); }}
+              style={{
+                padding: "6px 10px", fontSize: 12, cursor: "pointer",
+                color: "#3b82f6", fontStyle: "italic",
+              }}
+            >
+              Use "{filter}"
+            </div>
+          )}
+          {filtered.map((opt, i) => (
+            <div
+              key={i}
+              onClick={() => { onChange(opt); setOpen(false); setFilter(""); }}
+              style={{
+                padding: "5px 10px", fontSize: 12, cursor: "pointer",
+                background: opt === value ? "#eff6ff" : "transparent",
+                fontFamily: "'DM Sans', sans-serif",
+                borderBottom: i < filtered.length - 1 ? "1px solid #f1f5f9" : "none",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#f8fafc"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = opt === value ? "#eff6ff" : "transparent"; }}
+            >
+              {formatOption(opt)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Board Navigator ────────────────────────────────────────────────
+function BoardNav({ boards, activeIdx, onSelect, includedCount }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 4, padding: "6px 12px",
+      background: "#0f172a", borderBottom: "1px solid #1e293b",
+      overflowX: "auto",
+    }}>
+      <div style={{ display: "flex", gap: 3, flex: 1, overflowX: "auto" }}>
+        {boards.map((b, i) => {
+          const hasScenes = b.scenes && b.scenes.some(s => s.text.trim());
+          const hasCommentary = b.commentary && b.commentary.trim();
+          const skipped = !b.included;
+          return (
+            <button key={i} onClick={() => onSelect(i)} style={{
+              padding: "4px 10px", borderRadius: 4, border: "none",
+              background: i === activeIdx ? "#3b82f6" : skipped ? "#0f172a" : "#1e293b",
+              color: i === activeIdx ? "#fff" : skipped ? "#475569" : "#94a3b8",
+              fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+              fontFamily: "'DM Sans', sans-serif",
+              position: "relative",
+              opacity: skipped && i !== activeIdx ? 0.5 : 1,
+              textDecoration: skipped ? "line-through" : "none",
+            }}>
+              {b.board ? `#${b.board}` : `${i + 1}`}
+              {(hasScenes || hasCommentary) && (
+                <span style={{
+                  position: "absolute", top: 1, right: 1,
+                  width: 5, height: 5, borderRadius: "50%",
+                  background: hasScenes ? "#22c55e" : "#f59e0b",
+                }} />
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <span style={{
+        fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap",
+        fontFamily: "'DM Sans', sans-serif", marginLeft: 8,
+      }}>
+        {includedCount} of {boards.length} included
+      </span>
+    </div>
+  );
+}
+
+// ── Scene Mini-card ────────────────────────────────────────────────
+function SceneMiniCard({ scene, index, isActive, onClick, onRemove, canRemove }) {
+  const hasContent = scene.text.trim().length > 0;
+  const hasPrompts = scene.prompts.length > 0;
+  return (
+    <div onClick={onClick} style={{
+      padding: "8px 10px", borderRadius: 6, cursor: "pointer",
+      background: isActive ? "#eff6ff" : "#fff",
+      border: isActive ? "2px solid #3b82f6" : "1.5px solid #e2e8f0",
+      transition: "all 0.12s ease", position: "relative",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+        <span style={{ fontSize: 10, fontWeight: 700, color: isActive ? "#3b82f6" : "#94a3b8", fontFamily: "'DM Sans', sans-serif" }}>
+          SCENE {index + 1}
+        </span>
+        <div style={{ display: "flex", gap: 2 }}>
+          {scene.visibility.split("").map(s => (
+            <span key={s} style={{ fontSize: 9, fontWeight: 700, padding: "1px 3px", borderRadius: 2, background: "#dbeafe", color: "#1e40af" }}>{s}</span>
+          ))}
+        </div>
+      </div>
+      <div style={{
+        fontSize: 11, color: hasContent ? "#475569" : "#94a3b8",
+        lineHeight: 1.3, maxHeight: 36, overflow: "hidden",
+        fontStyle: hasContent ? "normal" : "italic",
+      }}>
+        {hasContent ? formatText(scene.text.trim()).substring(0, 80) + (scene.text.length > 80 ? "…" : "") : (scene.hint || "Empty scene")}
+      </div>
+      {hasPrompts && (
+        <div style={{ display: "flex", gap: 2, marginTop: 4, flexWrap: "wrap" }}>
+          {scene.prompts.map((p, j) => (
+            <span key={j} style={{
+              fontSize: 9, fontWeight: 700, padding: "1px 4px", borderRadius: 3,
+              background: p.type === "BID" ? "#fef3c7" : p.type === "CARD" ? "#d1fae5" : "#f1f5f9",
+              color: p.type === "BID" ? "#92400e" : p.type === "CARD" ? "#065f46" : "#475569",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>{p.type}{p.value ? ` ${p.value}` : ""}</span>
+          ))}
+        </div>
+      )}
+      {canRemove && (
+        <button onClick={(e) => { e.stopPropagation(); onRemove(); }} style={{
+          position: "absolute", top: 4, right: 4, width: 16, height: 16,
+          borderRadius: "50%", border: "none", background: "#fee2e2",
+          color: "#dc2626", fontSize: 10, fontWeight: 700, cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.6,
+        }}>×</button>
+      )}
+    </div>
+  );
+}
+
+// ── Template Picker ────────────────────────────────────────────────
+function TemplatePicker({ onSelect, onClose, stickyTemplate }) {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(15,23,42,0.6)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 12, padding: 24, maxWidth: 560, width: "90%",
+        boxShadow: "0 25px 50px rgba(0,0,0,0.25)",
+      }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: "#0f172a", marginBottom: 4, fontFamily: "'Crimson Pro', serif" }}>
+          Choose Lesson Template
+        </div>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+          Sets visibility presets for this board. Existing text is preserved.
+          {stickyTemplate && (
+            <span style={{ display: "block", marginTop: 4, color: "#3b82f6", fontWeight: 600 }}>
+              Current default: {TEMPLATES[stickyTemplate]?.name} (applied to new boards automatically)
+            </span>
+          )}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {Object.entries(TEMPLATES).map(([key, tmpl]) => (
+            <button key={key} onClick={() => onSelect(key)} style={{
+              padding: "12px 14px", borderRadius: 8,
+              border: key === stickyTemplate ? "2px solid #3b82f6" : "1.5px solid #e2e8f0",
+              background: key === stickyTemplate ? "#eff6ff" : "#fff",
+              cursor: "pointer", textAlign: "left", transition: "all 0.12s ease",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#3b82f6"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = key === stickyTemplate ? "#3b82f6" : "#e2e8f0"; }}
+            >
+              <div style={{ fontSize: 16, marginBottom: 4 }}>{tmpl.icon}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>{tmpl.name}</div>
+              <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{tmpl.desc}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+                {tmpl.scenes.length} scene{tmpl.scenes.length > 1 ? "s" : ""} · Student {SEAT_NAMES[tmpl.defaultStudent]}
+              </div>
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} style={{
+          marginTop: 16, padding: "8px 16px", borderRadius: 6,
+          border: "1px solid #cbd5e1", background: "#f8fafc",
+          fontSize: 13, fontWeight: 600, cursor: "pointer", color: "#64748b",
+          fontFamily: "'DM Sans', sans-serif",
+        }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Preview Mode ───────────────────────────────────────────────────
+function PreviewMode({ board, onClose }) {
+  const [step, setStep] = useState(0);
+  const scenes = board.scenes || [];
+  const scene = scenes[step] || scenes[0];
+  if (!scene) return null;
+
+  const canNext = step < scenes.length - 1;
+  const canPrev = step > 0;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(15,23,42,0.85)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+    }}>
+      <div style={{
+        background: "#fff", borderRadius: 12, maxWidth: 800, width: "95%",
+        maxHeight: "90vh", overflow: "auto",
+        boxShadow: "0 25px 50px rgba(0,0,0,0.4)",
+      }}>
+        {/* Preview header */}
+        <div style={{
+          padding: "12px 20px", background: "#0f172a",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          borderRadius: "12px 12px 0 0",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#f8fafc", fontFamily: "'Crimson Pro', serif" }}>
+              Student Preview
+            </span>
+            <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>
+              Board {board.board || "—"} · Step {step + 1} of {scenes.length}
+            </span>
+          </div>
+          <button onClick={onClose} style={{
+            padding: "4px 12px", borderRadius: 4, border: "1px solid #475569",
+            background: "transparent", color: "#94a3b8", fontSize: 12, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Close</button>
+        </div>
+
+        {/* Board view */}
+        <div style={{ padding: "16px 20px" }}>
+          <BoardDiagram hands={board.hands} visibility={scene.visibility} compact />
+        </div>
+
+        {/* Auction */}
+        {board.auction.length > 0 && (
+          <div style={{ padding: "0 20px 12px", maxWidth: 300, margin: "0 auto" }}>
+            <AuctionDisplay auction={board.auction} dealer={board.dealer} compact />
+          </div>
+        )}
+
+        {/* Narrative */}
+        <div style={{
+          padding: "16px 24px", margin: "0 20px",
+          background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0",
+          fontSize: 15, color: "#1e293b", lineHeight: 1.7,
+          fontFamily: "'DM Sans', sans-serif",
+          whiteSpace: "pre-wrap",
+          minHeight: 60,
+        }}>
+          {formatText(scene.text.trim()) || <em style={{ color: "#94a3b8" }}>No narrative for this step.</em>}
+        </div>
+
+        {/* Prompts display */}
+        {scene.prompts.length > 0 && (
+          <div style={{
+            padding: "12px 20px", display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap",
+          }}>
+            {scene.prompts.map((p, i) => {
+              if (p.type === "BID") {
+                const bidDisplay = p.value
+                  .replace(/\\S/g, "♠").replace(/\\H/g, "♥")
+                  .replace(/\\D/g, "♦").replace(/\\C/g, "♣");
+                return (
+                  <div key={i} style={{
+                    padding: "8px 20px", borderRadius: 8,
+                    background: "linear-gradient(135deg, #f59e0b, #d97706)",
+                    color: "#fff", fontWeight: 700, fontSize: 15,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    boxShadow: "0 2px 8px rgba(245,158,11,0.3)",
+                  }}>
+                    BID: {bidDisplay}
+                  </div>
+                );
+              }
+              if (p.type === "CARD") {
+                return (
+                  <div key={i} style={{
+                    padding: "8px 20px", borderRadius: 8,
+                    background: "linear-gradient(135deg, #10b981, #059669)",
+                    color: "#fff", fontWeight: 700, fontSize: 15,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    boxShadow: "0 2px 8px rgba(16,185,129,0.3)",
+                  }}>
+                    Play: {p.value}
+                  </div>
+                );
+              }
+              return null;
+            })}
+          </div>
+        )}
+
+        {/* Navigation */}
+        <div style={{
+          padding: "16px 20px", display: "flex", justifyContent: "center", gap: 12,
+          borderTop: "1px solid #e2e8f0",
+        }}>
+          <button onClick={() => setStep(Math.max(0, step - 1))} disabled={!canPrev}
+            style={{
+              padding: "8px 20px", borderRadius: 6, border: "1px solid #cbd5e1",
+              background: canPrev ? "#fff" : "#f8fafc",
+              color: canPrev ? "#475569" : "#cbd5e1",
+              fontSize: 13, fontWeight: 600, cursor: canPrev ? "pointer" : "default",
+              fontFamily: "'DM Sans', sans-serif",
+            }}>← Previous</button>
+          <button onClick={() => setStep(Math.min(scenes.length - 1, step + 1))} disabled={!canNext}
+            style={{
+              padding: "8px 20px", borderRadius: 6, border: "none",
+              background: canNext ? "linear-gradient(135deg, #3b82f6, #6366f1)" : "#f1f5f9",
+              color: canNext ? "#fff" : "#cbd5e1",
+              fontSize: 13, fontWeight: 600, cursor: canNext ? "pointer" : "default",
+              fontFamily: "'DM Sans', sans-serif",
+            }}>{canNext ? "NEXT →" : "End"}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main App ───────────────────────────────────────────────────────
+function BridgeCurator() {
+  const [boards, setBoards] = useState([]);
+  const [activeBoard, setActiveBoard] = useState(0);
+  const [activeScene, setActiveScene] = useState(0);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [stickyTemplate, setStickyTemplate] = useState(null);
+  const [stickyCategory, setStickyCategory] = useState("");
+  const [stickyDifficulty, setStickyDifficulty] = useState("");
+  const [stickySkillPath, setStickySkillPath] = useState("");
+  const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
+
+  const board = boards[activeBoard] || null;
+  const currentScene = board?.scenes?.[activeScene] || null;
+  const includedCount = boards.filter(b => b.included).length;
+
+  const ensureScenes = useCallback((b) => {
+    if (b.scenes) return b;
+    if (b.commentary && b.commentary.trim()) return { ...b, scenes: parseCommentary(b.commentary) };
+    return { ...b, scenes: [{ text: "", visibility: "NESW", prompts: [], showcards: [], hint: "" }] };
+  }, []);
+
+  // ── Auto-generate bidding commentary from auction ───────
+  const generateBiddingCommentary = useCallback((b) => {
+    const auction = b.auction || [];
+    const student = b.student || "S";
+    const dealerIdx = SEATS.indexOf(b.dealer || "N");
+    if (auction.length === 0) return null;
+
+    // Figure out partner/LHO/RHO relative to student
+    const studentIdx = SEATS.indexOf(student);
+    const partnerIdx = (studentIdx + 2) % 4;
+    const lhoIdx = (studentIdx + 1) % 4;
+    const rhoIdx = (studentIdx + 3) % 4;
+    const partner = SEATS[partnerIdx];
+    const lho = SEATS[lhoIdx];
+    const rho = SEATS[rhoIdx];
+
+    // Format a bid for display in commentary text
+    const fmtBid = (bid) => {
+      if (bid === "Pass") return "passes";
+      if (bid === "Dbl") return "doubles";
+      if (bid === "Rdbl") return "redoubles";
+      return bid
+        .replace(/(\d)S/g, "$1\\S").replace(/(\d)H/g, "$1\\H")
+        .replace(/(\d)D/g, "$1\\D").replace(/(\d)C/g, "$1\\C")
+        .replace(/(\d)NT/g, "$1NT");
+    };
+
+    // Format a bid for a [BID] tag
+    const fmtBidTag = (bid) => {
+      if (bid === "Pass") return "Pass";
+      if (bid === "Dbl") return "Dbl";
+      if (bid === "Rdbl") return "Rdbl";
+      return bid
+        .replace(/(\d)S/g, "$1\\S").replace(/(\d)H/g, "$1\\H")
+        .replace(/(\d)D/g, "$1\\D").replace(/(\d)C/g, "$1\\C");
+    };
+
+    const seatName = (idx) => SEAT_NAMES[SEATS[idx]];
+    const seatRelation = (idx) => {
+      if (idx === partnerIdx) return "Partner";
+      if (idx === lhoIdx) return "LHO (" + seatName(idx) + ")";
+      if (idx === rhoIdx) return "RHO (" + seatName(idx) + ")";
+      return seatName(idx);
+    };
+
+    const scenes = [];
+    let narrative = "";
+    let studentBidCount = 0;
+    const studentVis = student; // show only student hand
+
+    // Walk through auction
+    for (let i = 0; i < auction.length; i++) {
+      const bid = auction[i];
+      const bidderIdx = (dealerIdx + i) % 4;
+      const isStudent = bidderIdx === studentIdx;
+
+      if (bid === "Pass" && !isStudent) {
+        // Accumulate opponent/partner passes into narrative
+        if (narrative) narrative += " ";
+        narrative += `${seatRelation(bidderIdx)} ${fmtBid(bid)}.`;
+        continue;
+      }
+
+      if (!isStudent) {
+        // Non-student bid (not a pass) — narrate it
+        if (narrative) narrative += " ";
+        if (bidderIdx === partnerIdx) {
+          if (studentBidCount === 0 && i < 4) {
+            // Partner's opening bid
+            narrative += `Partner opens ${fmtBid(bid)}.`;
+          } else {
+            narrative += `Partner bids ${fmtBid(bid)}.`;
+          }
+        } else {
+          narrative += `${seatRelation(bidderIdx)} bids ${fmtBid(bid)}.`;
+        }
+        continue;
+      }
+
+      // Student's bid — create a scene
+      studentBidCount++;
+      if (narrative) narrative += " ";
+
+      if (bid === "Pass" && studentBidCount > 1) {
+        // Student passing later in the auction
+        narrative += "What do you bid?\n\n";
+        scenes.push({
+          visibility: studentVis, text: narrative,
+          prompts: [{ type: "BID", value: "Pass" }], showcards: [], hint: "",
+        });
+      } else {
+        narrative += "What do you bid?\n\n";
+        scenes.push({
+          visibility: studentVis, text: narrative,
+          prompts: [{ type: "BID", value: fmtBidTag(bid) }], showcards: [], hint: "",
+        });
+      }
+      narrative = "";
+    }
+
+    // Final reveal scene
+    scenes.push({
+      visibility: "NESW",
+      text: "\n\n",
+      prompts: [], showcards: [],
+      hint: "Explain the bidding and the final contract.",
+    });
+
+    return scenes;
+  }, []);
+
+  // ── Apply sticky template to a board (merge behavior) ────
+  const applyTemplateToBoard = useCallback((b, templateKey) => {
+    const tmpl = TEMPLATES[templateKey];
+    if (!tmpl) return b;
+    const existingScenes = b.scenes || [];
+    const hasExistingContent = existingScenes.some(s => s.text.trim());
+    const hasRawCommentary = !hasExistingContent && b.commentary && b.commentary.trim();
+    const contentScenes = hasRawCommentary ? (parseCommentary(b.commentary) || existingScenes) : existingScenes;
+
+    let mergedScenes;
+    if (hasExistingContent || hasRawCommentary) {
+      // Merge: overlay template visibility/hints onto existing content
+      const tmplScenes = tmpl.scenes;
+      mergedScenes = [];
+      const maxLen = Math.max(contentScenes.length, tmplScenes.length);
+      for (let i = 0; i < maxLen; i++) {
+        const existing = contentScenes[i];
+        const template = tmplScenes[Math.min(i, tmplScenes.length - 1)];
+        if (existing) {
+          mergedScenes.push({
+            ...existing,
+            visibility: i < tmplScenes.length ? tmplScenes[i].visibility : template.visibility,
+            hint: i < tmplScenes.length ? tmplScenes[i].hint : "",
+          });
+        } else {
+          mergedScenes.push({ ...template, prompts: [...template.prompts], showcards: [...template.showcards] });
+        }
+      }
+    } else if (templateKey === "bidding" && b.auction && b.auction.length > 0) {
+      // No content — auto-generate bidding commentary from auction
+      const autoScenes = generateBiddingCommentary(b);
+      mergedScenes = autoScenes || tmpl.scenes.map(s => ({ ...s, prompts: [...s.prompts], showcards: [...s.showcards] }));
+    } else {
+      // No content, no auction or non-bidding template — use template defaults
+      mergedScenes = tmpl.scenes.map(s => ({ ...s, prompts: [...s.prompts], showcards: [...s.showcards] }));
+    }
+    return {
+      ...b,
+      scenes: mergedScenes,
+      student: b.student || tmpl.defaultStudent,
+      templateKey,
+    };
+  }, [generateBiddingCommentary]);
+
+  // ── File handling with File System Access API ────────────
+  const [sourceFileHandle, setSourceFileHandle] = useState(null);
+  const [workingFileHandle, setWorkingFileHandle] = useState(null);
+  const [fileName, setFileName] = useState("");
+  const [fileSystemWorks, setFileSystemWorks] = useState(false);
+  const hasFileSystemAPI = typeof window !== "undefined" && "showOpenFilePicker" in window;
+
+  // Open source file
+  const handleOpen = useCallback(async () => {
+    if (hasFileSystemAPI) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: "PBN Files", accept: { "text/plain": [".pbn", ".txt"] } }],
+        });
+        const file = await handle.getFile();
+        const text = await file.text();
+        const parsed = parsePBNFile(text);
+        const withScenes = parsed.map(b => ensureScenes(b));
+        setBoards(withScenes);
+        setActiveBoard(0);
+        setActiveScene(0);
+        setDirty(false);
+        setStickyTemplate(null);
+        setSourceFileHandle(handle);
+        setWorkingFileHandle(null);
+        setFileName(file.name);
+        setFileSystemWorks(true); // confirmed FSAPI works in this context
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+        // Fall through to file input if API fails (e.g. sandbox)
+        console.log("File System Access API unavailable, using fallback");
+      }
+    }
+    fileInputRef.current?.click();
+  }, [hasFileSystemAPI, ensureScenes]);
+
+  // Fallback file input handler
+  const handleImport = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const parsed = parsePBNFile(ev.target.result);
+      const withScenes = parsed.map(b => ensureScenes(b));
+      setBoards(withScenes);
+      setActiveBoard(0);
+      setActiveScene(0);
+      setDirty(false);
+      setStickyTemplate(null);
+      setSourceFileHandle(null);
+      setWorkingFileHandle(null);
+      setFileName(file.name);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }, [ensureScenes]);
+
+  // Save to working file (or prompt Save As if no working file yet)
+  // Save/download helper - robust fallback for sandboxed environments
+  const doDownload = useCallback((pbn) => {
+    const blob = new Blob([pbn], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const dlName = fileName ? fileName.replace(/\.pbn$/i, "") + "_curated.pbn" : "lesson.pbn";
+    
+    // Try multiple approaches
+    try {
+      // Method 1: window.open (works in some sandboxes)
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = dlName;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.log("Download click failed, trying window.open");
+      try {
+        window.open(url, "_blank");
+      } catch (e2) {
+        console.log("window.open failed too");
+      }
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    setDirty(false);
+  }, [fileName]);
+
+  const handleSaveAs = useCallback(async () => {
+    if (!boards.length) return;
+    const pbn = exportIncludedBoards(boards);
+    if (fileSystemWorks) {
+      try {
+        const suggestedName = fileName
+          ? fileName.replace(/\.pbn$/i, "") + "_curated.pbn"
+          : "lesson.pbn";
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: "PBN Files", accept: { "text/plain": [".pbn"] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(pbn);
+        await writable.close();
+        setWorkingFileHandle(handle);
+        const file = await handle.getFile();
+        setFileName(file.name);
+        setDirty(false);
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    doDownload(pbn);
+  }, [boards, fileSystemWorks, fileName, doDownload]);
+
+  const handleSave = useCallback(async () => {
+    if (!boards.length) return;
+    const pbn = exportIncludedBoards(boards);
+    if (fileSystemWorks && workingFileHandle) {
+      try {
+        const writable = await workingFileHandle.createWritable();
+        await writable.write(pbn);
+        await writable.close();
+        setDirty(false);
+        return;
+      } catch (e) {
+        console.error("Save to handle failed:", e);
+      }
+    }
+    if (fileSystemWorks) {
+      try {
+        const suggestedName = fileName
+          ? fileName.replace(/\.pbn$/i, "") + "_curated.pbn"
+          : "lesson.pbn";
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: "PBN Files", accept: { "text/plain": [".pbn"] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(pbn);
+        await writable.close();
+        setWorkingFileHandle(handle);
+        const file = await handle.getFile();
+        setFileName(file.name);
+        setDirty(false);
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    doDownload(pbn);
+  }, [boards, fileSystemWorks, workingFileHandle, fileName, doDownload]);
+
+  // Keyboard shortcuts are registered after undo/redo are defined (see below)
+
+  const updateBoard = useCallback((updates) => {
+    setBoards(prev => prev.map((b, i) => i === activeBoard ? { ...b, ...updates } : b));
+    setDirty(true);
+  }, [activeBoard]);
+
+  // ── Card swap with undo/redo and highlight ──────────────────
+  const [swapHistory, setSwapHistory] = useState([]); // stack of { boardIdx, fromCard, fromSeat, toCard, toSeat, prevHands }
+  const [swapFuture, setSwapFuture] = useState([]);
+  const [highlightedCards, setHighlightedCards] = useState({}); // { cardId: timestamp }
+
+  // Clear highlights after a delay
+  useEffect(() => {
+    const keys = Object.keys(highlightedCards);
+    if (keys.length === 0) return;
+    const timer = setTimeout(() => setHighlightedCards({}), 2500);
+    return () => clearTimeout(timer);
+  }, [highlightedCards]);
+
+  // Clear highlights when changing boards
+  useEffect(() => {
+    setHighlightedCards({});
+  }, [activeBoard]);
+
+  const handleSwapCards = useCallback((fromCard, fromSeat, toCard, toSeat) => {
+    if (fromSeat === toSeat && fromCard === toCard) return;
+    setBoards(prev => {
+      const newBoards = prev.map((b, i) => {
+        if (i !== activeBoard) return b;
+        // Save previous hands for undo
+        const prevHands = { N: [...b.hands.N], E: [...b.hands.E], S: [...b.hands.S], W: [...b.hands.W] };
+        setSwapHistory(h => [...h, { boardIdx: activeBoard, prevHands }]);
+        setSwapFuture([]);
+        const newHands = { ...b.hands };
+        newHands[fromSeat] = b.hands[fromSeat].filter(c => c !== fromCard);
+        newHands[toSeat] = b.hands[toSeat].filter(c => c !== toCard);
+        newHands[fromSeat] = [...newHands[fromSeat], toCard];
+        newHands[toSeat] = [...newHands[toSeat], fromCard];
+        return { ...b, hands: newHands };
+      });
+      return newBoards;
+    });
+    // Highlight swapped cards
+    const now = Date.now();
+    setHighlightedCards({ [fromCard + ":" + toSeat]: now, [toCard + ":" + fromSeat]: now });
+    setDirty(true);
+  }, [activeBoard]);
+
+  const undoSwap = useCallback(() => {
+    if (swapHistory.length === 0) return;
+    const last = swapHistory[swapHistory.length - 1];
+    setSwapHistory(h => h.slice(0, -1));
+    setBoards(prev => {
+      // Save current hands for redo
+      const currentHands = prev[last.boardIdx]?.hands;
+      if (currentHands) {
+        setSwapFuture(f => [...f, { boardIdx: last.boardIdx, prevHands: { N: [...currentHands.N], E: [...currentHands.E], S: [...currentHands.S], W: [...currentHands.W] } }]);
+      }
+      return prev.map((b, i) => i === last.boardIdx ? { ...b, hands: last.prevHands } : b);
+    });
+    setHighlightedCards({});
+    setDirty(true);
+  }, [swapHistory]);
+
+  const redoSwap = useCallback(() => {
+    if (swapFuture.length === 0) return;
+    const next = swapFuture[swapFuture.length - 1];
+    setSwapFuture(f => f.slice(0, -1));
+    setBoards(prev => {
+      const currentHands = prev[next.boardIdx]?.hands;
+      if (currentHands) {
+        setSwapHistory(h => [...h, { boardIdx: next.boardIdx, prevHands: { N: [...currentHands.N], E: [...currentHands.E], S: [...currentHands.S], W: [...currentHands.W] } }]);
+      }
+      return prev.map((b, i) => i === next.boardIdx ? { ...b, hands: next.prevHands } : b);
+    });
+    setHighlightedCards({});
+    setDirty(true);
+  }, [swapFuture]);
+
+  // Keyboard shortcuts: Ctrl/Cmd+S save, Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z / Ctrl+Y redo
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "s") {
+        e.preventDefault();
+        handleSave();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undoSwap();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+        e.preventDefault();
+        redoSwap();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "y") {
+        e.preventDefault();
+        redoSwap();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [handleSave, undoSwap, redoSwap]);
+
+  const updateScene = useCallback((sceneIdx, updates) => {
+    setBoards(prev => prev.map((b, i) => {
+      if (i !== activeBoard) return b;
+      return { ...b, scenes: b.scenes.map((s, j) => j === sceneIdx ? { ...s, ...updates } : s) };
+    }));
+    setDirty(true);
+  }, [activeBoard]);
+
+  const addScene = useCallback(() => {
+    setBoards(prev => prev.map((b, i) => {
+      if (i !== activeBoard) return b;
+      const prevScene = b.scenes[b.scenes.length - 1];
+      return { ...b, scenes: [...b.scenes, { text: "", visibility: prevScene?.visibility || "NESW", prompts: [], showcards: [], hint: "" }] };
+    }));
+    setActiveScene(board?.scenes?.length || 0);
+    setDirty(true);
+  }, [activeBoard, board]);
+
+  const removeScene = useCallback((idx) => {
+    setBoards(prev => prev.map((b, i) => {
+      if (i !== activeBoard || b.scenes.length <= 1) return b;
+      return { ...b, scenes: b.scenes.filter((_, j) => j !== idx) };
+    }));
+    if (activeScene >= (board?.scenes?.length || 1) - 1) setActiveScene(Math.max(0, activeScene - 1));
+    setDirty(true);
+  }, [activeBoard, activeScene, board]);
+
+  // ── Apply template (with sticky) ───────────────────────────
+  const applyTemplate = useCallback((templateKey) => {
+    if (!board) return;
+    const updated = applyTemplateToBoard(board, templateKey);
+    setBoards(prev => prev.map((b, i) => i === activeBoard ? updated : b));
+    setStickyTemplate(templateKey);
+    setActiveScene(0);
+    setShowTemplatePicker(false);
+    setDirty(true);
+  }, [board, activeBoard, applyTemplateToBoard]);
+
+  // ── Navigate boards (auto-apply sticky template) ───────────
+  const navigateToBoard = useCallback((idx) => {
+    setActiveBoard(idx);
+    setActiveScene(0);
+    setBoards(prev => prev.map((b, i) => {
+      if (i !== idx) return b;
+      let updated = b;
+      // Auto-apply sticky template if board doesn't have one yet
+      if (stickyTemplate && !b.templateKey) {
+        updated = applyTemplateToBoard(ensureScenes(updated), stickyTemplate);
+      }
+      // Auto-apply sticky metadata if board doesn't have values
+      if (stickyCategory && !updated.category) updated = { ...updated, category: stickyCategory };
+      if (stickyDifficulty && !updated.difficulty) updated = { ...updated, difficulty: stickyDifficulty };
+      if (stickySkillPath && !updated.skillPath) updated = { ...updated, skillPath: stickySkillPath };
+      return updated;
+    }));
+  }, [stickyTemplate, stickyCategory, stickyDifficulty, stickySkillPath, applyTemplateToBoard, ensureScenes]);
+
+  // ── Toggle board include/skip ──────────────────────────────
+  const toggleIncluded = useCallback(() => {
+    updateBoard({ included: !board?.included });
+  }, [board, updateBoard]);
+
+  // ── Skip & advance to next ─────────────────────────────────
+  const skipAndNext = useCallback(() => {
+    updateBoard({ included: false });
+    const nextIdx = boards.findIndex((b, i) => i > activeBoard && b.included);
+    if (nextIdx >= 0) navigateToBoard(nextIdx);
+    else if (activeBoard < boards.length - 1) navigateToBoard(activeBoard + 1);
+  }, [boards, activeBoard, updateBoard, navigateToBoard]);
+
+  // ── Generate default commentary (force, ignoring existing) ──
+  const generateDefault = useCallback(() => {
+    if (!board) return;
+    const templateKey = board.templateKey || stickyTemplate || "bidding";
+    if (templateKey === "bidding" && board.auction && board.auction.length > 0) {
+      const autoScenes = generateBiddingCommentary(board);
+      if (autoScenes) {
+        updateBoard({ scenes: autoScenes, templateKey });
+        setActiveScene(0);
+      }
+    }
+  }, [board, stickyTemplate, generateBiddingCommentary, updateBoard]);
+
+  // ── Tag insertion ──────────────────────────────────────────
+  const handleTagInsert = useCallback((newFullText, cursorPos) => {
+    updateScene(activeScene, { text: newFullText });
+    setTimeout(() => {
+      if (textareaRef.current && cursorPos !== undefined) {
+        textareaRef.current.selectionStart = cursorPos;
+        textareaRef.current.selectionEnd = cursorPos;
+        textareaRef.current.focus();
+      }
+    }, 0);
+  }, [activeScene, updateScene]);
+
+  const rawPBN = board ? exportBoard(board) : "";
+
+  // ── Styles ─────────────────────────────────────────────────
+  const panelStyle = { background: "#fff", borderRadius: 8, border: "1px solid #e2e8f0", overflow: "hidden" };
+  const panelHdr = {
+    padding: "8px 12px", borderBottom: "1px solid #e2e8f0", fontSize: 11,
+    fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em",
+    color: "#64748b", fontFamily: "'DM Sans', sans-serif", background: "#f8fafc",
+  };
+  const labelStyle = { fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.04em", fontFamily: "'DM Sans', sans-serif" };
+  const selectStyle = { padding: "4px 6px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: 12, fontFamily: "'DM Sans', sans-serif", background: "#fff", color: "#1e293b" };
+  const inputStyle = { width: "100%", padding: "4px 8px", borderRadius: 4, border: "1px solid #cbd5e1", fontSize: 12, fontFamily: "'DM Sans', sans-serif", color: "#1e293b", boxSizing: "border-box" };
+
+  // ── Empty State ────────────────────────────────────────────
+  if (boards.length === 0) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'DM Sans', -apple-system, sans-serif", display: "flex", flexDirection: "column" }}>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Crimson+Pro:wght@600;700;800&display=swap" rel="stylesheet" />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ textAlign: "center", maxWidth: 420 }}>
+            <div style={{
+              width: 72, height: 72, borderRadius: 16, margin: "0 auto 20px",
+              background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#fff", fontSize: 36, fontWeight: 700,
+              boxShadow: "0 8px 32px rgba(99,102,241,0.3)",
+            }}>♠</div>
+            <div style={{ fontSize: 32, fontWeight: 800, color: "#0f172a", fontFamily: "'Crimson Pro', serif", marginBottom: 6 }}>Bridge Curator</div>
+            <div style={{ fontSize: 15, color: "#64748b", marginBottom: 28, lineHeight: 1.5 }}>
+              Author interactive bridge lessons with visual storyboarding.
+              <br />Import PBN files, apply lesson templates, and tag bids and plays.
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button onClick={handleOpen} style={{
+                padding: "12px 24px", borderRadius: 8, border: "none",
+                background: "linear-gradient(135deg, #3b82f6, #6366f1)", color: "#fff",
+                fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                boxShadow: "0 4px 16px rgba(59,130,246,0.3)",
+              }}>Open PBN File</button>
+              <button onClick={() => {
+                const sample = `[Board "1"]\n[Dealer "W"]\n[Vulnerable "EW"]\n[Deal "N:AT85.KJ3.Q76.K95 KQ64.A985..QJT64 J97.QT76.AT5.A87 32.42.KJ98432.32"]\n[Auction "W"]\n3D Pass Pass 3H Pass 3S Pass 4S Pass Pass Pass\n[Student "N"]\n[Category "Competitive Bidding"]\n[Difficulty "Intermediate"]\n{[show S]\n\nThe bidding has gone as shown. Decide what you would say, then click on BID above. [BID 3\\H]\n\n[NEXT]\n\n[show NS]\n\nYou have a limit raise in \\Ss; if East had not overcalled you would have bid 3\\S.\n\nInstead, you cue-bid 3\\H, promising at least 11 points and support for \\Ss. Partner bids the game.}\n\n[Board "2"]\n[Dealer "N"]\n[Vulnerable "None"]\n[Deal "N:AKQ85.K3.76.KT95 64.A985.QJT4.Q64 J97.QT76.AT5.A87 T32.J42.K9832.32"]\n[Auction "N"]\n1S Pass 2S Pass 4S Pass Pass Pass\n[Student "S"]\n[Category "Declarer Play"]\n\n[Board "3"]\n[Dealer "E"]\n[Vulnerable "NS"]\n[Deal "N:KJ5.AQ3.T76.K952 AT64.985.AQ4.QJ4 Q97.KT76.J85.A87 832.J42.K932.T63"]\n[Auction "E"]\nPass Pass 1C Pass 1NT Pass Pass Pass\n[Student "S"]\n\n[Board "4"]\n[Dealer "S"]\n[Vulnerable "Both"]\n[Deal "N:A85.KJ3.Q764.K95 KQ64.A98..QJT643 JT97.QT76.AT5.A8 32.542.KJ9832.72"]\n[Auction "S"]\n1NT Pass 3NT Pass Pass Pass`;
+                const parsed = parsePBNFile(sample).map(b => ensureScenes(b));
+                setBoards(parsed); setActiveBoard(0); setActiveScene(0); setDirty(false);
+              }} style={{
+                padding: "12px 24px", borderRadius: 8, border: "1.5px solid #cbd5e1",
+                background: "#fff", color: "#475569", fontSize: 15, fontWeight: 600,
+                cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}>Load Sample</button>
+            </div>
+            <input ref={fileInputRef} type="file" accept=".pbn,.txt" onChange={handleImport} style={{ display: "none" }} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f1f5f9", fontFamily: "'DM Sans', -apple-system, sans-serif", display: "flex", flexDirection: "column" }}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Crimson+Pro:wght@600;700;800&display=swap" rel="stylesheet" />
+
+      {/* Header */}
+      <div style={{
+        background: "linear-gradient(135deg, #0f172a, #1e293b)",
+        padding: "8px 20px", display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: 6,
+            background: "linear-gradient(135deg, #3b82f6, #6366f1)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#fff", fontSize: 15, fontWeight: 700,
+          }}>♠</div>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "#f8fafc", fontFamily: "'Crimson Pro', serif" }}>Bridge Curator</span>
+          {stickyTemplate && (
+            <span style={{
+              fontSize: 10, fontWeight: 600, padding: "2px 6px", borderRadius: 3,
+              background: "#1e3a5f", color: "#93c5fd",
+            }}>Template: {TEMPLATES[stickyTemplate]?.name}</span>
+          )}
+          {fileName && (
+            <span style={{
+              fontSize: 11, fontWeight: 500, color: "#94a3b8",
+              maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }} title={fileName}>
+              {fileName}
+            </span>
+          )}
+          {dirty && <span style={{ fontSize: 10, color: "#f59e0b", fontWeight: 600 }}>● Unsaved</span>}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={handleOpen} style={{
+            padding: "5px 12px", borderRadius: 5, border: "1px solid #475569",
+            background: "transparent", color: "#94a3b8", fontSize: 12, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Open</button>
+          <button onClick={handleSave} style={{
+            padding: "5px 12px", borderRadius: 5, border: "1px solid #475569",
+            background: workingFileHandle ? "#1e3a5f" : "transparent",
+            color: workingFileHandle ? "#93c5fd" : "#94a3b8",
+            fontSize: 12, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>Save{!workingFileHandle && "…"}</button>
+          {workingFileHandle && (
+            <button onClick={handleSaveAs} style={{
+              padding: "5px 12px", borderRadius: 5, border: "1px solid #475569",
+              background: "transparent", color: "#94a3b8", fontSize: 12, fontWeight: 600,
+              cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+            }}>Save As…</button>
+          )}
+          <button onClick={() => setShowPreview(true)} style={{
+            padding: "5px 12px", borderRadius: 5, border: "1px solid #475569",
+            background: "transparent", color: "#94a3b8", fontSize: 12, fontWeight: 600,
+            cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+          }}>▶ Preview</button>
+          <input ref={fileInputRef} type="file" accept=".pbn,.txt" onChange={handleImport} style={{ display: "none" }} />
+        </div>
+      </div>
+
+      {/* Board nav */}
+      <BoardNav boards={boards} activeIdx={activeBoard} onSelect={navigateToBoard} includedCount={includedCount} />
+
+      {/* Main */}
+      {board && (
+        <div style={{
+          display: "grid", gridTemplateColumns: "minmax(320px, 380px) 1fr 240px",
+          gap: 12, padding: 12, flex: 1, minHeight: 0,
+          maxWidth: 1400, margin: "0 auto", width: "100%", boxSizing: "border-box",
+        }}>
+          {/* Left */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto" }}>
+            {/* Skip/include toggle */}
+            <div style={{
+              display: "flex", gap: 6, alignItems: "center",
+            }}>
+              <button onClick={toggleIncluded} style={{
+                flex: 1, padding: "6px 12px", borderRadius: 6,
+                border: board.included ? "1.5px solid #22c55e" : "1.5px solid #ef4444",
+                background: board.included ? "#f0fdf4" : "#fef2f2",
+                color: board.included ? "#166534" : "#991b1b",
+                fontSize: 12, fontWeight: 700, cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif",
+              }}>
+                {board.included ? "✓ Included" : "✗ Skipped"}
+              </button>
+              <button onClick={skipAndNext} style={{
+                padding: "6px 12px", borderRadius: 6,
+                border: "1.5px solid #e2e8f0", background: "#fff",
+                color: "#64748b", fontSize: 12, fontWeight: 600,
+                cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+              }}>
+                Skip →
+              </button>
+            </div>
+
+            {/* Board diagram */}
+            <div style={panelStyle}>
+              <div style={panelHdr}>
+                Board {board.board || activeBoard + 1}
+                {board.templateKey && (
+                  <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1e40af" }}>
+                    {TEMPLATES[board.templateKey]?.name}
+                  </span>
+                )}
+              </div>
+              <BoardDiagram hands={board.hands} visibility={currentScene?.visibility || "NESW"} onSwapCards={handleSwapCards} highlightedCards={highlightedCards} />
+              {board.metadata && board.metadata.length > 0 && (
+                <div style={{
+                  padding: "6px 10px", borderTop: "1px solid #e2e8f0",
+                  background: "#f8fafc",
+                }}>
+                  {board.metadata.map((m, i) => (
+                    <div key={i} style={{
+                      fontSize: 10, color: "#64748b", fontFamily: "'JetBrains Mono', monospace",
+                      lineHeight: 1.4,
+                    }}>{m}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Auction */}
+            <div style={panelStyle}>
+              <div style={panelHdr}>Auction</div>
+              <div style={{ padding: 8 }}>
+                <AuctionDisplay auction={board.auction} dealer={board.dealer} />
+              </div>
+            </div>
+
+            {/* Settings */}
+            <div style={panelStyle}>
+              <div style={panelHdr}>Settings</div>
+              <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  <div>
+                    <label style={labelStyle}>Dealer</label>
+                    <select value={board.dealer} onChange={e => updateBoard({ dealer: e.target.value })}
+                      style={{ ...selectStyle, width: "100%", marginTop: 2 }}>
+                      {SEATS.map(s => <option key={s} value={s}>{SEAT_NAMES[s]}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Student</label>
+                    <select value={board.student} onChange={e => updateBoard({ student: e.target.value })}
+                      style={{ ...selectStyle, width: "100%", marginTop: 2 }}>
+                      <option value="">Not set</option>
+                      {SEATS.map(s => <option key={s} value={s}>{SEAT_NAMES[s]}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Vulnerability</label>
+                  <select value={board.vulnerable} onChange={e => updateBoard({ vulnerable: e.target.value })}
+                    style={{ ...selectStyle, width: "100%", marginTop: 2 }}>
+                    {VULNERABILITIES.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Category</label>
+                  <div style={{ marginTop: 2 }}>
+                    <FilteredCombo
+                      value={board.category}
+                      onChange={(v) => { updateBoard({ category: v }); setStickyCategory(v); }}
+                      options={CATEGORIES}
+                      placeholder="e.g. Competitive Bidding"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Difficulty</label>
+                  <div style={{ marginTop: 2 }}>
+                    <FilteredCombo
+                      value={board.difficulty}
+                      onChange={(v) => { updateBoard({ difficulty: v }); setStickyDifficulty(v); }}
+                      options={DIFFICULTIES}
+                      placeholder="e.g. intermediate"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Skill Path</label>
+                  <div style={{ marginTop: 2 }}>
+                    <FilteredCombo
+                      value={board.skillPath}
+                      onChange={(v) => { updateBoard({ skillPath: v }); setStickySkillPath(v); }}
+                      options={SKILL_PATHS}
+                      placeholder="e.g. bidding_conventions/two_over_one"
+                    />
+                  </div>
+                </div>
+                <button onClick={() => setShowTemplatePicker(true)} style={{
+                  padding: "7px 12px", borderRadius: 5, border: "1.5px solid #e2e8f0",
+                  background: "#fff", color: "#475569", fontSize: 12, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif", marginTop: 4, width: "100%",
+                }}>Apply Template…</button>
+                {board.auction && board.auction.length > 0 && (
+                  <button onClick={generateDefault} style={{
+                    padding: "7px 12px", borderRadius: 5, border: "1.5px solid #f59e0b",
+                    background: "#fffbeb", color: "#92400e", fontSize: 12, fontWeight: 600,
+                    cursor: "pointer", fontFamily: "'DM Sans', sans-serif", width: "100%",
+                  }}>⚡ Generate Bidding Scaffold</button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Center: Scene Editor */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
+            {currentScene && (
+              <div style={{ ...panelStyle, flex: 1, display: "flex", flexDirection: "column" }}>
+                <div style={{ ...panelHdr, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span>Scene {activeScene + 1} of {board.scenes.length}</span>
+                  <VisibilityToggle
+                    visibility={currentScene.visibility}
+                    onChange={(vis) => updateScene(activeScene, { visibility: vis })}
+                  />
+                </div>
+                {currentScene.hint && !currentScene.text.trim() && (
+                  <div style={{
+                    padding: "6px 12px", background: "#fefce8", borderBottom: "1px solid #fef08a",
+                    fontSize: 12, color: "#854d0e", fontStyle: "italic",
+                  }}>💡 {currentScene.hint}</div>
+                )}
+                <div style={{ padding: "8px 12px", borderBottom: "1px solid #f1f5f9" }}>
+                  <TagToolbar textareaRef={textareaRef}
+                    onInsert={(newText, cursor) => {
+                      if (typeof newText === "string" && cursor !== undefined) handleTagInsert(newText, cursor);
+                    }}
+                  />
+                </div>
+                <div style={{ flex: 1, padding: 12 }}>
+                  <textarea
+                    ref={textareaRef}
+                    value={currentScene.text}
+                    onChange={(e) => updateScene(activeScene, { text: e.target.value })}
+                    placeholder="Write your instructional narrative here. Use the tag toolbar above to insert control tags inline, or type them directly."
+                    style={{
+                      width: "100%", height: "100%", minHeight: 200, padding: 12,
+                      borderRadius: 6, border: "1px solid #e2e8f0",
+                      fontSize: 14, fontFamily: "'DM Sans', sans-serif",
+                      color: "#1e293b", lineHeight: 1.7, resize: "vertical",
+                      boxSizing: "border-box", background: "#fafbfc",
+                    }}
+                  />
+                </div>
+                {currentScene.prompts.length > 0 && (
+                  <div style={{
+                    padding: "8px 12px", borderTop: "1px solid #f1f5f9",
+                    display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center",
+                  }}>
+                    <span style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>Prompts:</span>
+                    {currentScene.prompts.map((p, j) => (
+                      <span key={j} style={{
+                        fontSize: 11, fontWeight: 600, padding: "2px 6px", borderRadius: 4,
+                        background: p.type === "BID" ? "#fef3c7" : p.type === "CARD" ? "#d1fae5" : "#f1f5f9",
+                        color: p.type === "BID" ? "#92400e" : p.type === "CARD" ? "#065f46" : "#475569",
+                        fontFamily: "'JetBrains Mono', monospace",
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                      }}>
+                        {p.type}{p.value ? ` ${p.value}` : ""}
+                        <span onClick={() => {
+                          const next = [...currentScene.prompts]; next.splice(j, 1);
+                          updateScene(activeScene, { prompts: next });
+                        }} style={{ cursor: "pointer", color: "#94a3b8" }}>×</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={panelStyle}>
+              <div style={{ ...panelHdr, cursor: "pointer", userSelect: "none", display: "flex", alignItems: "center", gap: 6 }}
+                onClick={() => setShowRaw(!showRaw)}>
+                <span style={{ fontSize: 12 }}>{showRaw ? "▾" : "▸"}</span> PBN Output
+              </div>
+              {showRaw && (
+                <pre style={{
+                  padding: 12, fontSize: 11, fontFamily: "'JetBrains Mono', monospace",
+                  color: "#334155", background: "#f8fafc", margin: 0,
+                  whiteSpace: "pre-wrap", wordBreak: "break-word",
+                  maxHeight: 240, overflow: "auto", lineHeight: 1.5,
+                }}>{rawPBN}</pre>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Storyboard */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            <div style={{ ...panelStyle, flex: 1, display: "flex", flexDirection: "column" }}>
+              <div style={{ ...panelHdr, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>Storyboard</span>
+                <button onClick={addScene} style={{
+                  padding: "2px 8px", borderRadius: 4, border: "none",
+                  background: "#3b82f6", color: "#fff", fontSize: 10, fontWeight: 700,
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}>+ Scene</button>
+              </div>
+              <div style={{ padding: 8, display: "flex", flexDirection: "column", gap: 6, overflow: "auto", flex: 1 }}>
+                {board.scenes?.map((scene, i) => (
+                  <SceneMiniCard key={i} scene={scene} index={i}
+                    isActive={i === activeScene}
+                    onClick={() => setActiveScene(i)}
+                    onRemove={() => removeScene(i)}
+                    canRemove={board.scenes.length > 1}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      {showTemplatePicker && (
+        <TemplatePicker onSelect={applyTemplate} onClose={() => setShowTemplatePicker(false)} stickyTemplate={stickyTemplate} />
+      )}
+      {showPreview && board && (
+        <PreviewMode board={board} onClose={() => setShowPreview(false)} />
+      )}
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(React.createElement(BridgeCurator));
+  </script>
+</body>
+</html>
