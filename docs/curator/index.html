@@ -1339,6 +1339,10 @@ function BridgeCurator() {
     const contentScenes = hasRawCommentary ? (parseCommentary(b.commentary) || existingScenes) : existingScenes;
 
     let mergedScenes;
+    // Determine which seats actually have cards (for "show all" scenes)
+    const populatedSeats = SEATS.filter(s => b.hands && b.hands[s] && b.hands[s].length > 0).join("");
+    const revealVis = populatedSeats || "NESW";
+
     if (hasExistingContent || hasRawCommentary) {
       // Merge: overlay template visibility/hints onto existing content
       const tmplScenes = tmpl.scenes;
@@ -1348,22 +1352,47 @@ function BridgeCurator() {
         const existing = contentScenes[i];
         const template = tmplScenes[Math.min(i, tmplScenes.length - 1)];
         if (existing) {
+          // Use template visibility, but limit "NESW" to only populated seats
+          let newVis = i < tmplScenes.length ? tmplScenes[i].visibility : template.visibility;
+          if (newVis === "NESW") newVis = revealVis;
+          // Update the [show X] tag in text to match the new visibility
+          let newText = existing.text;
+          if (/\[show\s+[NESW]+\]/i.test(newText)) {
+            newText = newText.replace(/\[show\s+[NESW]+\]/i, `[show ${newVis}]`);
+          }
           mergedScenes.push({
             ...existing,
-            visibility: i < tmplScenes.length ? tmplScenes[i].visibility : template.visibility,
+            text: newText,
+            visibility: newVis,
             hint: i < tmplScenes.length ? tmplScenes[i].hint : "",
           });
         } else {
-          mergedScenes.push({ ...template, text: `[show ${template.visibility}]\n`, showcards: [...template.showcards] });
+          let vis = template.visibility === "NESW" ? revealVis : template.visibility;
+          mergedScenes.push({ ...template, visibility: vis, text: `[show ${vis}]\n`, showcards: [...template.showcards] });
         }
       }
     } else if (templateKey === "bidding" && b.auction && b.auction.length > 0) {
       // No content — auto-generate bidding commentary from auction
       const autoScenes = generateBiddingCommentary(b);
-      mergedScenes = autoScenes || tmpl.scenes.map(s => ({ ...s, text: `[show ${s.visibility}]\n`, showcards: [...s.showcards] }));
+      if (autoScenes) {
+        // Replace NESW with only populated seats in reveal scene
+        mergedScenes = autoScenes.map(s => {
+          const vis = s.visibility === "NESW" ? revealVis : s.visibility;
+          const text = s.text.replace(/\[show\s+NESW\]/i, `[show ${revealVis}]`);
+          return { ...s, visibility: vis, text };
+        });
+      } else {
+        mergedScenes = tmpl.scenes.map(s => {
+          const vis = s.visibility === "NESW" ? revealVis : s.visibility;
+          return { ...s, visibility: vis, text: `[show ${vis}]\n`, showcards: [...s.showcards] };
+        });
+      }
     } else {
       // No content, no auction or non-bidding template — use template defaults
-      mergedScenes = tmpl.scenes.map(s => ({ ...s, text: `[show ${s.visibility}]\n`, showcards: [...s.showcards] }));
+      mergedScenes = tmpl.scenes.map(s => {
+        const vis = s.visibility === "NESW" ? revealVis : s.visibility;
+        return { ...s, visibility: vis, text: `[show ${vis}]\n`, showcards: [...s.showcards] };
+      });
     }
     return {
       ...b,
