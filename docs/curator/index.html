@@ -1310,8 +1310,11 @@ function PreviewMode({ board, onClose }) {
 
   // Build progressive auction: show bids up to current point, "?" for pending student bid
   const isAtBidPause = currentPause && currentPause.type === "BID";
+  const totalBidPauses = useMemo(() => steps.filter(s => s.pause && s.pause.type === "BID").length, [steps]);
+  const allBidsResolved = resolvedBids >= totalBidPauses;
   const progressiveAuction = useMemo(() => {
     if (!board.auction || !board.auction.length) return [];
+    if (allBidsResolved) return board.auction; // show full auction after all BID pauses resolved
     const studentSeat = board.student || "S";
     const dealerIdx = SEATS.indexOf(board.dealer);
     let studentBidsSeen = 0;
@@ -1333,7 +1336,7 @@ function PreviewMode({ board, onClose }) {
       }
     }
     return result;
-  }, [board.auction, board.dealer, board.student, resolvedBids, isAtBidPause]);
+  }, [board.auction, board.dealer, board.student, resolvedBids, isAtBidPause, allBidsResolved]);
 
   const canPrev = stepIdx > 0;
   const isEnd = stepIdx >= steps.length - 1 && !currentPause;
