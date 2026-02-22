@@ -71,76 +71,10 @@
 
       <!-- Learning progress -->
       <section class="progress-section">
-        <h3>Learning Progress</h3>
-        <div v-if="!learningData" class="no-data">
-          Not enough repeat practice yet to show learning trends.
-        </div>
-        <div v-else>
-          <!-- Overall summary -->
-          <div class="learning-overall">
-            <div class="learning-overall-trend">
-              <span class="pct early">{{ learningData.overallEarlyPct }}%</span>
-              <span class="arrow">&#8594;</span>
-              <span class="pct recent">{{ learningData.overallRecentPct }}%</span>
-              <span class="learning-delta" :class="deltaClass(learningData.overallRecentPct - learningData.overallEarlyPct)">
-                {{ formatDelta(learningData.overallRecentPct - learningData.overallEarlyPct) }}
-              </span>
-            </div>
-            <div class="learning-bar-row">
-              <span class="bar-label">Early</span>
-              <div class="bar-track"><div class="bar-fill early" :style="{ width: learningData.overallEarlyPct + '%' }"></div></div>
-            </div>
-            <div class="learning-bar-row">
-              <span class="bar-label">Now</span>
-              <div class="bar-track"><div class="bar-fill recent" :style="{ width: learningData.overallRecentPct + '%' }"></div></div>
-            </div>
-            <div class="learning-count">{{ learningData.totalBoardsAnalyzed }} boards analyzed</div>
-          </div>
-
-          <!-- Per-skill cards -->
-          <div v-for="skill in learningData.skillLearning" :key="skill.skillPath" class="learning-skill-card">
-            <div class="learning-skill-header" @click="toggleLearningSkill(skill.skillPath)">
-              <div class="learning-skill-info">
-                <span class="learning-skill-name">{{ skill.skillName }}</span>
-                <span class="learning-skill-meta">{{ skill.boardCount }} board{{ skill.boardCount !== 1 ? 's' : '' }} &middot; {{ skill.earlyPct }}% &#8594; {{ skill.recentPct }}%</span>
-              </div>
-              <span class="learning-delta" :class="deltaClass(skill.improvement)">
-                {{ formatDelta(skill.improvement) }}
-              </span>
-            </div>
-
-            <!-- Expanded board details -->
-            <div v-if="expandedLearningSkills.has(skill.skillPath)" class="learning-boards">
-              <div
-                v-for="board in skill.boards"
-                :key="board.subfolder + board.number"
-                class="learning-board-row"
-              >
-                <span class="learning-board-name">{{ formatLessonName(board.subfolder) }} #{{ board.number }}</span>
-                <span class="learning-board-attempts">{{ board.attempts }}x</span>
-                <span class="learning-board-trend">{{ board.earlyPct }}% &#8594; {{ board.recentPct }}%</span>
-                <span class="learning-delta-sm" :class="deltaClass(board.improvement)">
-                  {{ formatDelta(board.improvement) }}
-                </span>
-              </div>
-            </div>
-
-            <!-- Collapsed preview -->
-            <div v-else-if="skill.boards.length > 0" class="learning-preview">
-              <div
-                v-for="board in skill.boards.slice(0, 3)"
-                :key="board.subfolder + board.number"
-                class="learning-preview-row"
-              >
-                <span class="learning-preview-name">{{ formatLessonName(board.subfolder) }} #{{ board.number }}:</span>
-                <span class="learning-preview-trend">{{ board.earlyPct }}% &#8594; {{ board.recentPct }}%</span>
-              </div>
-              <div v-if="skill.boards.length > 3" class="learning-preview-more" @click="toggleLearningSkill(skill.skillPath)">
-                +{{ skill.boards.length - 3 }} more boards...
-              </div>
-            </div>
-          </div>
-        </div>
+        <StudentProgressPanel
+          :observations="observations"
+          :studentName="props.studentName"
+        />
       </section>
 
       <div class="observation-total">{{ observations.length }} observations</div>
@@ -153,7 +87,7 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { useTeacherRole } from '../composables/useTeacherRole.js'
 import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
-import { computeLearningData } from '../composables/useLearningProgress.js'
+import StudentProgressPanel from './StudentProgressPanel.vue'
 
 const props = defineProps({
   studentId: { type: String, required: true },
@@ -166,7 +100,6 @@ const teacherRole = useTeacherRole()
 const mastery = useBoardMastery()
 const accomplishments = useAccomplishments()
 const loading = ref(false)
-const expandedLearningSkills = ref(new Set())
 
 const initials = computed(() => {
   const parts = props.studentName.split(' ')
@@ -185,10 +118,6 @@ onMounted(async () => {
 
 const observations = computed(() => {
   return teacherRole.studentObservations.value[props.studentId] || []
-})
-
-const learningData = computed(() => {
-  return computeLearningData(observations.value)
 })
 
 const summary = computed(() => {
@@ -229,28 +158,6 @@ const lessonMasteryList = computed(() => {
 watch(lessonMasteryList, (lessons) => {
   mastery.fetchMissingBoardCounts(lessons.map(l => l.subfolder))
 }, { immediate: true })
-
-function toggleLearningSkill(skillPath) {
-  const next = new Set(expandedLearningSkills.value)
-  if (next.has(skillPath)) {
-    next.delete(skillPath)
-  } else {
-    next.add(skillPath)
-  }
-  expandedLearningSkills.value = next
-}
-
-function formatDelta(value) {
-  if (value > 0) return '+' + value
-  if (value < 0) return '' + value
-  return '0'
-}
-
-function deltaClass(value) {
-  if (value > 0) return 'positive'
-  if (value < 0) return 'negative'
-  return 'neutral'
-}
 
 function formatLessonName(folderName) {
   return accomplishments.formatLessonName(folderName)
@@ -502,163 +409,6 @@ function getTooltip(board) {
   position: relative;
   z-index: 0;
 }
-
-/* Learning progress */
-.learning-overall {
-  background: #f8f9fa;
-  border-radius: 10px;
-  padding: 14px;
-  margin-bottom: 12px;
-}
-
-.learning-overall-trend {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.pct { font-size: 20px; font-weight: 700; }
-.pct.early { color: #999; }
-.pct.recent { color: #333; }
-.arrow { color: #bbb; font-size: 16px; }
-
-.learning-bar-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.bar-label {
-  font-size: 11px;
-  color: #999;
-  width: 32px;
-  text-align: right;
-}
-
-.bar-track {
-  flex: 1;
-  height: 8px;
-  background: #e8e8e8;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-
-.bar-fill.early { background: #bdbdbd; }
-.bar-fill.recent { background: #4caf50; }
-
-.learning-count {
-  font-size: 12px;
-  color: #999;
-  text-align: center;
-  margin-top: 6px;
-}
-
-.learning-delta {
-  font-size: 14px;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 12px;
-  white-space: nowrap;
-}
-
-.learning-delta.positive { background: #e8f5e9; color: #2e7d32; }
-.learning-delta.negative { background: #ffebee; color: #c62828; }
-.learning-delta.neutral { background: #f5f5f5; color: #999; }
-
-.learning-skill-card {
-  background: #fafafa;
-  border-radius: 8px;
-  margin-bottom: 8px;
-  overflow: hidden;
-}
-
-.learning-skill-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 14px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.learning-skill-header:hover { background: #f0f0f0; }
-
-.learning-skill-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.learning-skill-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-}
-
-.learning-skill-meta {
-  font-size: 12px;
-  color: #999;
-}
-
-.learning-boards {
-  padding: 0 14px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.learning-board-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  background: white;
-  border-radius: 4px;
-  font-size: 13px;
-}
-
-.learning-board-name { flex: 1; color: #555; }
-.learning-board-attempts { color: #bbb; font-size: 11px; }
-.learning-board-trend { color: #666; font-size: 12px; }
-
-.learning-delta-sm {
-  font-size: 12px;
-  font-weight: 600;
-  min-width: 36px;
-  text-align: right;
-}
-
-.learning-delta-sm.positive { color: #2e7d32; }
-.learning-delta-sm.negative { color: #c62828; }
-.learning-delta-sm.neutral { color: #999; }
-
-.learning-preview { padding: 0 14px 10px; }
-
-.learning-preview-row {
-  font-size: 12px;
-  color: #777;
-  padding: 2px 0;
-}
-
-.learning-preview-name { color: #999; }
-.learning-preview-trend { color: #555; }
-
-.learning-preview-more {
-  font-size: 12px;
-  color: #667eea;
-  cursor: pointer;
-  padding-top: 2px;
-}
-
-.learning-preview-more:hover { text-decoration: underline; }
 
 .observation-total {
   text-align: center;
