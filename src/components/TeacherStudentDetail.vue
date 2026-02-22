@@ -19,18 +19,35 @@
 
     <!-- Content -->
     <div v-else class="detail-content">
-      <!-- Summary stats -->
-      <div v-if="summary.total > 0" class="stats-row">
-        <div class="stat stat-green">{{ summary.green }} Green</div>
-        <div v-if="summary.orange" class="stat stat-orange">{{ summary.orange }} Orange</div>
-        <div v-if="summary.yellow" class="stat stat-yellow">{{ summary.yellow }} Yellow</div>
-        <div v-if="summary.red" class="stat stat-red">{{ summary.red }} Red</div>
-        <div v-if="summary.grey" class="stat stat-grey">{{ summary.grey }} Grey</div>
+      <!-- Tabs -->
+      <div class="tab-bar">
+        <button
+          v-for="tab in tabs" :key="tab.id"
+          class="tab-btn"
+          :class="{ active: activeTab === tab.id }"
+          @click="activeTab = tab.id"
+        >{{ tab.label }}</button>
       </div>
 
-      <!-- Lesson mastery strips -->
-      <section class="mastery-section">
-        <h3>Lesson Mastery</h3>
+      <!-- Progress tab -->
+      <div v-if="activeTab === 'progress'" class="tab-content">
+        <StudentProgressPanel
+          :observations="observations"
+          :studentName="props.studentName"
+        />
+      </div>
+
+      <!-- Lesson Mastery tab -->
+      <div v-else-if="activeTab === 'mastery'" class="tab-content">
+        <!-- Summary stats -->
+        <div v-if="summary.total > 0" class="stats-row">
+          <div class="stat stat-green">{{ summary.green }} Green</div>
+          <div v-if="summary.orange" class="stat stat-orange">{{ summary.orange }} Orange</div>
+          <div v-if="summary.yellow" class="stat stat-yellow">{{ summary.yellow }} Yellow</div>
+          <div v-if="summary.red" class="stat stat-red">{{ summary.red }} Red</div>
+          <div v-if="summary.grey" class="stat stat-grey">{{ summary.grey }} Grey</div>
+        </div>
+
         <div v-if="lessonMasteryList.length === 0" class="no-data">
           No lesson data available yet.
         </div>
@@ -67,15 +84,7 @@
             </div>
           </div>
         </div>
-      </section>
-
-      <!-- Learning progress -->
-      <section class="progress-section">
-        <StudentProgressPanel
-          :observations="observations"
-          :studentName="props.studentName"
-        />
-      </section>
+      </div>
 
       <div class="observation-total">{{ observations.length }} observations</div>
     </div>
@@ -100,6 +109,11 @@ const teacherRole = useTeacherRole()
 const mastery = useBoardMastery()
 const accomplishments = useAccomplishments()
 const loading = ref(false)
+const activeTab = ref('progress')
+const tabs = [
+  { id: 'progress', label: 'Progress' },
+  { id: 'mastery', label: 'Lesson Mastery' },
+]
 
 const initials = computed(() => {
   const parts = props.studentName.split(' ')
@@ -273,19 +287,39 @@ function getTooltip(board) {
 .stat-red { background: #ffebee; color: #c62828; }
 .stat-grey { background: #f5f5f5; color: #757575; }
 
-/* Sections */
-.mastery-section,
-.progress-section {
-  margin-bottom: 28px;
+/* Tabs */
+.tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid #eee;
+  margin-bottom: 20px;
 }
 
-.mastery-section h3,
-.progress-section h3 {
+.tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  padding: 10px 18px;
   font-size: 14px;
-  text-transform: uppercase;
-  color: #666;
-  margin-bottom: 12px;
-  letter-spacing: 0.5px;
+  font-weight: 500;
+  color: #999;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tab-btn:hover {
+  color: #555;
+}
+
+.tab-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  font-weight: 600;
+}
+
+.tab-content {
+  min-height: 200px;
 }
 
 .no-data {
