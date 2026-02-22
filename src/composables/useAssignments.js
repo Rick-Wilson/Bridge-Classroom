@@ -29,7 +29,16 @@ export function useAssignments() {
       }
       const data = await response.json()
       if (data.success) {
-        studentAssignments.value = data.assignments
+        // Deduplicate by exercise_id — when the same exercise is assigned
+        // through multiple classrooms, keep only one entry with best progress
+        const byExercise = new Map()
+        for (const a of data.assignments) {
+          const existing = byExercise.get(a.exercise_id)
+          if (!existing || a.attempted_boards > existing.attempted_boards) {
+            byExercise.set(a.exercise_id, a)
+          }
+        }
+        studentAssignments.value = Array.from(byExercise.values())
       } else {
         error.value = data.error || 'Failed to fetch assignments'
       }
@@ -203,6 +212,25 @@ export function useAssignments() {
     }
   }
 
+  /** Fetch exercise boards for loading into practice mode */
+  async function fetchExerciseBoards(exerciseId) {
+    try {
+      const response = await fetch(
+        `${API_URL}/exercises/${encodeURIComponent(exerciseId)}`,
+        { headers: { 'x-api-key': API_KEY } }
+      )
+      if (!response.ok) return null
+      const data = await response.json()
+      if (data.success) {
+        return data.exercise.boards // [{ deal_subfolder, deal_number, sort_order }]
+      }
+      return null
+    } catch (err) {
+      console.error('Failed to fetch exercise boards:', err)
+      return null
+    }
+  }
+
   /** Reset all state */
   function reset() {
     studentAssignments.value = []
@@ -224,6 +252,7 @@ export function useAssignments() {
     fetchAssignmentDetail,
     createAssignment,
     deleteAssignment,
+    fetchExerciseBoards,
     reset
   }
 }

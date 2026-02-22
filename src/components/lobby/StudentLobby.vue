@@ -17,7 +17,7 @@ import { useAssignments } from '../../composables/useAssignments.js'
 import CollectionGrid from './CollectionGrid.vue'
 import AssignmentPanel from './AssignmentPanel.vue'
 
-const emit = defineEmits(['select-collection', 'load-file'])
+const emit = defineEmits(['select-collection', 'select-assignment', 'load-file'])
 
 const userStore = useUserStore()
 const assignmentStore = useAssignments()
@@ -26,8 +26,7 @@ const hasAssignments = computed(() => assignmentStore.studentAssignments.value.l
 const assignmentsLoading = computed(() => assignmentStore.loading.value)
 
 function handleSelectAssignment(assignment) {
-  // TODO: navigate to practice the assigned exercise boards
-  console.log('Selected assignment:', assignment)
+  emit('select-assignment', assignment)
 }
 
 onMounted(() => {

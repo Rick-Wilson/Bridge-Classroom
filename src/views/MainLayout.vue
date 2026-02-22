@@ -62,6 +62,7 @@
       <LobbyView
         v-else-if="!deals.length && !currentCollection"
         @select-collection="selectCollection"
+        @select-assignment="handleSelectAssignment"
         @show-become-teacher="showBecomeTeacher = true"
         @load-file="onFileSelect"
       />
@@ -281,6 +282,7 @@ import { useObservationStore } from '../composables/useObservationStore.js'
 import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { useTeacherRole } from '../composables/useTeacherRole.js'
 import { useAnnouncement } from '../composables/useAnnouncement.js'
+import { useAssignments } from '../composables/useAssignments.js'
 
 import BridgeTable from '../components/BridgeTable.vue'
 import BiddingBox from '../components/BiddingBox.vue'
@@ -314,6 +316,7 @@ const assignmentStore = useAssignmentStore()
 const dataSync = useDataSync()
 const teacherRole = useTeacherRole()
 const announcementStore = useAnnouncement()
+const assignmentsApi = useAssignments()
 
 // Unified practice state - tag-driven, no modes
 const practice = useDealPractice()
@@ -789,6 +792,97 @@ function handleOpenIntro(url) {
 function selectCollection(collectionId) {
   currentCollection.value = collectionId
   appConfig.setCollectionInUrl(collectionId)
+}
+
+/**
+ * Handle student clicking an assignment card.
+ * Fetches the exercise's board list, loads the corresponding PBN files,
+ * filters to just the assigned boards, and enters practice mode.
+ */
+async function handleSelectAssignment(assignment) {
+  const boards = await assignmentsApi.fetchExerciseBoards(assignment.exercise_id)
+  if (!boards || boards.length === 0) {
+    alert('Could not load exercise boards.')
+    return
+  }
+
+  // Group boards by subfolder so we fetch each PBN file once
+  const bySubfolder = new Map()
+  for (const b of boards) {
+    if (!bySubfolder.has(b.deal_subfolder)) {
+      bySubfolder.set(b.deal_subfolder, [])
+    }
+    bySubfolder.get(b.deal_subfolder).push(b)
+  }
+
+  const allDeals = []
+
+  for (const [subfolder, boardRefs] of bySubfolder) {
+    const filename = subfolder.includes('/') ? subfolder.split('/').pop() : subfolder
+    let content = null
+
+    // Try each collection to find the PBN file
+    for (const collection of appConfig.COLLECTIONS) {
+      try {
+        const url = `${collection.baseUrl}/${filename}.pbn`
+        const response = await fetch(url)
+        if (response.ok) {
+          content = await response.text()
+          break
+        }
+      } catch {
+        // Try next collection
+      }
+    }
+
+    if (!content) {
+      console.warn(`Could not load PBN for subfolder: ${subfolder}`)
+      continue
+    }
+
+    const parsed = parsePbn(content)
+    const wantedNumbers = new Set(boardRefs.map(b => b.deal_number))
+
+    for (const deal of parsed) {
+      if (wantedNumbers.has(deal.boardNumber)) {
+        // Find the sort_order for this board
+        const ref = boardRefs.find(b => b.deal_number === deal.boardNumber)
+        allDeals.push({
+          ...deal,
+          subfolder: deal.subfolder || subfolder,
+          category: deal.category || subfolder,
+          _sortOrder: ref?.sort_order ?? 999
+        })
+      }
+    }
+  }
+
+  if (allDeals.length === 0) {
+    alert('Could not find any of the assigned boards.')
+    return
+  }
+
+  // Sort by the exercise's sort_order
+  allDeals.sort((a, b) => a._sortOrder - b._sortOrder)
+
+  // Load into practice mode
+  deals.value = allDeals
+  currentDealIndex.value = 0
+  practice.loadDeal(allDeals[0])
+  practice.resetStats()
+
+  // Cache board numbers for mastery tracking
+  const boardMastery = useBoardMastery()
+  boardMastery.saveLessonBoardNumbers(
+    assignment.exercise_name,
+    allDeals.map(d => d.boardNumber)
+  )
+
+  currentLesson.value = {
+    id: assignment.exercise_name,
+    name: assignment.exercise_name,
+    category: 'Assignment'
+  }
 }
 
 // Get collection info by ID

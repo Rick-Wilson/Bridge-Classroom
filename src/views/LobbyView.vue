@@ -10,6 +10,7 @@
     />
     <StudentLobby v-else-if="hasAssignments || hasClassrooms"
       @select-collection="$emit('select-collection', $event)"
+      @select-assignment="$emit('select-assignment', $event)"
       @load-file="$emit('load-file', $event)"
     />
     <CasualLobby v-else
@@ -29,7 +30,7 @@ import StudentLobby from '../components/lobby/StudentLobby.vue'
 import TeacherLobby from '../components/lobby/TeacherLobby.vue'
 import AdminLobby from '../components/lobby/AdminLobby.vue'
 
-defineEmits(['select-collection', 'show-become-teacher', 'load-file'])
+defineEmits(['select-collection', 'select-assignment', 'show-become-teacher', 'load-file'])
 
 const userStore = useUserStore()
 const assignmentStore = useAssignments()
