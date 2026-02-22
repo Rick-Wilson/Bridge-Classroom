@@ -615,14 +615,10 @@ function AuctionDisplay({ auction, dealer, compact, onBidClick }) {
         fontSize: isQuestion ? (compact ? 14 : 16) : (compact ? 12 : 13),
         fontFamily: "'JetBrains Mono', monospace", textAlign: "center",
         background, cursor: clickable ? "pointer" : "default",
-        position: "relative",
       }} onClick={clickable ? () => onBidClick(i) : undefined}>
         {display}
         {entry.alertNum && (
-          <sup style={{
-            fontSize: 8, fontWeight: 700, color: "#dc2626",
-            position: "absolute", top: 0, right: 0,
-          }}>{entry.alertNum}</sup>
+          <sup style={{ fontSize: 8, fontWeight: 700, color: "#dc2626" }}>{entry.alertNum}</sup>
         )}
       </td>
     );
