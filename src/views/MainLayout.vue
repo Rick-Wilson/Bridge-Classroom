@@ -806,32 +806,54 @@ async function handleSelectAssignment(assignment) {
     return
   }
 
-  // Group boards by subfolder so we fetch each PBN file once
-  const bySubfolder = new Map()
+  // Group boards by subfolder+collection so we fetch each PBN file once
+  const groupKey = (b) => `${b.collection_id || ''}|${b.deal_subfolder}`
+  const byGroup = new Map()
   for (const b of boards) {
-    if (!bySubfolder.has(b.deal_subfolder)) {
-      bySubfolder.set(b.deal_subfolder, [])
+    const key = groupKey(b)
+    if (!byGroup.has(key)) {
+      byGroup.set(key, [])
     }
-    bySubfolder.get(b.deal_subfolder).push(b)
+    byGroup.get(key).push(b)
   }
 
   const allDeals = []
 
-  for (const [subfolder, boardRefs] of bySubfolder) {
+  for (const [, boardRefs] of byGroup) {
+    const subfolder = boardRefs[0].deal_subfolder
+    const collectionId = boardRefs[0].collection_id
     const filename = subfolder.includes('/') ? subfolder.split('/').pop() : subfolder
     let content = null
 
-    // Try each collection to find the PBN file
-    for (const collection of appConfig.COLLECTIONS) {
-      try {
-        const url = `${collection.baseUrl}/${filename}.pbn`
-        const response = await fetch(url)
-        if (response.ok) {
-          content = await response.text()
-          break
+    // If collection_id is set, go directly to the right collection
+    if (collectionId) {
+      const collection = getCollection(collectionId)
+      if (collection) {
+        try {
+          const url = `${collection.baseUrl}/${filename}.pbn`
+          const response = await fetch(url)
+          if (response.ok) {
+            content = await response.text()
+          }
+        } catch {
+          // Fall through to try all collections
         }
-      } catch {
-        // Try next collection
+      }
+    }
+
+    // Fallback: try each collection
+    if (!content) {
+      for (const collection of appConfig.COLLECTIONS) {
+        try {
+          const url = `${collection.baseUrl}/${filename}.pbn`
+          const response = await fetch(url)
+          if (response.ok) {
+            content = await response.text()
+            break
+          }
+        } catch {
+          // Try next collection
+        }
       }
     }
 
@@ -845,7 +867,6 @@ async function handleSelectAssignment(assignment) {
 
     for (const deal of parsed) {
       if (wantedNumbers.has(deal.boardNumber)) {
-        // Find the sort_order for this board
         const ref = boardRefs.find(b => b.deal_number === deal.boardNumber)
         allDeals.push({
           ...deal,

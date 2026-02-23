@@ -444,6 +444,7 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
             deal_subfolder TEXT NOT NULL,
             deal_number INTEGER NOT NULL,
             sort_order INTEGER NOT NULL,
+            collection_id TEXT,
             PRIMARY KEY (exercise_id, deal_subfolder, deal_number)
         )
         "#,

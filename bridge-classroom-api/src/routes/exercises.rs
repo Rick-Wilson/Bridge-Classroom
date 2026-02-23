@@ -100,14 +100,15 @@ pub async fn create_exercise(
     for board in &req.boards {
         sqlx::query(
             r#"
-            INSERT INTO exercise_boards (exercise_id, deal_subfolder, deal_number, sort_order)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO exercise_boards (exercise_id, deal_subfolder, deal_number, sort_order, collection_id)
+            VALUES (?, ?, ?, ?, ?)
             "#,
         )
         .bind(&id)
         .bind(&board.deal_subfolder)
         .bind(board.deal_number)
         .bind(board.sort_order)
+        .bind(&board.collection_id)
         .execute(&mut *tx)
         .await
         .map_err(|e| {
@@ -234,7 +235,7 @@ pub async fn get_exercise(
     .ok_or_else(|| (StatusCode::NOT_FOUND, "Exercise not found".to_string()))?;
 
     let boards = sqlx::query_as::<_, ExerciseBoard>(
-        "SELECT exercise_id, deal_subfolder, deal_number, sort_order FROM exercise_boards WHERE exercise_id = ? ORDER BY sort_order",
+        "SELECT exercise_id, deal_subfolder, deal_number, sort_order, collection_id FROM exercise_boards WHERE exercise_id = ? ORDER BY sort_order",
     )
     .bind(&exercise_id)
     .fetch_all(&state.db)
@@ -332,12 +333,13 @@ pub async fn update_exercise(
 
         for board in boards {
             sqlx::query(
-                "INSERT INTO exercise_boards (exercise_id, deal_subfolder, deal_number, sort_order) VALUES (?, ?, ?, ?)",
+                "INSERT INTO exercise_boards (exercise_id, deal_subfolder, deal_number, sort_order, collection_id) VALUES (?, ?, ?, ?, ?)",
             )
             .bind(&exercise_id)
             .bind(&board.deal_subfolder)
             .bind(board.deal_number)
             .bind(board.sort_order)
+            .bind(&board.collection_id)
             .execute(&mut *tx)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;

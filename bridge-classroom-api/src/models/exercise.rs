@@ -20,6 +20,8 @@ pub struct ExerciseBoard {
     pub deal_subfolder: String,
     pub deal_number: i32,
     pub sort_order: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collection_id: Option<String>,
 }
 
 /// Request to create an exercise
@@ -39,6 +41,7 @@ pub struct BoardEntry {
     pub deal_subfolder: String,
     pub deal_number: i32,
     pub sort_order: i32,
+    pub collection_id: Option<String>,
 }
 
 /// Request to update an exercise
