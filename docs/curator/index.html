@@ -856,7 +856,12 @@ function AuctionEditor({ auction, dealer, onSave, onClose }) {
     return false;
   }, [bids]);
 
-  const addBid = (bid) => setBids(prev => [...prev, { bid }]);
+  const [alertText, setAlertText] = useState("");
+  const addBid = (bid) => {
+    const entry = alertText.trim() ? { bid, alert: alertText.trim() } : { bid };
+    setBids(prev => [...prev, entry]);
+    setAlertText("");
+  };
   const removeLast = () => setBids(prev => prev.slice(0, -1));
 
   return (
@@ -920,6 +925,17 @@ function AuctionEditor({ auction, dealer, onSave, onClose }) {
             fontSize: 13, fontWeight: 700, cursor: bids.length ? "pointer" : "default",
             fontFamily: "'DM Sans', sans-serif",
           }}>⌫</button>
+        </div>
+
+        {/* Alert text */}
+        <div style={{ marginBottom: 14 }}>
+          <input type="text" value={alertText} onChange={e => setAlertText(e.target.value)}
+            placeholder="Alert (applied to next bid)"
+            style={{
+              width: "100%", padding: "7px 10px", borderRadius: 5, border: "1px solid #e2e8f0",
+              fontSize: 12, fontFamily: "'DM Sans', sans-serif", color: "#0f172a",
+              background: alertText ? "#fffbeb" : "#fff", boxSizing: "border-box",
+            }} />
         </div>
 
         {/* Actions */}
