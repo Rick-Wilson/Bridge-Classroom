@@ -482,6 +482,15 @@ function handleSwitchUser() {
   useObservationStore().reset()
   teacherRole.reset()
 
+  // Clear loaded deals and practice state
+  deals.value = []
+  currentDealIndex.value = 0
+  currentCollection.value = null
+  currentLesson.value = null
+  practice.resetStats()
+  appConfig.setCollectionInUrl(null)
+  appConfig.setLessonInUrl(null)
+
   // Clear current user to show welcome screen
   userStore.currentUserId.value = null
   showSettings.value = false
