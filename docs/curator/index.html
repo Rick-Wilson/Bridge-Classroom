@@ -1642,9 +1642,11 @@ function BridgeCurator() {
       const isStudent = bidderIdx === studentIdx;
 
       if (bid === "Pass" && !isStudent) {
-        // Accumulate opponent/partner passes into narrative
-        if (narrative) narrative += " ";
-        narrative += `${seatRelation(bidderIdx)} ${fmtBid(bid)}.`;
+        // Skip opponent passes (assumed); only narrate partner passes
+        if (bidderIdx === partnerIdx) {
+          if (narrative) narrative += " ";
+          narrative += `Partner ${fmtBid(bid)}.`;
+        }
         continue;
       }
 
