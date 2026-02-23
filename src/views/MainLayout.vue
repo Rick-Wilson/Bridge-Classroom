@@ -23,7 +23,7 @@
         <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + getCollection(currentCollection)?.name">
           {{ getCollection(currentCollection)?.name }}
         </button>
-        <button v-if="currentCollection" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
+        <button v-if="currentCollection || deals.length" class="lobby-btn" @click="returnToLobby" title="Return to lobby">
           Lobby
         </button>
         <div class="stats" v-if="totalCorrect + totalWrong > 0">
