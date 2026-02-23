@@ -1418,6 +1418,7 @@ function PreviewMode({ board, onClose }) {
     if (!board.auction || !board.auction.length) return [];
     if (allBidsResolved) return board.auction; // show full auction after all BID pauses resolved
     const studentSeat = board.student || "S";
+    const partnerSeat = SEATS[(SEATS.indexOf(studentSeat) + 2) % 4];
     const dealerIdx = SEATS.indexOf(board.dealer);
     let studentBidsSeen = 0;
     const result = [];
@@ -1434,7 +1435,14 @@ function PreviewMode({ board, onClose }) {
           break;
         }
       } else {
-        result.push(board.auction[i]);
+        const entry = board.auction[i];
+        const e = typeof entry === "string" ? { bid: entry } : entry;
+        // Hide partner's alert until student's next bid is resolved
+        if (seat === partnerSeat && e.alert && studentBidsSeen >= resolvedBids) {
+          result.push({ bid: e.bid });
+        } else {
+          result.push(entry);
+        }
       }
     }
     return result;
