@@ -161,6 +161,92 @@ function handToDealString(hands, firstSeat = "N") {
   return firstSeat + ":" + parts.join(" ");
 }
 
+// ── Deal Rotation ─────────────────────────────────────────────────
+// Rotate a direction character by `steps` positions clockwise (0-3)
+function rotateSeat(seat, steps) {
+  return SEATS[(SEATS.indexOf(seat) + steps) % 4];
+}
+
+// Rotate direction words in text (North↔South, East↔West, etc.)
+function rotateDirectionWords(text, steps) {
+  if (steps === 0) return text;
+  const dirs = ["North", "East", "South", "West"];
+  // First pass: replace with placeholders to avoid double-replacement
+  let result = text;
+  dirs.forEach((d, i) => {
+    result = result.replace(new RegExp(`\\b${d}\\b`, "gi"), (m) => {
+      const allUpper = m === m.toUpperCase();
+      const titleCase = m[0] === m[0].toUpperCase();
+      if (allUpper) return `__DIR_U${i}__`;
+      if (titleCase) return `__DIR_T${i}__`;
+      return `__DIR_L${i}__`;
+    });
+  });
+  // Second pass: replace placeholders with rotated directions
+  dirs.forEach((_, i) => {
+    const newDir = dirs[(i + steps) % 4];
+    result = result
+      .replace(new RegExp(`__DIR_T${i}__`, "g"), newDir)
+      .replace(new RegExp(`__DIR_L${i}__`, "g"), newDir.toLowerCase())
+      .replace(new RegExp(`__DIR_U${i}__`, "g"), newDir.toUpperCase());
+  });
+  return result;
+}
+
+// Rotate [show NESW] tags in scene text
+function rotateShowTags(text, steps) {
+  return text.replace(/\[show\s+([NESW]+)\]/gi, (match, seats) => {
+    const rotated = seats.split("").map(s => rotateSeat(s.toUpperCase(), steps)).sort((a, b) => SEATS.indexOf(a) - SEATS.indexOf(b)).join("");
+    return `[show ${rotated}]`;
+  });
+}
+
+// Rotate a board object by `steps` positions clockwise (1=90°, 2=180°, 3=270°)
+// Returns a new board object; does not mutate the original.
+function rotateBoard(board, steps) {
+  steps = ((steps % 4) + 4) % 4; // normalize to 0-3
+  if (steps === 0) return board;
+
+  // Rotate hands: each seat gets the hand from `steps` positions earlier
+  const newHands = {};
+  for (const seat of SEATS) {
+    const sourceSeat = rotateSeat(seat, (4 - steps) % 4);
+    newHands[seat] = [...(board.hands[sourceSeat] || [])];
+  }
+
+  // Rotate dealer and student
+  const newDealer = rotateSeat(board.dealer || "N", steps);
+  const newStudent = board.student ? rotateSeat(board.student, steps) : board.student;
+
+  // Vulnerability: for odd rotations, swap NS↔EW
+  let newVul = board.vulnerable;
+  if (steps % 2 === 1) {
+    if (newVul === "NS") newVul = "EW";
+    else if (newVul === "EW") newVul = "NS";
+  }
+
+  // Rotate scenes (show tags + direction words in commentary)
+  let newScenes = board.scenes;
+  if (board.scenes) {
+    newScenes = board.scenes.map(scene => ({
+      ...scene,
+      visibility: scene.visibility
+        ? scene.visibility.split("").map(s => rotateSeat(s, steps)).sort((a, b) => SEATS.indexOf(a) - SEATS.indexOf(b)).join("")
+        : scene.visibility,
+      text: rotateDirectionWords(rotateShowTags(scene.text, steps), steps),
+    }));
+  }
+
+  return {
+    ...board,
+    hands: newHands,
+    dealer: newDealer,
+    student: newStudent,
+    vulnerable: newVul,
+    scenes: newScenes,
+  };
+}
+
 function parsePBNFile(text) {
   const boards = [];
   // Strategy: split on [Event lines, which mark the start of each board record.
@@ -2187,13 +2273,20 @@ function BridgeCurator() {
 
             {/* Board diagram */}
             <div style={panelStyle}>
-              <div style={panelHdr}>
-                Board {board.board || activeBoard + 1}
-                {board.templateKey && (
-                  <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1e40af" }}>
-                    {TEMPLATES[board.templateKey]?.name}
-                  </span>
-                )}
+              <div style={{ ...panelHdr, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>
+                  Board {board.board || activeBoard + 1}
+                  {board.templateKey && (
+                    <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 600, padding: "1px 5px", borderRadius: 3, background: "#dbeafe", color: "#1e40af" }}>
+                      {TEMPLATES[board.templateKey]?.name}
+                    </span>
+                  )}
+                </span>
+                <button onClick={() => updateBoard(rotateBoard(board, 2))} title="Rotate deal 180°" style={{
+                  padding: "2px 8px", borderRadius: 4, border: "1px solid #e2e8f0",
+                  background: "#fff", color: "#64748b", fontSize: 11, fontWeight: 600,
+                  cursor: "pointer", fontFamily: "'DM Sans', sans-serif",
+                }}>Rotate 180°</button>
               </div>
               <BoardDiagram hands={board.hands} visibility={currentScene?.visibility || "NESW"} onSwapCards={handleSwapCards} highlightedCards={highlightedCards} />
               {board.metadata && board.metadata.length > 0 && (
