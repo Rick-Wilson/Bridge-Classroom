@@ -82,11 +82,13 @@ See you in class!</div>
           <div
             v-for="a in classroomAssignments"
             :key="a.id"
-            class="assignment-row"
+            class="assignment-row clickable"
+            @click="emit('view-assignment', a.id)"
           >
             <span class="assignment-name">{{ a.exercise_name }}</span>
             <span v-if="a.due_at" class="assignment-due">Due {{ formatDate(a.due_at) }}</span>
             <span class="assignment-boards">{{ a.total_boards }} boards</span>
+            <span class="view-arrow">&#x203A;</span>
           </div>
         </div>
       </div>
@@ -115,7 +117,7 @@ const props = defineProps({
   expanded: { type: Boolean, default: false }
 })
 
-const emit = defineEmits(['toggle', 'member-removed'])
+const emit = defineEmits(['toggle', 'member-removed', 'view-assignment'])
 
 const classrooms = useClassrooms()
 const assignments = useAssignments()
@@ -458,6 +460,26 @@ async function handleRemoveMember(studentId) {
   background: #f8f9fa;
   border-radius: var(--radius-button, 6px);
   font-size: 13px;
+}
+
+.assignment-row.clickable {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.assignment-row.clickable:hover {
+  background: #e8f5ee;
+}
+
+.view-arrow {
+  color: var(--text-muted, #9ca3af);
+  font-size: 18px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.assignment-row.clickable:hover .view-arrow {
+  color: var(--green-mid, #40916c);
 }
 
 .assignment-name {

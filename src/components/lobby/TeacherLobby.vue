@@ -39,6 +39,7 @@
               :expanded="expandedId === classroom.id"
               @toggle="toggleExpand(classroom.id)"
               @member-removed="refreshData"
+              @view-assignment="selectedAssignmentId = $event"
             />
           </div>
         </div>
@@ -75,6 +76,13 @@
       @close="showAssignModal = false"
       @assignment-created="handleAssignmentCreated"
     />
+
+    <!-- Assignment detail modal -->
+    <AssignmentDetailModal
+      v-if="selectedAssignmentId"
+      :assignment-id="selectedAssignmentId"
+      @close="selectedAssignmentId = null"
+    />
   </div>
 </template>
 
@@ -86,6 +94,7 @@ import CollectionGrid from './CollectionGrid.vue'
 import ClassroomCard from './ClassroomCard.vue'
 import ClassroomCreateModal from './ClassroomCreateModal.vue'
 import AssignmentCreateModal from './AssignmentCreateModal.vue'
+import AssignmentDetailModal from './AssignmentDetailModal.vue'
 import NeedsAttention from './NeedsAttention.vue'
 import RecentActivity from './RecentActivity.vue'
 
@@ -100,6 +109,7 @@ const dashboard = useTeacherDashboard()
 
 const showCreateModal = ref(false)
 const showAssignModal = ref(false)
+const selectedAssignmentId = ref(null)
 const expandedId = ref(null)
 
 const userName = computed(() => {
