@@ -214,9 +214,8 @@ function rotateBoard(board, steps) {
     newHands[seat] = [...(board.hands[sourceSeat] || [])];
   }
 
-  // Rotate dealer and student
+  // Rotate dealer but keep student in place (student seat is fixed)
   const newDealer = rotateSeat(board.dealer || "N", steps);
-  const newStudent = board.student ? rotateSeat(board.student, steps) : board.student;
 
   // Vulnerability: for odd rotations, swap NS↔EW
   let newVul = board.vulnerable;
@@ -241,7 +240,6 @@ function rotateBoard(board, steps) {
     ...board,
     hands: newHands,
     dealer: newDealer,
-    student: newStudent,
     vulnerable: newVul,
     scenes: newScenes,
   };
