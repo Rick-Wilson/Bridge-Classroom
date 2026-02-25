@@ -483,12 +483,23 @@ function trimAuction(bids) {
  * @returns {Array} Array of bid strings
  */
 function parseAuctionString(auctionString) {
-  return auctionString
+  const tokens = auctionString
     .split(/\s+/)
     .filter(bid => bid.length > 0)
     // Filter out PBN annotation markers like =1=, =2=, etc.
     .filter(bid => !/^=\d+=?$/.test(bid))
-    .map(bid => normalizeBid(bid))
+
+  // Expand AP (All Pass) into individual Pass entries
+  const bids = []
+  for (const token of tokens) {
+    if (token.toUpperCase() === 'AP') {
+      // AP means all remaining players pass — need 3 passes to close the auction
+      bids.push('Pass', 'Pass', 'Pass')
+    } else {
+      bids.push(normalizeBid(token))
+    }
+  }
+  return bids
 }
 
 /**
