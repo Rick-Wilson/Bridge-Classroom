@@ -693,14 +693,13 @@ export function useDealPractice() {
 
     if (boardState.boardHadWrong) {
       boardState.wrongCount++
-      const allFixed = Object.keys(boardState.wrongStepIndices).length === 0
-      // Record the initial failure, then the correction result
-      recordBoardObservation(false)
-      recordBoardObservation(allFixed)
     } else {
       boardState.correctCount++
-      recordBoardObservation(true)
     }
+
+    const allFixed = Object.keys(boardState.wrongStepIndices).length === 0
+    const correct = !boardState.boardHadWrong || allFixed
+    recordBoardObservation(correct)
   }
 
   function goBack() {
