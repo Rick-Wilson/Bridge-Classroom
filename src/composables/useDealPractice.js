@@ -501,13 +501,15 @@ export function useDealPractice() {
 
     // Record prompt history for the board observation
     const bidPromptIndex = steps.value.slice(0, stepIdx + 1).filter(s => s.type === 'bid').length - 1
+    const elapsed = promptStartTime.value ? Date.now() - promptStartTime.value : 0
     boardState.promptHistory.push({
       type: 'bid',
       prompt_index: bidPromptIndex,
       auction_so_far: [...auctionState.displayedBids],
       expected_bid: expectedBid,
       student_bid: bid,
-      correct: isCorrect
+      correct: isCorrect,
+      time_ms: elapsed
     })
 
     // Capture bid position before advancing
@@ -603,12 +605,15 @@ export function useDealPractice() {
     }
 
     // Record prompt history for the board observation
+    const cardElapsed = promptStartTime.value ? Date.now() - promptStartTime.value : 0
     boardState.promptHistory.push({
       type: 'card',
       expected_card: expectedDisplay,
       student_card: chosen,
-      correct: isCorrect
+      correct: isCorrect,
+      time_ms: cardElapsed
     })
+    promptStartTime.value = null
 
     // Mark step as answered
     cardChoiceState.answered[stepIdx] = true
@@ -654,6 +659,11 @@ export function useDealPractice() {
       // If new step is a bid, advance auction to it
       if (steps.value[currentStepIndex.value]?.type === 'bid') {
         advanceAuctionToNextPrompt()
+      }
+
+      // Start timing for card-choice steps
+      if (steps.value[currentStepIndex.value]?.type === 'choose-card') {
+        promptStartTime.value = Date.now()
       }
 
       // Auto-complete if we landed on the last step and it needs no interaction
@@ -758,6 +768,7 @@ export function useDealPractice() {
   // ==================== METHODS: Observations ====================
   async function recordBoardObservation(correct) {
     if (!currentDeal.value) return
+    console.log('[DEBUG] recordBoardObservation prompts:', JSON.stringify(boardState.promptHistory))
     try {
       await observationStore.recordObservation({
         deal: currentDeal.value,
