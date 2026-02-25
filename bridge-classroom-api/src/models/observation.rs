@@ -17,6 +17,7 @@ pub struct Observation {
     pub encrypted_data: String,
     pub iv: String,
     pub created_at: String,
+    pub board_result: Option<String>,
 }
 
 /// Metadata-only observation (for dashboard queries)
@@ -30,6 +31,7 @@ pub struct ObservationMetadata {
     pub classroom: Option<String>,
     pub deal_subfolder: Option<String>,
     pub deal_number: Option<i32>,
+    pub board_result: Option<String>,
 }
 
 impl From<Observation> for ObservationMetadata {
@@ -43,6 +45,7 @@ impl From<Observation> for ObservationMetadata {
             classroom: obs.classroom,
             deal_subfolder: obs.deal_subfolder,
             deal_number: obs.deal_number,
+            board_result: obs.board_result,
         }
     }
 }
@@ -66,6 +69,7 @@ pub struct ObservationMetadataInput {
     pub classroom: Option<String>,
     pub deal_subfolder: Option<String>,
     pub deal_number: Option<i32>,
+    pub board_result: Option<String>,
 }
 
 /// Request to submit observations
@@ -140,6 +144,7 @@ impl Observation {
             classroom: enc.metadata.classroom,
             deal_subfolder: enc.metadata.deal_subfolder,
             deal_number: enc.metadata.deal_number,
+            board_result: enc.metadata.board_result,
             encrypted_data: enc.encrypted_data,
             iv: enc.iv,
             created_at: now,

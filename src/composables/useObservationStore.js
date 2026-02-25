@@ -101,7 +101,8 @@ async function recordObservation({
   correct,
   attemptNumber,
   timeTakenMs,
-  prompts
+  prompts,
+  boardResult = null
 }) {
   const userStore = useUserStore()
   const assignmentStore = useAssignmentStore()
@@ -147,7 +148,8 @@ async function recordObservation({
     timeTakenMs,
     skillPath,
     assignment,
-    prompts
+    prompts,
+    boardResult
   })
 
   // Validate observation

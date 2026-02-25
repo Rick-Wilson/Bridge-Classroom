@@ -43,6 +43,7 @@
         <!-- Summary stats -->
         <div v-if="summary.total > 0" class="stats-row">
           <div class="stat stat-green">{{ summary.green }} Green</div>
+          <div v-if="summary.blue" class="stat stat-blue">{{ summary.blue }} Blue</div>
           <div v-if="summary.orange" class="stat stat-orange">{{ summary.orange }} Orange</div>
           <div v-if="summary.yellow" class="stat stat-yellow">{{ summary.yellow }} Yellow</div>
           <div v-if="summary.red" class="stat stat-red">{{ summary.red }} Red</div>
@@ -96,6 +97,7 @@
 import { computed, ref, onMounted, watch } from 'vue'
 import { useTeacherRole } from '../composables/useTeacherRole.js'
 import { useBoardMastery } from '../composables/useBoardMastery.js'
+import { useBoardStatus } from '../composables/useBoardStatus.js'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
 import StudentProgressPanel from './StudentProgressPanel.vue'
 
@@ -108,9 +110,11 @@ const emit = defineEmits(['back', 'navigate-to-lesson'])
 
 const teacherRole = useTeacherRole()
 const mastery = useBoardMastery()
+const boardStatusApi = useBoardStatus()
 const accomplishments = useAccomplishments()
 const loading = ref(false)
 const activeTab = ref('progress')
+const apiBoardStatus = ref([])
 const tabs = [
   { id: 'progress', label: 'Progress' },
   { id: 'mastery', label: 'Lesson Mastery' },
@@ -129,6 +133,12 @@ onMounted(async () => {
     await teacherRole.fetchStudentObservations(props.studentId)
     loading.value = false
   }
+  // Fetch board status from API for this student
+  try {
+    apiBoardStatus.value = await boardStatusApi.fetchBoardStatus(props.studentId)
+  } catch {
+    // Fall back to local computation
+  }
 })
 
 const observations = computed(() => {
@@ -144,21 +154,42 @@ const lastActiveText = computed(() => {
 })
 
 /**
- * Lesson mastery strips — same pattern as AccomplishmentsView
+ * Lesson mastery strips — uses board_status API when available, falls back to local computation
  */
 const lessonMasteryList = computed(() => {
   const obs = observations.value
-  if (obs.length === 0) return []
+  if (obs.length === 0 && apiBoardStatus.value.length === 0) return []
 
   const lessons = mastery.extractLessonsFromObservations(obs)
 
+  // Index API board status by subfolder
+  const apiBySubfolder = {}
+  for (const b of apiBoardStatus.value) {
+    if (!apiBySubfolder[b.deal_subfolder]) apiBySubfolder[b.deal_subfolder] = []
+    apiBySubfolder[b.deal_subfolder].push(b)
+  }
+
+  // Add lessons that only exist in API data but not in observations
+  for (const subfolder in apiBySubfolder) {
+    if (!lessons.find(l => l.subfolder === subfolder)) {
+      const boards = apiBySubfolder[subfolder].map(b => b.deal_number).sort((a, b) => a - b)
+      lessons.push({ subfolder, boardNumbers: boards, lastActivity: null })
+    }
+  }
+
   return lessons
     .map(lesson => {
-      const boardMasteryResults = mastery.computeBoardMastery(
-        obs,
-        lesson.subfolder,
-        lesson.boardNumbers
-      )
+      let boardMasteryResults
+      const apiData = apiBySubfolder[lesson.subfolder]
+
+      if (apiData && apiData.length > 0) {
+        // Use API data
+        boardMasteryResults = boardStatusApi.buildBoardMastery(apiData, lesson.boardNumbers)
+      } else {
+        // Fall back to local computation
+        boardMasteryResults = mastery.computeBoardMastery(obs, lesson.subfolder, lesson.boardNumbers)
+      }
+
       const lessonAchievement = mastery.computeLessonAchievement(boardMasteryResults)
       return {
         ...lesson,
@@ -181,12 +212,13 @@ function formatLessonName(folderName) {
 function getTooltip(board) {
   const statusLabels = {
     grey: 'Not attempted',
-    red: 'Incorrect',
-    yellow: 'Corrected today',
-    orange: 'Ready to retry',
-    green: 'Correct'
+    red: 'Failed',
+    yellow: 'Corrected (recent)',
+    orange: 'Corrected \u2014 ready to retry',
+    blue: 'Correct (try again after cooldown)',
+    green: 'Clean correct'
   }
-  return `Board ${board.boardNumber}: ${statusLabels[board.status]}`
+  return `Board ${board.boardNumber}: ${statusLabels[board.status] || board.status}`
 }
 </script>
 
@@ -283,6 +315,7 @@ function getTooltip(board) {
 }
 
 .stat-green { background: #e8f5e9; color: #2e7d32; }
+.stat-blue { background: #e3f2fd; color: #1565c0; }
 .stat-orange { background: #fff3e0; color: #e65100; }
 .stat-yellow { background: #fffde7; color: #f57f17; }
 .stat-red { background: #ffebee; color: #c62828; }
@@ -419,6 +452,7 @@ function getTooltip(board) {
 .status-red { background: #ef5350; color: white; }
 .status-yellow { background: #ffeb3b; color: #333; }
 .status-orange { background: #ff9800; color: white; }
+.status-blue { background: #42a5f5; color: white; }
 .status-green { background: #4caf50; color: white; }
 
 .medal {

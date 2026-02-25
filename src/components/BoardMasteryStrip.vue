@@ -36,8 +36,10 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useBoardStatus } from '../composables/useBoardStatus.js'
 import { useBoardMastery } from '../composables/useBoardMastery.js'
+import { useUserStore } from '../composables/useUserStore.js'
 
 const props = defineProps({
   boardNumbers: {
@@ -63,19 +65,57 @@ const props = defineProps({
   alignLeft: {
     type: Boolean,
     default: false
+  },
+  userId: {
+    type: String,
+    default: null
   }
 })
 
 const emit = defineEmits(['goto', 'open-intro'])
 
+const boardStatusApi = useBoardStatus()
 const mastery = useBoardMastery()
+const userStore = useUserStore()
+const apiBoards = ref([])
+const useApi = ref(false)
+
+// Fetch board status from API
+async function loadBoardStatus() {
+  const uid = props.userId || userStore.currentUser.value?.id
+  if (!uid || !props.lessonSubfolder) return
+
+  try {
+    const boards = await boardStatusApi.fetchBoardStatus(uid, props.lessonSubfolder)
+    if (boards.length > 0) {
+      apiBoards.value = boards
+      useApi.value = true
+    }
+  } catch {
+    // Fall back to local computation
+  }
+}
+
+onMounted(loadBoardStatus)
+watch(() => props.lessonSubfolder, loadBoardStatus)
 
 const boardMastery = computed(() => {
-  const results = mastery.computeBoardMastery(
-    mastery.getObservations(),
-    props.lessonSubfolder,
-    props.boardNumbers
-  )
+  let results
+
+  if (useApi.value && apiBoards.value.length > 0) {
+    // API path: use server-computed board status
+    results = boardStatusApi.buildBoardMastery(apiBoards.value, props.boardNumbers)
+    // Overlay local pending observations
+    boardStatusApi.mergeLocalPending(results, props.lessonSubfolder)
+  } else {
+    // Fallback: local computation (offline or no API data yet)
+    results = mastery.computeBoardMastery(
+      mastery.getObservations(),
+      props.lessonSubfolder,
+      props.boardNumbers
+    )
+  }
+
   // Local override: force a board status during mid-board play
   if (props.forceBoardStatus) {
     const board = results.find(b => b.boardNumber === props.forceBoardStatus.board)
@@ -87,17 +127,18 @@ const boardMastery = computed(() => {
 function getTooltip(board) {
   const statusLabels = {
     grey: 'Not attempted',
-    red: 'Incorrect',
-    yellow: 'Corrected today',
-    orange: 'Ready to retry',
-    green: 'Correct'
+    red: 'Failed',
+    yellow: 'Corrected (recent)',
+    orange: 'Corrected \u2014 ready to retry',
+    blue: 'Correct (try again after cooldown)',
+    green: 'Clean correct'
   }
   const achievementLabels = {
     none: '',
-    silver: ' | Silver accomplishment',
-    gold: ' | Gold accomplishment'
+    silver: ' | Silver star',
+    gold: ' | Gold star'
   }
-  return `Board ${board.boardNumber}: ${statusLabels[board.status]}${achievementLabels[board.achievement]}`
+  return `Board ${board.boardNumber}: ${statusLabels[board.status] || board.status}${achievementLabels[board.achievement] || ''}`
 }
 </script>
 
@@ -178,6 +219,11 @@ function getTooltip(board) {
   color: white;
 }
 
+.status-blue {
+  background: #42a5f5;
+  color: white;
+}
+
 .status-green {
   background: #4caf50;
   color: white;
@@ -224,6 +270,10 @@ function getTooltip(board) {
 
 .has-medal.status-orange {
   box-shadow: 0 0 0 2px white, 0 0 0 4px #ff9800;
+}
+
+.has-medal.status-blue {
+  box-shadow: 0 0 0 2px white, 0 0 0 4px #42a5f5;
 }
 
 /* Board number text */

@@ -95,7 +95,8 @@ export function createObservation({
   timeTakenMs,
   skillPath,
   assignment = null,
-  prompts = null
+  prompts = null,
+  boardResult = null
 }) {
   const totalPrompts = deal.steps?.filter(s => s.type === 'bid').length || 1
   const studentSeat = deal.studentSeat || 'S'
@@ -143,6 +144,7 @@ export function createObservation({
     },
 
     skill_path: skillPath,
+    board_result: boardResult,
     assignment,
     prompts: prompts || []
   }
@@ -162,6 +164,7 @@ export function extractMetadata(observation, classroom) {
     timestamp: observation.timestamp,
     skill_path: observation.skill_path,
     correct: observation.result.correct,
+    board_result: observation.board_result || null,
     classroom: classroom || null,
     deal_subfolder: observation.deal.subfolder,
     deal_number: observation.deal.deal_number

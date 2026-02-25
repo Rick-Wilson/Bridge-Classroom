@@ -46,6 +46,11 @@ async fn main() -> anyhow::Result<()> {
     let db = db::init_db(&config.database_url).await?;
     tracing::info!("Database initialized");
 
+    // Backfill board_status from existing observations (one-time, if table is empty)
+    if let Err(e) = routes::board_status::backfill_board_status(&db).await {
+        tracing::error!("Board status backfill failed: {}", e);
+    }
+
     // Build CORS layer
     let cors = build_cors_layer(&config);
 
@@ -129,6 +134,8 @@ async fn main() -> anyhow::Result<()> {
             "/api/assignments/:id",
             get(routes::get_assignment).delete(routes::delete_assignment),
         )
+        // Board status routes
+        .route("/api/board-status", get(routes::get_board_status))
         // Teacher dashboard routes
         .route("/api/teacher/dashboard", get(routes::teacher_dashboard))
         .route("/api/teacher/dashboard/clear", post(routes::clear_dashboard_panel))

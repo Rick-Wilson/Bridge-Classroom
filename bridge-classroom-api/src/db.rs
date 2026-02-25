@@ -572,6 +572,46 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         .await
         .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // ---- board_result column on observations ----
+    let has_board_result: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('observations') WHERE name = 'board_result'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_board_result {
+        sqlx::query(r#"ALTER TABLE observations ADD COLUMN board_result TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added board_result column to observations table");
+    }
+
+    // ---- Board status table ----
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS board_status (
+            user_id TEXT NOT NULL,
+            deal_subfolder TEXT NOT NULL,
+            deal_number INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'not_attempted',
+            achievement TEXT NOT NULL DEFAULT 'none',
+            last_observation_at TEXT,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, deal_subfolder, deal_number)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(r#"CREATE INDEX IF NOT EXISTS idx_board_status_user_subfolder ON board_status(user_id, deal_subfolder)"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+
     // View: sharing grants with human-readable names
     sqlx::query(
         r#"

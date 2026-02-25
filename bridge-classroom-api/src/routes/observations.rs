@@ -13,6 +13,8 @@ use crate::{
     AppState,
 };
 
+use super::board_status::recompute_board_status;
+
 /// Query parameters for submit endpoint (for sendBeacon support)
 #[derive(Debug, Deserialize)]
 pub struct SubmitQuery {
@@ -55,6 +57,9 @@ pub async fn submit_observations(
     let mut stored = 0;
     let mut errors = Vec::new();
 
+    // Collect (user_id, deal_subfolder, deal_number) tuples for board status recomputation
+    let mut boards_to_recompute: Vec<(String, String, i32)> = Vec::new();
+
     for encrypted_obs in req.observations {
         let obs = Observation::from_encrypted(encrypted_obs);
 
@@ -62,14 +67,15 @@ pub async fn submit_observations(
             r#"
             INSERT INTO observations (
                 id, user_id, timestamp, skill_path, correct, classroom,
-                deal_subfolder, deal_number, encrypted_data, iv, created_at
+                deal_subfolder, deal_number, encrypted_data, iv, created_at, board_result
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 encrypted_data = excluded.encrypted_data,
                 iv = excluded.iv,
                 correct = excluded.correct,
-                timestamp = excluded.timestamp
+                timestamp = excluded.timestamp,
+                board_result = excluded.board_result
             "#,
         )
         .bind(&obs.id)
@@ -83,16 +89,35 @@ pub async fn submit_observations(
         .bind(&obs.encrypted_data)
         .bind(&obs.iv)
         .bind(&obs.created_at)
+        .bind(&obs.board_result)
         .execute(&state.db)
         .await
         {
             Ok(_) => {
                 stored += 1;
+                // Track boards that need status recomputation
+                if let (Some(ref subfolder), Some(deal_num)) = (&obs.deal_subfolder, obs.deal_number) {
+                    boards_to_recompute.push((
+                        obs.user_id.clone(),
+                        subfolder.clone(),
+                        deal_num,
+                    ));
+                }
             }
             Err(e) => {
                 tracing::error!("Failed to store observation {}: {}", obs.id, e);
                 errors.push(format!("Failed to store {}: {}", obs.id, e));
             }
+        }
+    }
+
+    // Recompute board status for affected boards
+    for (user_id, subfolder, deal_number) in &boards_to_recompute {
+        if let Err(e) = recompute_board_status(&state.db, user_id, subfolder, *deal_number).await {
+            tracing::error!(
+                "Failed to recompute board status for {}/{}/{}: {}",
+                user_id, subfolder, deal_number, e
+            );
         }
     }
 
@@ -216,7 +241,7 @@ pub async fn get_observations_metadata(
 
     // Build query dynamically
     let mut sql = String::from(
-        "SELECT id, user_id, timestamp, skill_path, correct, classroom, deal_subfolder, deal_number FROM observations WHERE 1=1",
+        "SELECT id, user_id, timestamp, skill_path, correct, classroom, deal_subfolder, deal_number, board_result FROM observations WHERE 1=1",
     );
     let mut count_sql = String::from("SELECT COUNT(*) as count FROM observations WHERE 1=1");
 
@@ -248,7 +273,7 @@ pub async fn get_observations_metadata(
     sql.push_str(" ORDER BY timestamp DESC");
 
     // Build and execute the query
-    let mut query_builder = sqlx::query_as::<_, (String, String, String, String, bool, Option<String>, Option<String>, Option<i32>)>(&sql);
+    let mut query_builder = sqlx::query_as::<_, (String, String, String, String, bool, Option<String>, Option<String>, Option<i32>, Option<String>)>(&sql);
     let mut count_builder = sqlx::query_scalar::<_, i64>(&count_sql);
 
     // Bind parameters in order
@@ -285,7 +310,7 @@ pub async fn get_observations_metadata(
 
     let observations: Vec<ObservationMetadata> = rows
         .into_iter()
-        .map(|(id, user_id, timestamp, skill_path, correct, classroom, deal_subfolder, deal_number)| {
+        .map(|(id, user_id, timestamp, skill_path, correct, classroom, deal_subfolder, deal_number, board_result)| {
             ObservationMetadata {
                 observation_id: id,
                 user_id,
@@ -295,6 +320,7 @@ pub async fn get_observations_metadata(
                 classroom,
                 deal_subfolder,
                 deal_number,
+                board_result,
             }
         })
         .collect();

@@ -189,12 +189,12 @@ async function loadAllStudentSummaries() {
  */
 function getStudentMasterySummary(userId) {
   const obs = studentObservations.value[userId] || []
-  if (obs.length === 0) return { green: 0, orange: 0, yellow: 0, red: 0, grey: 0, total: 0, lastObservationTime: null }
+  if (obs.length === 0) return { green: 0, blue: 0, orange: 0, yellow: 0, red: 0, grey: 0, total: 0, lastObservationTime: null }
 
   const mastery = useBoardMastery()
   const lessons = mastery.extractLessonsFromObservations(obs)
 
-  const counts = { green: 0, orange: 0, yellow: 0, red: 0, grey: 0 }
+  const counts = { green: 0, blue: 0, orange: 0, yellow: 0, red: 0, grey: 0 }
 
   for (const lesson of lessons) {
     const boardResults = mastery.computeBoardMastery(obs, lesson.subfolder, lesson.boardNumbers)
@@ -213,7 +213,7 @@ function getStudentMasterySummary(userId) {
 
   return {
     ...counts,
-    total: counts.green + counts.orange + counts.yellow + counts.red + counts.grey,
+    total: counts.green + counts.blue + counts.orange + counts.yellow + counts.red + counts.grey,
     lastObservationTime
   }
 }

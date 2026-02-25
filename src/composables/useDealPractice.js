@@ -779,6 +779,9 @@ export function useDealPractice() {
   // ==================== METHODS: Observations ====================
   async function recordBoardObservation(correct) {
     if (!currentDeal.value) return
+    const boardResult = !correct ? 'failed'
+      : boardState.boardHadWrong ? 'corrected'
+      : 'correct'
     try {
       await observationStore.recordObservation({
         observationId: boardState.observationId,
@@ -790,7 +793,8 @@ export function useDealPractice() {
         correct,
         attemptNumber: 1,
         timeTakenMs: 0,
-        prompts: [...boardState.promptHistory]
+        prompts: [...boardState.promptHistory],
+        boardResult
       })
     } catch (err) {
       console.error('Failed to record board observation:', err)

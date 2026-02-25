@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
 import { useObservationStore } from './useObservationStore.js'
 import { useAccomplishments } from './useAccomplishments.js'
+import { useBoardStatus } from './useBoardStatus.js'
 import { logDiagnostic } from '../utils/diagnostics.js'
 
 // API configuration
@@ -226,6 +227,14 @@ async function performSync() {
             await accomplishments.loadAccomplishments(true)
           } catch (e) {
             // Non-critical - mastery will update on next refresh
+          }
+
+          // Invalidate board status cache so next render fetches fresh data
+          try {
+            const boardStatus = useBoardStatus()
+            boardStatus.invalidateCache(user?.id)
+          } catch (e) {
+            // Non-critical
           }
 
           observationStore.removeSyncedObservations(syncedIds)
