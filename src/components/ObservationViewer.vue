@@ -208,14 +208,28 @@
         <div class="card">
           <div class="card-title"><span class="suit-icon-sm">&diams;</span> Result &amp; Meta</div>
           <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">Attempt #</span>
-              <span class="info-value">{{ result.attempt_number }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">Time Taken</span>
-              <span class="info-value">{{ result.time_taken_ms === 0 ? 'n/a' : result.time_taken_ms + ' ms' }}</span>
-            </div>
+            <template v-if="hasPrompts">
+              <div class="info-item">
+                <span class="info-label">Prompts</span>
+                <span class="info-value">{{ promptStats.total }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Result</span>
+                <span class="info-value" :style="{ color: promptStats.wrong === 0 ? 'var(--green)' : 'var(--red)' }">
+                  {{ promptStats.wrong === 0 ? 'All correct' : `${promptStats.wrong} error${promptStats.wrong > 1 ? 's' : ''}` }}{{ promptStats.corrected > 0 ? `, ${promptStats.corrected} fixed` : '' }}
+                </span>
+              </div>
+            </template>
+            <template v-else>
+              <div class="info-item">
+                <span class="info-label">Attempt #</span>
+                <span class="info-value">{{ result.attempt_number }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Time Taken</span>
+                <span class="info-value">{{ result.time_taken_ms === 0 ? 'n/a' : result.time_taken_ms + ' ms' }}</span>
+              </div>
+            </template>
             <div class="info-item full-width">
               <span class="info-label">Skill Path</span>
               <span class="info-value mono">{{ obs.skill_path }}</span>
@@ -315,6 +329,29 @@ const promptSlots = computed(() => {
   }
   return slots
 })
+// Stats from prompts array
+const promptStats = computed(() => {
+  const all = prompts.value
+  const uniquePrompts = new Map()
+  for (const p of all) {
+    const key = p.type === 'bid' ? `bid-${p.prompt_index}` : `card-${all.indexOf(p)}`
+    if (!uniquePrompts.has(key)) uniquePrompts.set(key, [])
+    uniquePrompts.get(key).push(p)
+  }
+  let total = uniquePrompts.size
+  let wrong = 0
+  let corrected = 0
+  for (const attempts of uniquePrompts.values()) {
+    const hadWrong = attempts.some(a => !a.correct)
+    const hadCorrect = attempts.some(a => a.correct)
+    if (hadWrong) {
+      wrong++
+      if (hadCorrect) corrected++
+    }
+  }
+  return { total, wrong, corrected }
+})
+
 const expectedBid  = computed(() => prompt.value.expected_bid)
 const studentBid   = computed(() => result.value.student_bid)
 const auctionSoFar = computed(() => prompt.value.auction_so_far || [])
