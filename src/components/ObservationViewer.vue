@@ -132,46 +132,73 @@
         <div class="card">
           <div class="card-title"><span class="suit-icon-sm">&hearts;</span> Auction</div>
 
-          <div class="prompt-meta">
-            <template v-if="isBoardLevel">
-              <span class="prompt-meta-label">Board summary</span>
-              <span class="prompt-meta-sep">&middot;</span>
-              <span class="prompt-meta-auction">
-                {{ correct ? 'All prompts answered correctly' : 'Student made errors on this board' }}
-              </span>
-            </template>
-            <template v-else>
-              <span class="prompt-meta-label">Prompt {{ promptIndex + 1 }} of {{ totalPrompts }}</span>
-              <span class="prompt-meta-sep">&middot;</span>
-              <span class="prompt-meta-auction">
-                Auction so far: <span class="prompt-meta-bids">{{ auctionSoFar.join('  ') }}</span>
-              </span>
-            </template>
-          </div>
-
+          <!-- Full auction table -->
           <div class="auction-header">
             <span v-for="d in ['W','N','E','S']" :key="d" class="auction-dir">{{ d }}</span>
           </div>
 
           <div v-for="(row, rowIdx) in auctionRows" :key="rowIdx" class="auction-row">
             <template v-for="(bid, colIdx) in row" :key="colIdx">
-              <!-- Student slot (only for per-prompt observations) -->
-              <div v-if="!isBoardLevel && rowIdx * 4 + colIdx === studentIdx" class="split-cell">
+              <!-- Highlighted prompt slot (when prompts array available) -->
+              <div v-if="hasPrompts && promptSlots[rowIdx * 4 + colIdx]" class="split-cell">
+                <span class="pill-expected">{{ promptSlots[rowIdx * 4 + colIdx].expected }}</span>
+                <span v-if="!promptSlots[rowIdx * 4 + colIdx].correct" class="pill-student">{{ promptSlots[rowIdx * 4 + colIdx].student }}</span>
+              </div>
+              <!-- Legacy single-prompt slot -->
+              <div v-else-if="!isBoardLevel && !hasPrompts && rowIdx * 4 + colIdx === studentIdx" class="split-cell">
                 <span class="pill-expected">{{ expectedBid }}</span>
                 <span v-if="!correct" class="pill-student">{{ studentBid }}</span>
               </div>
               <!-- Normal bid -->
-              <span
-                v-else
-                class="auction-bid"
-              >{{ bid || '' }}</span>
+              <span v-else class="auction-bid">{{ bid || '' }}</span>
             </template>
           </div>
 
-          <div v-if="!isBoardLevel" class="auction-legend">
+          <!-- Prompts detail list -->
+          <div v-if="hasPrompts" class="prompts-list">
+            <div v-for="(p, i) in prompts" :key="i" class="prompt-row" :class="p.correct ? 'prompt-correct' : 'prompt-wrong'">
+              <span class="prompt-num">#{{ i + 1 }}</span>
+              <template v-if="p.type === 'bid'">
+                <span class="prompt-detail">
+                  Expected <span class="pill-expected-sm">{{ p.expected_bid }}</span>
+                  <template v-if="!p.correct">
+                    &nbsp;got <span class="pill-student-sm">{{ p.student_bid }}</span>
+                  </template>
+                  <span v-else class="prompt-ok">&checkmark;</span>
+                </span>
+              </template>
+              <template v-else-if="p.type === 'card'">
+                <span class="prompt-detail">
+                  Expected <span class="pill-expected-sm">{{ p.expected_card }}</span>
+                  <template v-if="!p.correct">
+                    &nbsp;got <span class="pill-student-sm">{{ p.student_card }}</span>
+                  </template>
+                  <span v-else class="prompt-ok">&checkmark;</span>
+                </span>
+              </template>
+            </div>
+          </div>
+
+          <!-- Board summary (legacy without prompts) -->
+          <div v-else-if="isBoardLevel" class="prompt-meta">
+            <span class="prompt-meta-label">Board summary</span>
+            <span class="prompt-meta-sep">&middot;</span>
+            <span class="prompt-meta-auction">
+              {{ correct ? 'All prompts answered correctly' : 'Student made errors on this board' }}
+            </span>
+          </div>
+
+          <!-- Legacy legend -->
+          <div v-if="!isBoardLevel && !hasPrompts" class="auction-legend">
             <span class="legend-item"><span class="legend-dot green" /> Expected</span>
             <span v-if="!correct" class="legend-item"><span class="legend-dot red" /> Student bid</span>
             <span class="legend-item"><span class="legend-dot gray" /> After this point</span>
+          </div>
+
+          <!-- Prompts legend -->
+          <div v-else-if="hasPrompts" class="auction-legend">
+            <span class="legend-item"><span class="legend-dot green" /> Expected</span>
+            <span v-if="prompts.some(p => !p.correct)" class="legend-item"><span class="legend-dot red" /> Student response</span>
           </div>
         </div>
 
@@ -254,6 +281,21 @@ const hands       = computed(() => deal.value.hands || {})
 const studentSeat = computed(() => deal.value.student_seat)
 
 const isBoardLevel = computed(() => prompt.value.prompt_index === -1 || prompt.value.expected_bid === 'BOARD')
+const prompts     = computed(() => props.obs.prompts || [])
+const hasPrompts  = computed(() => prompts.value.length > 0)
+
+// Map auction positions to prompt slots for highlighting bids in the auction table
+const promptSlots = computed(() => {
+  if (!hasPrompts.value) return {}
+  const slots = {}
+  const dealerIdx = SEATS.indexOf(deal.value.dealer)
+  for (const p of prompts.value) {
+    if (p.type !== 'bid' || !p.auction_so_far) continue
+    const auctionPos = dealerIdx + p.auction_so_far.length
+    slots[auctionPos] = { expected: p.expected_bid, student: p.student_bid, correct: p.correct }
+  }
+  return slots
+})
 const expectedBid  = computed(() => prompt.value.expected_bid)
 const studentBid   = computed(() => result.value.student_bid)
 const auctionSoFar = computed(() => prompt.value.auction_so_far || [])
@@ -632,6 +674,58 @@ function parseSuits(hand) {
 .legend-dot.green { background: #a8d5b5; }
 .legend-dot.red   { background: #f5bbb4; }
 .legend-dot.gray  { background: #c8bfa6; opacity: 0.5; }
+
+/* Prompts list */
+.prompts-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.prompt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+.prompt-correct { background: var(--correct-bg); }
+.prompt-wrong { background: var(--incorrect-bg); }
+.prompt-num {
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--text-label);
+  min-width: 20px;
+}
+.prompt-detail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-secondary);
+}
+.prompt-ok {
+  color: var(--green);
+  font-weight: 700;
+}
+.pill-expected-sm, .pill-student-sm {
+  font-family: monospace;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 0 3px;
+  line-height: 1.5;
+}
+.pill-expected-sm {
+  color: #1e6b3e;
+  background: #e3f4ea;
+  border: 1px solid #a8d5b5;
+}
+.pill-student-sm {
+  color: #a52a1e;
+  background: #fde8e6;
+  border: 1px solid #f5bbb4;
+}
 
 /* Result & Meta */
 .info-grid {

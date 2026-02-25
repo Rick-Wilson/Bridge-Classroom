@@ -43,7 +43,8 @@ export function useDealPractice() {
     boardHadWrong: false,
     correctCount: 0,
     wrongCount: 0,
-    wrongStepIndices: {}  // tracks which step indices had wrong answers (for back-up-fix)
+    wrongStepIndices: {},  // tracks which step indices had wrong answers (for back-up-fix)
+    promptHistory: []      // accumulates per-prompt details for the observation
   })
 
   // Track played cards { N: [{suit, card}], E: [], S: [], W: [] }
@@ -498,6 +499,17 @@ export function useDealPractice() {
       delete boardState.wrongStepIndices[stepIdx]
     }
 
+    // Record prompt history for the board observation
+    const bidPromptIndex = steps.value.slice(0, stepIdx + 1).filter(s => s.type === 'bid').length - 1
+    boardState.promptHistory.push({
+      type: 'bid',
+      prompt_index: bidPromptIndex,
+      auction_so_far: [...auctionState.displayedBids],
+      expected_bid: expectedBid,
+      student_bid: bid,
+      correct: isCorrect
+    })
+
     // Capture bid position before advancing
     const bidPosition = auctionState.currentBidIndex
 
@@ -589,6 +601,14 @@ export function useDealPractice() {
     } else if (stepIdx in boardState.wrongStepIndices) {
       delete boardState.wrongStepIndices[stepIdx]
     }
+
+    // Record prompt history for the board observation
+    boardState.promptHistory.push({
+      type: 'card',
+      expected_card: expectedDisplay,
+      student_card: chosen,
+      correct: isCorrect
+    })
 
     // Mark step as answered
     cardChoiceState.answered[stepIdx] = true
@@ -747,7 +767,8 @@ export function useDealPractice() {
         studentBid: correct ? 'PASS' : 'FAIL',
         correct,
         attemptNumber: 1,
-        timeTakenMs: 0
+        timeTakenMs: 0,
+        prompts: [...boardState.promptHistory]
       })
     } catch (err) {
       console.error('Failed to record board observation:', err)
@@ -780,6 +801,7 @@ export function useDealPractice() {
     // Reset board scoring
     boardState.boardHadWrong = false
     boardState.wrongStepIndices = {}
+    boardState.promptHistory = []
 
     // Reset plays
     playedCards.value = { N: [], E: [], S: [], W: [] }

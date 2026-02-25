@@ -99,7 +99,8 @@ async function recordObservation({
   studentBid,
   correct,
   attemptNumber,
-  timeTakenMs
+  timeTakenMs,
+  prompts
 }) {
   const userStore = useUserStore()
   const assignmentStore = useAssignmentStore()
@@ -138,7 +139,8 @@ async function recordObservation({
     attemptNumber,
     timeTakenMs,
     skillPath,
-    assignment
+    assignment,
+    prompts
   })
 
   // Validate observation

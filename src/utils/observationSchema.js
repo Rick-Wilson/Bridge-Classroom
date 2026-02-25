@@ -93,7 +93,8 @@ export function createObservation({
   attemptNumber,
   timeTakenMs,
   skillPath,
-  assignment = null
+  assignment = null,
+  prompts = null
 }) {
   const totalPrompts = deal.steps?.filter(s => s.type === 'bid').length || 1
   const studentSeat = deal.studentSeat || 'S'
@@ -141,7 +142,8 @@ export function createObservation({
     },
 
     skill_path: skillPath,
-    assignment
+    assignment,
+    prompts: prompts || []
   }
 }
 
