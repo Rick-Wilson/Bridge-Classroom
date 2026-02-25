@@ -768,7 +768,6 @@ export function useDealPractice() {
   // ==================== METHODS: Observations ====================
   async function recordBoardObservation(correct) {
     if (!currentDeal.value) return
-    console.log('[DEBUG] recordBoardObservation prompts:', JSON.stringify(boardState.promptHistory))
     try {
       await observationStore.recordObservation({
         deal: currentDeal.value,
