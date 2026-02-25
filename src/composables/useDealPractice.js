@@ -44,7 +44,8 @@ export function useDealPractice() {
     correctCount: 0,
     wrongCount: 0,
     wrongStepIndices: {},  // tracks which step indices had wrong answers (for back-up-fix)
-    promptHistory: []      // accumulates per-prompt details for the observation
+    promptHistory: [],     // accumulates per-prompt details for the observation
+    observationId: null    // stable UUID for upsert — generated per board attempt
   })
 
   // Track played cards { N: [{suit, card}], E: [], S: [], W: [] }
@@ -491,7 +492,7 @@ export function useDealPractice() {
     const isCorrect = normalizeBid(bid) === normalizeBid(expectedBid)
     const stepIdx = currentStepIndex.value
 
-    // Track wrong steps (observations recorded at board completion only)
+    // Track wrong steps
     if (!isCorrect) {
       boardState.wrongStepIndices[stepIdx] = true
       boardState.boardHadWrong = true
@@ -511,6 +512,11 @@ export function useDealPractice() {
       correct: isCorrect,
       time_ms: elapsed
     })
+
+    // Record/upsert observation immediately on wrong answer
+    if (!isCorrect) {
+      recordBoardObservation(false)
+    }
 
     // Capture bid position before advancing
     const bidPosition = auctionState.currentBidIndex
@@ -545,7 +551,8 @@ export function useDealPractice() {
       bidAnswered.value = true
       finishAuctionIfNeeded()
 
-      // If this is the last step (no more steps after), auto-complete
+      // If this is the last step, auto-complete.
+      // Wrong answers are already recorded via upsert, so it's safe to complete.
       if (currentStepIndex.value >= steps.value.length - 1) {
         markComplete()
       }
@@ -596,7 +603,7 @@ export function useDealPractice() {
       expectedDisplay = chooseCard.card
     }
 
-    // Track wrong steps (observations recorded at board completion only)
+    // Track wrong steps
     if (!isCorrect) {
       boardState.wrongStepIndices[stepIdx] = true
       boardState.boardHadWrong = true
@@ -614,6 +621,11 @@ export function useDealPractice() {
       time_ms: cardElapsed
     })
     promptStartTime.value = null
+
+    // Record/upsert observation immediately on wrong answer
+    if (!isCorrect) {
+      recordBoardObservation(false)
+    }
 
     // Mark step as answered
     cardChoiceState.answered[stepIdx] = true
@@ -769,6 +781,7 @@ export function useDealPractice() {
     if (!currentDeal.value) return
     try {
       await observationStore.recordObservation({
+        observationId: boardState.observationId,
         deal: currentDeal.value,
         promptIndex: -1,
         auctionSoFar: [...auctionState.displayedBids],
@@ -811,6 +824,7 @@ export function useDealPractice() {
     boardState.boardHadWrong = false
     boardState.wrongStepIndices = {}
     boardState.promptHistory = []
+    boardState.observationId = crypto.randomUUID()
 
     // Reset plays
     playedCards.value = { N: [], E: [], S: [], W: [] }

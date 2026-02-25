@@ -92,6 +92,7 @@ function startNewSession() {
  * @returns {Promise<{success: boolean, observation?: Object, error?: string}>}
  */
 async function recordObservation({
+  observationId = null,
   deal,
   promptIndex,
   auctionSoFar,
@@ -126,8 +127,14 @@ async function recordObservation({
   // Get assignment tag if in assignment mode
   const assignment = assignmentStore.getAssignmentTag()
 
+  // Check if this is an upsert (replacing an existing pending observation)
+  const isUpsert = observationId && pendingObservations.value.some(
+    o => o.metadata?.observation_id === observationId
+  )
+
   // Create the observation
   const observation = createObservation({
+    observationId,
     userId: user.id,
     sessionId: sessionId.value,
     deal,
@@ -150,12 +157,14 @@ async function recordObservation({
     return { success: false, error: validation.errors.join(', ') }
   }
 
-  // Update session stats
-  sessionStats.value.totalObservations++
-  if (correct) {
-    sessionStats.value.correctCount++
-  } else {
-    sessionStats.value.wrongCount++
+  // Update session stats (skip on upsert to avoid double-counting)
+  if (!isUpsert) {
+    sessionStats.value.totalObservations++
+    if (correct) {
+      sessionStats.value.correctCount++
+    } else {
+      sessionStats.value.wrongCount++
+    }
   }
 
   // If user has data consent and secret key, encrypt the observation
@@ -191,14 +200,22 @@ async function encryptAndQueueObservation(observation, user) {
     const classroom = user.classrooms?.[0] || null
     const metadata = extractMetadata(observation, classroom)
 
-    // Queue the encrypted observation
-    pendingObservations.value.push({
+    // Queue the encrypted observation (replace existing if same ID)
+    const entry = {
       encrypted_data,
       iv,
       metadata,
       encrypted: true,
       queuedAt: new Date().toISOString()
-    })
+    }
+    const existingIdx = pendingObservations.value.findIndex(
+      o => o.metadata?.observation_id === metadata.observation_id
+    )
+    if (existingIdx !== -1) {
+      pendingObservations.value[existingIdx] = entry
+    } else {
+      pendingObservations.value.push(entry)
+    }
 
     saveToStorage()
     return { success: true }
@@ -216,12 +233,20 @@ async function encryptAndQueueObservation(observation, user) {
 function queueUnencryptedObservation(observation, classroom) {
   const metadata = extractMetadata(observation, classroom)
 
-  pendingObservations.value.push({
+  const entry = {
     observation, // Store raw observation
     metadata,
     encrypted: false,
     queuedAt: new Date().toISOString()
-  })
+  }
+  const existingIdx = pendingObservations.value.findIndex(
+    o => o.metadata?.observation_id === metadata.observation_id
+  )
+  if (existingIdx !== -1) {
+    pendingObservations.value[existingIdx] = entry
+  } else {
+    pendingObservations.value.push(entry)
+  }
 
   saveToStorage()
 }

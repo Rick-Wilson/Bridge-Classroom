@@ -82,6 +82,7 @@
  * @returns {Observation}
  */
 export function createObservation({
+  observationId = null,
   userId,
   sessionId,
   deal,
@@ -101,7 +102,7 @@ export function createObservation({
   const studentHand = deal.hands?.[studentSeat.toLowerCase()] || ''
 
   return {
-    observation_id: crypto.randomUUID(),
+    observation_id: observationId || crypto.randomUUID(),
     timestamp: new Date().toISOString(),
     user_id: userId,
     session_id: sessionId,

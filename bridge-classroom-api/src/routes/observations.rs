@@ -67,7 +67,9 @@ pub async fn submit_observations(
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 encrypted_data = excluded.encrypted_data,
-                iv = excluded.iv
+                iv = excluded.iv,
+                correct = excluded.correct,
+                timestamp = excluded.timestamp
             "#,
         )
         .bind(&obs.id)
