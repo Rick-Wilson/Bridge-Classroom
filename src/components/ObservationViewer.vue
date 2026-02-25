@@ -142,7 +142,9 @@
               <!-- Highlighted prompt slot (when prompts array available) -->
               <div v-if="hasPrompts && promptSlots[rowIdx * 4 + colIdx]" class="split-cell">
                 <span class="pill-expected">{{ promptSlots[rowIdx * 4 + colIdx].expected }}</span>
-                <span v-if="!promptSlots[rowIdx * 4 + colIdx].correct" class="pill-student">{{ promptSlots[rowIdx * 4 + colIdx].student }}</span>
+                <span
+                  :class="promptSlots[rowIdx * 4 + colIdx].corrected ? 'pill-corrected' : 'pill-student'"
+                >{{ promptSlots[rowIdx * 4 + colIdx].student }}</span>
               </div>
               <!-- Legacy single-prompt slot -->
               <div v-else-if="!isBoardLevel && !hasPrompts && rowIdx * 4 + colIdx === studentIdx" class="split-cell">
@@ -285,14 +287,31 @@ const prompts     = computed(() => props.obs.prompts || [])
 const hasPrompts  = computed(() => prompts.value.length > 0)
 
 // Map auction positions to prompt slots for highlighting bids in the auction table
+// Shows the first wrong bid per prompt position; marks as corrected (orange) or uncorrected (red)
 const promptSlots = computed(() => {
   if (!hasPrompts.value) return {}
-  const slots = {}
   const dealerIdx = SEATS.indexOf(deal.value.dealer)
+
+  // Group bid prompts by auction position
+  const byPos = {}
   for (const p of prompts.value) {
     if (p.type !== 'bid' || !p.auction_so_far) continue
     const auctionPos = dealerIdx + p.auction_so_far.length
-    slots[auctionPos] = { expected: p.expected_bid, student: p.student_bid, correct: p.correct }
+    if (!byPos[auctionPos]) byPos[auctionPos] = []
+    byPos[auctionPos].push(p)
+  }
+
+  const slots = {}
+  for (const [pos, attempts] of Object.entries(byPos)) {
+    const firstWrong = attempts.find(a => !a.correct)
+    if (!firstWrong) continue // all correct on first try — no split cell needed
+    const wasCorrected = attempts.some(a => a.correct)
+    slots[pos] = {
+      expected: firstWrong.expected_bid,
+      student: firstWrong.student_bid,
+      correct: false,
+      corrected: wasCorrected  // orange if corrected, red if not
+    }
   }
   return slots
 })
@@ -649,6 +668,18 @@ function parseSuits(hand) {
   color: #a52a1e;
   background: #fde8e6;
   border: 1px solid #f5bbb4;
+  border-radius: 4px;
+  padding: 1px 4px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.pill-corrected {
+  font-family: monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #7c4d00;
+  background: #fef3e0;
+  border: 1px solid #f5c882;
   border-radius: 4px;
   padding: 1px 4px;
   line-height: 1.5;
