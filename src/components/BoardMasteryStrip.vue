@@ -52,8 +52,8 @@ const props = defineProps({
     type: Number,
     default: 0
   },
-  forceRedBoard: {
-    type: Number,
+  forceBoardStatus: {
+    type: Object,
     default: null
   },
   introUrl: {
@@ -76,10 +76,10 @@ const boardMastery = computed(() => {
     props.lessonSubfolder,
     props.boardNumbers
   )
-  // Local override: force a board to show as red during mid-board wrong bid
-  if (props.forceRedBoard != null) {
-    const board = results.find(b => b.boardNumber === props.forceRedBoard)
-    if (board) board.status = 'red'
+  // Local override: force a board status during mid-board play
+  if (props.forceBoardStatus) {
+    const board = results.find(b => b.boardNumber === props.forceBoardStatus.board)
+    if (board) board.status = props.forceBoardStatus.status
   }
   return results
 })
