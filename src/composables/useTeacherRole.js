@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
 import { useBoardMastery } from './useBoardMastery.js'
 import { useAccomplishments } from './useAccomplishments.js'
+import { decryptSharingGrant, decryptObservation } from '../utils/crypto.js'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
@@ -11,6 +12,7 @@ const isTeacher = ref(false)
 const viewerId = ref(null)
 const students = ref([])           // { id, first_name, last_name, email, classroom }
 const studentObservations = ref({}) // Map<userId, observations[]>
+const studentRawObservations = ref({}) // Map<userId, rawObservations[]> (with encrypted_data/iv)
 const loading = ref(false)
 const error = ref(null)
 const initialized = ref(false)
@@ -18,6 +20,11 @@ const initialized = ref(false)
 // Cache timestamps per student
 const fetchTimestamps = {}
 const CACHE_DURATION_MS = 2 * 60 * 1000 // 2 minutes
+
+// Student key cache: Map<userId, aesKeyBase64>
+const studentKeyCache = {}
+// Grants cache (fetched once per session)
+let grantsCache = null
 
 /**
  * Check if the current user is a teacher (has a viewer record with grants).
@@ -122,7 +129,10 @@ async function fetchStudentObservations(userId) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
     const data = await res.json()
-    const obs = (data.observations || []).map(o => ({
+    const rawObs = data.observations || []
+
+    // Metadata-only for mastery computation
+    const obs = rawObs.map(o => ({
       id: o.id || o.observation_id,
       timestamp: o.timestamp,
       skill_path: o.skill_path,
@@ -131,6 +141,8 @@ async function fetchStudentObservations(userId) {
       deal_number: o.deal_number
     }))
 
+    // Preserve raw observations (with encrypted_data/iv) for on-demand decryption
+    studentRawObservations.value = { ...studentRawObservations.value, [userId]: rawObs }
     studentObservations.value = { ...studentObservations.value, [userId]: obs }
     fetchTimestamps[userId] = Date.now()
     return obs
@@ -249,6 +261,113 @@ function formatTimeSince(timestamp) {
 }
 
 /**
+ * Get the teacher's RSA private key from sessionStorage.
+ * @returns {string|null} Base64-encoded private key
+ */
+function getTeacherPrivateKey() {
+  try {
+    const session = JSON.parse(sessionStorage.getItem('bridgeTeacherSession') || 'null')
+    if (!session || !session.privateKeyBase64) return null
+    if (session.expiry && new Date(session.expiry) < new Date()) return null
+    return session.privateKeyBase64
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Get (or derive) the student's AES secret key via sharing grants.
+ * @param {string} studentUserId
+ * @returns {Promise<string|null>} Base64-encoded AES key or null
+ */
+async function getStudentKey(studentUserId) {
+  // Check cache
+  if (studentKeyCache[studentUserId]) return studentKeyCache[studentUserId]
+
+  const privateKey = getTeacherPrivateKey()
+  if (!privateKey) return null
+
+  // Fetch grants if not cached
+  if (!grantsCache && viewerId.value) {
+    try {
+      const res = await fetch(
+        `${API_URL}/grants?grantee_id=${viewerId.value}`,
+        { headers: { 'x-api-key': API_KEY } }
+      )
+      if (res.ok) {
+        const data = await res.json()
+        grantsCache = data.grants || []
+      }
+    } catch {
+      return null
+    }
+  }
+
+  // Find grant for this student
+  const grant = (grantsCache || []).find(g => g.grantor_id === studentUserId)
+  if (!grant) return null
+
+  try {
+    const aesKey = await decryptSharingGrant(grant.encrypted_payload, privateKey)
+    studentKeyCache[studentUserId] = aesKey
+    return aesKey
+  } catch (err) {
+    console.error(`Failed to decrypt grant for student ${studentUserId}:`, err)
+    return null
+  }
+}
+
+/**
+ * Decrypt a single student observation on demand.
+ * @param {string} studentUserId
+ * @param {Object} rawObs - Raw observation with encrypted_data and iv
+ * @returns {Promise<Object|null>} Full decrypted observation or null
+ */
+async function decryptStudentObservation(studentUserId, rawObs) {
+  if (!rawObs.encrypted_data || !rawObs.iv) return null
+
+  const aesKey = await getStudentKey(studentUserId)
+  if (!aesKey) return null
+
+  try {
+    const decrypted = await decryptObservation(rawObs.encrypted_data, rawObs.iv, aesKey)
+    return {
+      ...decrypted,
+      id: rawObs.id,
+      timestamp: rawObs.timestamp,
+      skill_path: rawObs.skill_path,
+      correct: rawObs.correct,
+      deal_subfolder: rawObs.deal_subfolder,
+      deal_number: rawObs.deal_number
+    }
+  } catch (err) {
+    console.error('Failed to decrypt observation:', rawObs.id, err)
+    return null
+  }
+}
+
+/**
+ * Find and decrypt an observation by matching metadata.
+ * @param {string} studentUserId
+ * @param {number} timestamp - Raw timestamp in ms
+ * @param {number} dealNumber
+ * @param {boolean} correct
+ * @returns {Promise<Object|null>}
+ */
+async function findAndDecryptObservation(studentUserId, timestamp, dealNumber, correct) {
+  const rawObs = studentRawObservations.value[studentUserId] || []
+
+  // Find matching observation by timestamp and deal_number
+  const match = rawObs.find(o => {
+    const obsTs = new Date(o.timestamp).getTime()
+    return Math.abs(obsTs - timestamp) < 1000 && o.deal_number === dealNumber && o.correct === correct
+  })
+
+  if (!match) return null
+  return decryptStudentObservation(studentUserId, match)
+}
+
+/**
  * Clear all state (called on user switch).
  */
 function reset() {
@@ -256,9 +375,14 @@ function reset() {
   viewerId.value = null
   students.value = []
   studentObservations.value = {}
+  studentRawObservations.value = {}
   loading.value = false
   error.value = null
   initialized.value = false
+  grantsCache = null
+  for (const key of Object.keys(studentKeyCache)) {
+    delete studentKeyCache[key]
+  }
   for (const key of Object.keys(fetchTimestamps)) {
     delete fetchTimestamps[key]
   }
@@ -280,6 +404,10 @@ export function useTeacherRole() {
     getStudentMasterySummary,
     getStudentRecentLessons,
     formatTimeSince,
+    findAndDecryptObservation,
+    decryptStudentObservation,
+    getStudentKey,
+    studentRawObservations,
     reset
   }
 }

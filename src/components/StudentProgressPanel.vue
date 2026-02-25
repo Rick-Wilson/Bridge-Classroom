@@ -129,22 +129,31 @@
       :lesson="selectedLesson"
       :rawData="observations"
       @close="selectedLesson = null"
+      @dot-click="handleDotClick"
     />
+
+    <!-- Floating observation viewers -->
+    <ObservationPopupManager ref="popupManager" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
 import { processData, buildLessonMeta, STATUS_COLORS } from '../utils/studentProgressData.js'
+import { useTeacherRole } from '../composables/useTeacherRole.js'
 import StudentProgressSparkline from './StudentProgressSparkline.vue'
 import StudentProgressDetails from './StudentProgressDetails.vue'
+import ObservationPopupManager from './ObservationPopupManager.vue'
 
 const props = defineProps({
   observations: { type: Array, required: true },
   studentName: { type: String, default: '' },
+  studentId: { type: String, default: '' },
 })
 
 const selectedLesson = ref(null)
+const popupManager = ref(null)
+const teacherRole = useTeacherRole()
 
 const lessons = computed(() => {
   if (!props.observations || props.observations.length === 0) return []
@@ -186,6 +195,29 @@ function formatSpan(lesson) {
   if (hours < 48) return `${Math.round(hours)} hr`
   if (days < 14) return `${Math.round(days)} days`
   return `${Math.round(days / 7)} wks`
+}
+
+async function handleDotClick({ rawTs, dealNum, correct, event }) {
+  if (!popupManager.value) return
+
+  if (props.studentId) {
+    // Teacher viewing student — decrypt on demand
+    const decrypted = await teacherRole.findAndDecryptObservation(
+      props.studentId, rawTs, dealNum, correct
+    )
+    if (decrypted) {
+      popupManager.value.openObservation(decrypted, event)
+    }
+  } else {
+    // Self-viewing — observations are already decrypted, find the match
+    const match = props.observations.find(o => {
+      const obsTs = new Date(o.timestamp).getTime()
+      return Math.abs(obsTs - rawTs) < 1000 && o.deal_number === dealNum && o.correct === correct
+    })
+    if (match) {
+      popupManager.value.openObservation(match, event)
+    }
+  }
 }
 
 function masterySegments(lesson) {

@@ -34,6 +34,7 @@
         <StudentProgressPanel
           :observations="observations"
           :studentName="props.studentName"
+          :studentId="props.studentId"
         />
       </div>
 

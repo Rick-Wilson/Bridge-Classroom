@@ -68,6 +68,8 @@
           :fill="dotColor(p.y)"
           stroke="#fff" stroke-width="1.5"
           opacity="0.92"
+          class="obs-dot"
+          @click.stop="emit('dot-click', { rawTs: p.rawTs, dealNum: p.dealNum, correct: p.correct, event: $event })"
         >
           <title>Board {{ p.dealNum }} &middot; {{ p.correct ? 'Correct' : 'Incorrect' }} &middot; {{ formatTime(p.rawTs) }}</title>
         </circle>
@@ -117,7 +119,7 @@ const props = defineProps({
   rawData: { type: Array, required: true },
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close', 'dot-click'])
 
 const DOT_R = 7
 const OVERLAP = 0.30
@@ -396,6 +398,16 @@ function formatTime(ts) {
 
 .details-chart {
   display: block;
+}
+
+.obs-dot {
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.obs-dot:hover {
+  opacity: 1 !important;
+  filter: brightness(1.1);
 }
 
 .details-activity {
