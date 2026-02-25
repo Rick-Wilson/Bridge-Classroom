@@ -490,14 +490,12 @@ export function useDealPractice() {
     const isCorrect = normalizeBid(bid) === normalizeBid(expectedBid)
     const stepIdx = currentStepIndex.value
 
-    // Record observations per-board
+    // Track wrong steps (observations recorded at board completion only)
     if (!isCorrect) {
-      recordBoardObservation(false)
       boardState.wrongStepIndices[stepIdx] = true
       boardState.boardHadWrong = true
     } else if (stepIdx in boardState.wrongStepIndices) {
       delete boardState.wrongStepIndices[stepIdx]
-      recordBoardObservation(true)
     }
 
     // Capture bid position before advancing
@@ -584,14 +582,12 @@ export function useDealPractice() {
       expectedDisplay = chooseCard.card
     }
 
-    // Record observations per-board
+    // Track wrong steps (observations recorded at board completion only)
     if (!isCorrect) {
-      recordBoardObservation(false)
       boardState.wrongStepIndices[stepIdx] = true
       boardState.boardHadWrong = true
     } else if (stepIdx in boardState.wrongStepIndices) {
       delete boardState.wrongStepIndices[stepIdx]
-      recordBoardObservation(true)
     }
 
     // Mark step as answered
@@ -668,6 +664,8 @@ export function useDealPractice() {
     if (boardState.boardHadWrong) {
       boardState.wrongCount++
       const allFixed = Object.keys(boardState.wrongStepIndices).length === 0
+      // Record the initial failure, then the correction result
+      recordBoardObservation(false)
       recordBoardObservation(allFixed)
     } else {
       boardState.correctCount++
