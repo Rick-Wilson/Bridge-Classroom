@@ -133,11 +133,20 @@
           <div class="card-title"><span class="suit-icon-sm">&hearts;</span> Auction</div>
 
           <div class="prompt-meta">
-            <span class="prompt-meta-label">Prompt {{ promptIndex + 1 }} of {{ totalPrompts }}</span>
-            <span class="prompt-meta-sep">&middot;</span>
-            <span class="prompt-meta-auction">
-              Auction so far: <span class="prompt-meta-bids">{{ auctionSoFar.join('  ') }}</span>
-            </span>
+            <template v-if="isBoardLevel">
+              <span class="prompt-meta-label">Board summary</span>
+              <span class="prompt-meta-sep">&middot;</span>
+              <span class="prompt-meta-auction">
+                {{ correct ? 'All prompts answered correctly' : 'Student made errors on this board' }}
+              </span>
+            </template>
+            <template v-else>
+              <span class="prompt-meta-label">Prompt {{ promptIndex + 1 }} of {{ totalPrompts }}</span>
+              <span class="prompt-meta-sep">&middot;</span>
+              <span class="prompt-meta-auction">
+                Auction so far: <span class="prompt-meta-bids">{{ auctionSoFar.join('  ') }}</span>
+              </span>
+            </template>
           </div>
 
           <div class="auction-header">
@@ -146,8 +155,8 @@
 
           <div v-for="(row, rowIdx) in auctionRows" :key="rowIdx" class="auction-row">
             <template v-for="(bid, colIdx) in row" :key="colIdx">
-              <!-- Student slot -->
-              <div v-if="rowIdx * 4 + colIdx === studentIdx" class="split-cell">
+              <!-- Student slot (only for per-prompt observations) -->
+              <div v-if="!isBoardLevel && rowIdx * 4 + colIdx === studentIdx" class="split-cell">
                 <span class="pill-expected">{{ expectedBid }}</span>
                 <span v-if="!correct" class="pill-student">{{ studentBid }}</span>
               </div>
@@ -155,12 +164,11 @@
               <span
                 v-else
                 class="auction-bid"
-                :class="{ future: rowIdx * 4 + colIdx > studentIdx }"
               >{{ bid || '' }}</span>
             </template>
           </div>
 
-          <div class="auction-legend">
+          <div v-if="!isBoardLevel" class="auction-legend">
             <span class="legend-item"><span class="legend-dot green" /> Expected</span>
             <span v-if="!correct" class="legend-item"><span class="legend-dot red" /> Student bid</span>
             <span class="legend-item"><span class="legend-dot gray" /> After this point</span>
@@ -237,8 +245,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('mouseup', stopDrag)
 })
 
-console.log('[ObservationViewer] obs received:', JSON.stringify(props.obs, null, 2)?.slice(0, 2000))
-
 // Computed data from observation
 const deal        = computed(() => props.obs.deal       || {})
 const prompt      = computed(() => props.obs.bid_prompt || {})
@@ -247,6 +253,7 @@ const correct     = computed(() => result.value.correct)
 const hands       = computed(() => deal.value.hands || {})
 const studentSeat = computed(() => deal.value.student_seat)
 
+const isBoardLevel = computed(() => prompt.value.prompt_index === -1 || prompt.value.expected_bid === 'BOARD')
 const expectedBid  = computed(() => prompt.value.expected_bid)
 const studentBid   = computed(() => result.value.student_bid)
 const auctionSoFar = computed(() => prompt.value.auction_so_far || [])
@@ -284,7 +291,20 @@ const auctionRows = computed(() => {
 })
 
 function parseSuits(hand) {
-  if (!hand || typeof hand !== 'string') return null
+  if (!hand) return null
+
+  // Object format: { spades: ["Q","T","7"], hearts: [...], diamonds: [...], clubs: [...] }
+  if (typeof hand === 'object' && hand.spades !== undefined) {
+    return [
+      { suit: '\u2660', cards: (hand.spades || []).join(''), color: 'black' },
+      { suit: '\u2665', cards: (hand.hearts || []).join(''), color: 'red'   },
+      { suit: '\u2666', cards: (hand.diamonds || []).join(''), color: 'red'   },
+      { suit: '\u2663', cards: (hand.clubs || []).join(''), color: 'black' },
+    ]
+  }
+
+  // String format: "AKQ.JT9.876.543"
+  if (typeof hand !== 'string') return null
   const parts = hand.split('.')
   if (parts.length < 4) return null
   const [s, h, d, c] = parts
