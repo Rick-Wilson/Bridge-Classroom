@@ -612,6 +612,28 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         .await
         .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // View: board_status with human-readable username
+    sqlx::query(
+        r#"
+        CREATE VIEW IF NOT EXISTS board_status_by_name AS
+        SELECT
+            bs.user_id,
+            u.first_name || ' ' || u.last_name AS student_name,
+            u.email AS student_email,
+            bs.deal_subfolder,
+            bs.deal_number,
+            bs.status,
+            bs.achievement,
+            bs.last_observation_at,
+            bs.updated_at
+        FROM board_status bs
+        JOIN users u ON u.id = bs.user_id
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
     // View: sharing grants with human-readable names
     sqlx::query(
         r#"
