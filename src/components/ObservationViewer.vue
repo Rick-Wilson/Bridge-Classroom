@@ -178,6 +178,7 @@
                   <span v-else class="prompt-ok">&checkmark;</span>
                 </span>
               </template>
+              <span v-if="p.time_ms > 0" class="prompt-time">{{ formatMs(p.time_ms) }}</span>
             </div>
           </div>
 
@@ -214,6 +215,10 @@
                 <span class="info-value">{{ promptStats.total }}</span>
               </div>
               <div class="info-item">
+                <span class="info-label">Total Time</span>
+                <span class="info-value">{{ promptStats.totalTime > 0 ? formatMs(promptStats.totalTime) : 'n/a' }}</span>
+              </div>
+              <div class="info-item full-width">
                 <span class="info-label">Result</span>
                 <span class="info-value" :style="{ color: promptStats.wrong === 0 ? 'var(--green)' : 'var(--red)' }">
                   {{ promptStats.wrong === 0 ? 'All correct' : `${promptStats.wrong} error${promptStats.wrong > 1 ? 's' : ''}` }}{{ promptStats.corrected > 0 ? `, ${promptStats.corrected} fixed` : '' }}
@@ -349,7 +354,8 @@ const promptStats = computed(() => {
       if (hadCorrect) corrected++
     }
   }
-  return { total, wrong, corrected }
+  const totalTime = all.reduce((sum, p) => sum + (p.time_ms || 0), 0)
+  return { total, wrong, corrected, totalTime }
 })
 
 const expectedBid  = computed(() => prompt.value.expected_bid)
@@ -387,6 +393,12 @@ const auctionRows = computed(() => {
     rows.push(paddedAuction.value.slice(i, i + 4))
   return rows
 })
+
+function formatMs(ms) {
+  if (!ms || ms <= 0) return ''
+  if (ms < 1000) return ms + 'ms'
+  return (ms / 1000).toFixed(1) + 's'
+}
 
 function parseSuits(hand) {
   if (!hand) return null
@@ -776,6 +788,13 @@ function parseSuits(hand) {
   color: var(--green);
   font-weight: 700;
 }
+.prompt-time {
+  font-family: monospace;
+  font-size: 0.62rem;
+  color: var(--text-label);
+  margin-left: auto;
+}
+
 .pill-expected-sm, .pill-student-sm {
   font-family: monospace;
   font-size: 0.65rem;
