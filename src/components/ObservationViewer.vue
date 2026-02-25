@@ -237,6 +237,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('mouseup', stopDrag)
 })
 
+console.log('[ObservationViewer] obs received:', JSON.stringify(props.obs, null, 2)?.slice(0, 2000))
+
 // Computed data from observation
 const deal        = computed(() => props.obs.deal       || {})
 const prompt      = computed(() => props.obs.bid_prompt || {})
@@ -264,9 +266,10 @@ const formattedTime = computed(() => {
 const SEATS = ['W', 'N', 'E', 'S']
 
 const paddedAuction = computed(() => {
-  const bids = (deal.value.full_auction || '').split(' ').filter(Boolean)
+  const fa = deal.value.full_auction
+  const bids = (typeof fa === 'string' ? fa : Array.isArray(fa) ? fa.join(' ') : '').split(' ').filter(Boolean)
   const startIdx = SEATS.indexOf(deal.value.dealer)
-  return [...Array(startIdx).fill(null), ...bids]
+  return [...Array(Math.max(0, startIdx)).fill(null), ...bids]
 })
 
 const studentIdx = computed(() =>
@@ -281,8 +284,10 @@ const auctionRows = computed(() => {
 })
 
 function parseSuits(hand) {
-  if (!hand) return null
-  const [s, h, d, c] = hand.split('.')
+  if (!hand || typeof hand !== 'string') return null
+  const parts = hand.split('.')
+  if (parts.length < 4) return null
+  const [s, h, d, c] = parts
   return [
     { suit: '\u2660', cards: s, color: 'black' },
     { suit: '\u2665', cards: h, color: 'red'   },
