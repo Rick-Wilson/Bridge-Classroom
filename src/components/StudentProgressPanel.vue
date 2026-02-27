@@ -165,7 +165,7 @@ const totalBoards = computed(() => lessons.value.reduce((s, l) => s + l.tried, 0
 const totalObs = computed(() => lessons.value.reduce((s, l) => s + l.totalAttempts, 0))
 
 const legend = [
-  { color: '#10b981', label: 'Success (clean)' },
+  { color: '#3b82f6', label: 'Correct' },
   { color: '#f59e0b', label: 'Corrected (fail then fix within 1 hr)' },
   { color: '#f43f5e', label: 'Fail (uncorrected)' },
 ]
@@ -207,6 +207,8 @@ async function handleDotClick({ rawTs, dealNum, correct, event }) {
     )
     if (decrypted) {
       popupManager.value.openObservation(decrypted, event)
+    } else {
+      console.warn('Observation decryption failed — teacher private key may be missing')
     }
   } else {
     // Self-viewing — observations are already decrypted, find the match
