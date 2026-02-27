@@ -59,7 +59,7 @@ export function processData(rawData, lessonTotals = {}, lessonNames = {}) {
     if (!byLesson[r.skill_path]) byLesson[r.skill_path] = {}
     const dn = r.deal_number
     if (!byLesson[r.skill_path][dn]) byLesson[r.skill_path][dn] = []
-    byLesson[r.skill_path][dn].push({ correct: r.correct, ts: new Date(r.timestamp) })
+    byLesson[r.skill_path][dn].push({ correct: r.correct, ts: new Date(r.timestamp), board_result: r.board_result })
   })
 
   const lessons = Object.entries(byLesson).map(([path, deals]) => {
@@ -88,10 +88,14 @@ export function processData(rawData, lessonTotals = {}, lessonNames = {}) {
       const lastCorrect = attempts[attempts.length - 1]?.correct ?? false
 
       const points = attempts.map((a, i) => {
+        // Use board_result when available (preferred)
+        if (a.board_result === 'corrected') return { ts: a.ts, y: 0.5, correct: a.correct }
+        if (a.board_result === 'failed') return { ts: a.ts, y: 0.0, correct: false }
+
         if (a.correct) {
           const recentFail = attempts.slice(0, i)
             .reverse()
-            .find(p => !p.correct && (a.ts - p.ts) < ONE_HOUR)
+            .find(p => (p.board_result ? p.board_result !== 'correct' : !p.correct) && (a.ts - p.ts) < ONE_HOUR)
           return { ts: a.ts, y: recentFail ? 0.75 : 1.0, correct: true }
         } else {
           const nextSuccess = attempts.slice(i + 1)

@@ -14,8 +14,8 @@
       </div>
       <div class="obs-header-right">
         <span class="timestamp">{{ formattedTime }}</span>
-        <span class="result-badge" :class="correct ? 'correct' : 'incorrect'">
-          {{ correct ? '\u2713 Correct' : '\u2717 Incorrect' }}
+        <span class="result-badge" :class="isCorrected ? 'corrected' : (correct ? 'correct' : 'incorrect')">
+          {{ isCorrected ? '\u21BB Corrected' : (correct ? '\u2713 Correct' : '\u2717 Incorrect') }}
         </span>
         <button class="close-btn" @click="$emit('close')" title="Close">&times;</button>
       </div>
@@ -304,6 +304,10 @@ const studentSeat = computed(() => deal.value.student_seat)
 const isBoardLevel = computed(() => prompt.value.prompt_index === -1 || prompt.value.expected_bid === 'BOARD')
 const prompts     = computed(() => props.obs.prompts || [])
 const hasPrompts  = computed(() => prompts.value.length > 0)
+const isCorrected = computed(() =>
+  (hasPrompts.value && promptStats.value.corrected > 0) ||
+  props.obs.board_result === 'corrected'
+)
 
 // Map auction positions to prompt slots for highlighting bids in the auction table
 // Shows the first wrong bid per prompt position; marks as corrected (orange) or uncorrected (red)
@@ -378,7 +382,17 @@ const SEATS = ['W', 'N', 'E', 'S']
 
 const paddedAuction = computed(() => {
   const fa = deal.value.full_auction
-  const bids = (typeof fa === 'string' ? fa : Array.isArray(fa) ? fa.join(' ') : '').split(' ').filter(Boolean)
+  const tokens = (typeof fa === 'string' ? fa : Array.isArray(fa) ? fa.join(' ') : '').split(' ').filter(Boolean)
+  // Expand AP/ALL to individual Pass entries
+  const bids = []
+  for (const token of tokens) {
+    const upper = token.toUpperCase()
+    if (upper === 'AP' || upper === 'ALL') {
+      bids.push('Pass', 'Pass', 'Pass')
+    } else {
+      bids.push(token)
+    }
+  }
   const startIdx = SEATS.indexOf(deal.value.dealer)
   return [...Array(Math.max(0, startIdx)).fill(null), ...bids]
 })
@@ -497,6 +511,7 @@ function parseSuits(hand) {
 }
 .result-badge.correct   { background: var(--correct-bg);   color: var(--green); border: 1px solid var(--correct-border); }
 .result-badge.incorrect { background: var(--incorrect-bg); color: var(--red);   border: 1px solid var(--incorrect-border); }
+.result-badge.corrected { background: #fef3e0; color: #b45309; border: 1px solid #f5c882; }
 
 .close-btn {
   background: none;

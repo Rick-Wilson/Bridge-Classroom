@@ -55,7 +55,8 @@ async function decryptSingleObservation(encrypted, secretKey) {
       correct: encrypted.correct,
       classroom: encrypted.classroom,
       deal_subfolder: encrypted.deal_subfolder,
-      deal_number: encrypted.deal_number
+      deal_number: encrypted.deal_number,
+      board_result: encrypted.board_result
     }
   } catch (err) {
     console.error('Failed to decrypt observation:', encrypted.id, err)
@@ -82,6 +83,7 @@ function getLocalObservations() {
       classroom: meta.classroom,
       deal_subfolder: meta.deal_subfolder,
       deal_number: meta.deal_number,
+      board_result: meta.board_result,
       session_id: meta.session_id,
       // Mark as local so we can identify them
       _local: true,

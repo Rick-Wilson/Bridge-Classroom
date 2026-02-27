@@ -162,21 +162,32 @@ const positionedDots = computed(() => {
     const ts = new Date(r.timestamp).getTime()
     const dealNum = r.deal_number
     const boardIdx = nums.indexOf(dealNum)
-    return { rawTs: ts, dealNum, boardIdx, correct: r.correct, y: r.correct ? 1.0 : 0.0 }
+    return { rawTs: ts, dealNum, boardIdx, correct: r.correct, board_result: r.board_result, y: r.correct ? 1.0 : 0.0 }
   })
 
-  // Refine y values with context
+  // Refine y values using board_result (preferred) with heuristic fallback
+  const byDeal = {}
   allPts.forEach(pt => {
-    const dealPts = allPts.filter(p => p.dealNum === pt.dealNum).sort((a, b) => a.rawTs - b.rawTs)
-    const myIdx = dealPts.findIndex(p => p.rawTs === pt.rawTs && p.correct === pt.correct)
-    if (pt.correct) {
-      const recentFail = dealPts.slice(0, myIdx).reverse().find(p => !p.correct && (pt.rawTs - p.rawTs) < ONE_HOUR)
-      pt.y = recentFail ? 0.75 : 1.0
-    } else {
-      const nextSuccess = dealPts.slice(myIdx + 1).find(p => p.correct && (p.rawTs - pt.rawTs) < ONE_HOUR)
-      pt.y = nextSuccess ? 0.5 : 0.0
-    }
+    if (!byDeal[pt.dealNum]) byDeal[pt.dealNum] = []
+    byDeal[pt.dealNum].push(pt)
   })
+  for (const dealPts of Object.values(byDeal)) {
+    dealPts.sort((a, b) => a.rawTs - b.rawTs)
+    dealPts.forEach((pt, i) => {
+      if (pt.board_result === 'corrected') { pt.y = 0.5; return }
+      if (pt.board_result === 'failed') { pt.y = 0.0; return }
+
+      if (pt.correct) {
+        const recentFail = dealPts.slice(0, i).reverse()
+          .find(p => (p.board_result ? p.board_result !== 'correct' : !p.correct) && (pt.rawTs - p.rawTs) < ONE_HOUR)
+        pt.y = recentFail ? 0.75 : 1.0
+      } else {
+        const nextSuccess = dealPts.slice(i + 1)
+          .find(p => p.correct && (p.rawTs - pt.rawTs) < ONE_HOUR)
+        pt.y = nextSuccess ? 0.5 : 0.0
+      }
+    })
+  }
 
   if (allPts.length === 0) return []
 

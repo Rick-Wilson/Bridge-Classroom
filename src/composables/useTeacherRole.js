@@ -138,7 +138,8 @@ async function fetchStudentObservations(userId) {
       skill_path: o.skill_path,
       correct: o.correct,
       deal_subfolder: o.deal_subfolder,
-      deal_number: o.deal_number
+      deal_number: o.deal_number,
+      board_result: o.board_result
     }))
 
     // Preserve raw observations (with encrypted_data/iv) for on-demand decryption
@@ -354,7 +355,8 @@ async function decryptStudentObservation(studentUserId, rawObs) {
       skill_path: rawObs.skill_path,
       correct: rawObs.correct,
       deal_subfolder: rawObs.deal_subfolder,
-      deal_number: rawObs.deal_number
+      deal_number: rawObs.deal_number,
+      board_result: rawObs.board_result
     }
   } catch (err) {
     console.error('Failed to decrypt observation:', rawObs.id, err)
