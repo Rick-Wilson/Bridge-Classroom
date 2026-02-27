@@ -23,7 +23,7 @@ const daysUntilDue = computed(() => {
 
 const dueText = computed(() => {
   if (daysUntilDue.value === null) return null
-  if (daysUntilDue.value < 0) return 'Overdue'
+  if (daysUntilDue.value < 0) return isComplete.value ? 'Completed' : 'Overdue'
   if (daysUntilDue.value === 0) return 'Due today'
   if (daysUntilDue.value === 1) return 'Due tomorrow'
   return `Due in ${daysUntilDue.value} days`
@@ -31,6 +31,7 @@ const dueText = computed(() => {
 
 const dueClass = computed(() => {
   if (daysUntilDue.value === null) return ''
+  if (isComplete.value) return ''
   if (daysUntilDue.value < 0) return 'overdue'
   if (daysUntilDue.value <= 1) return 'urgent'
   if (daysUntilDue.value <= 3) return 'soon'
