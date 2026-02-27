@@ -297,7 +297,21 @@ pub async fn get_user(
     match user {
         Some(u) => {
             let info = UserInfo::from(u);
-            Ok(Json(serde_json::json!({ "success": true, "user": info })))
+
+            // Fetch classroom memberships from join table
+            let classroom_ids: Vec<String> = sqlx::query_scalar(
+                "SELECT classroom_id FROM classroom_members WHERE student_id = ?"
+            )
+            .bind(&user_id)
+            .fetch_all(&state.db)
+            .await
+            .unwrap_or_default();
+
+            Ok(Json(serde_json::json!({
+                "success": true,
+                "user": info,
+                "classrooms": classroom_ids
+            })))
         }
         None => Err((StatusCode::NOT_FOUND, "User not found".to_string())),
     }

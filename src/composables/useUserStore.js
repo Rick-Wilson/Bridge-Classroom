@@ -572,6 +572,16 @@ async function syncRole() {
       changed = true
     }
 
+    // Sync classroom memberships (handles backend-added members)
+    if (Array.isArray(data.classrooms)) {
+      const local = user.classrooms || []
+      const server = data.classrooms
+      if (JSON.stringify(local.sort()) !== JSON.stringify(server.sort())) {
+        user.classrooms = server
+        changed = true
+      }
+    }
+
     if (changed) saveToStorage()
   } catch {
     // Best-effort — don't block startup
