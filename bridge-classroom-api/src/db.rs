@@ -88,6 +88,21 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // Add recovery_encrypted_private_key column to viewers table if it doesn't exist
+    let has_viewer_recovery_column: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM pragma_table_info('viewers') WHERE name = 'recovery_encrypted_private_key'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !has_viewer_recovery_column {
+        sqlx::query(r#"ALTER TABLE viewers ADD COLUMN recovery_encrypted_private_key TEXT"#)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+    }
+
     // Sharing grants - links students to viewers
     // encrypted_payload contains student's secret key encrypted with viewer's public key
     sqlx::query(

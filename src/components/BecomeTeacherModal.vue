@@ -158,7 +158,7 @@ async function activateTeacher() {
     try {
       const { publicKey, privateKey } = await generateViewerKeyPair()
 
-      // Create viewer record
+      // Create viewer record (includes private key for server-side encrypted backup)
       await fetch(`${API_URL}/viewers`, {
         method: 'POST',
         headers: {
@@ -169,11 +169,15 @@ async function activateTeacher() {
           name: `${user.firstName} ${user.lastName}`,
           email: user.email,
           public_key: publicKey,
+          private_key: privateKey,
           role: 'teacher'
         })
       })
 
-      // Store private key in session storage for this session
+      // Persist private key in localStorage user object
+      userStore.updateUser(user.id, { viewerPrivateKey: privateKey })
+
+      // Also store in sessionStorage for fast access this session
       sessionStorage.setItem('bridgeTeacherSession', JSON.stringify({
         privateKeyBase64: privateKey,
         expiry: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()

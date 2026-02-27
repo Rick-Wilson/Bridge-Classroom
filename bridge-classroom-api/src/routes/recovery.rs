@@ -64,6 +64,8 @@ pub struct RecoveredUserData {
     pub secret_key: String,
     pub classroom: Option<String>,
     pub role: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub viewer_private_key: Option<String>,
 }
 
 /// Response for recovery claim
@@ -484,6 +486,35 @@ pub async fn claim_recovery(
             (StatusCode::INTERNAL_SERVER_ERROR, "Failed to decrypt recovery key".to_string())
         })?;
 
+    // If user is teacher/admin, also recover viewer private key
+    let viewer_private_key = if role == "teacher" || role == "admin" {
+        let viewer_row = sqlx::query_as::<_, (Option<String>,)>(
+            "SELECT recovery_encrypted_private_key FROM viewers WHERE email = ?"
+        )
+        .bind(&email)
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+        if let Some((Some(encrypted_pk),)) = viewer_row {
+            match decrypt_for_recovery(&encrypted_pk, recovery_secret) {
+                Ok(pk) => {
+                    tracing::info!("Recovered viewer private key for teacher/admin");
+                    Some(pk)
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to decrypt viewer private key: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     tracing::info!("========== Recovery claim SUCCESS ==========");
     tracing::info!("Account recovered for user: {} {} ({})", first_name, last_name, email);
     tracing::info!("Secret key length: {} chars", secret_key.len());
@@ -499,6 +530,7 @@ pub async fn claim_recovery(
             secret_key,
             classroom,
             role,
+            viewer_private_key,
         }),
         error: None,
     }))
@@ -653,6 +685,26 @@ pub async fn claim_by_code(
         limiter.remove(&email);
     }
 
+    // If user is teacher/admin, also recover viewer private key
+    let viewer_private_key = if role == "teacher" || role == "admin" {
+        let viewer_row = sqlx::query_as::<_, (Option<String>,)>(
+            "SELECT recovery_encrypted_private_key FROM viewers WHERE email = ?"
+        )
+        .bind(&user_email)
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+        if let Some((Some(encrypted_pk),)) = viewer_row {
+            decrypt_for_recovery(&encrypted_pk, recovery_secret).ok()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
     tracing::info!("========== Recovery claim-by-code SUCCESS ==========");
     tracing::info!("Account recovered for user: {} {} ({})", first_name, last_name, user_email);
 
@@ -666,6 +718,7 @@ pub async fn claim_by_code(
             secret_key,
             classroom,
             role,
+            viewer_private_key,
         }),
         error: None,
     }))

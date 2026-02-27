@@ -11,6 +11,8 @@ pub struct Viewer {
     pub public_key: String,
     pub role: String,
     pub created_at: String,
+    #[serde(skip_serializing)]
+    pub recovery_encrypted_private_key: Option<String>,
 }
 
 /// Request to create a new viewer
@@ -20,6 +22,7 @@ pub struct CreateViewerRequest {
     pub email: String,
     pub public_key: String,
     pub role: Option<String>,
+    pub private_key: Option<String>,
 }
 
 /// Response after creating a viewer
@@ -58,6 +61,7 @@ impl Viewer {
             public_key: req.public_key.clone(),
             role: req.role.clone().unwrap_or_else(|| "teacher".to_string()),
             created_at: now,
+            recovery_encrypted_private_key: None,
         }
     }
 }

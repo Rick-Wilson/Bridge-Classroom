@@ -149,6 +149,7 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/admin/health", get(routes::admin_health))
         .route("/api/admin/users/search", get(routes::admin_search_user))
         .route("/api/admin/users/:id", patch(routes::admin_correct_name))
+        .route("/api/admin/decrypt-observations", post(routes::admin_decrypt_observations))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         .with_state(state);

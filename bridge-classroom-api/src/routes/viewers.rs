@@ -8,6 +8,7 @@ use serde::Deserialize;
 use crate::models::{
     CreateViewerRequest, CreateViewerResponse, Viewer, ViewerInfo, ViewerPublicKeyResponse,
 };
+use crate::routes::recovery::encrypt_for_recovery;
 use crate::AppState;
 
 /// Query parameters for viewer lookup
@@ -23,14 +24,30 @@ pub async fn create_viewer(
 ) -> Result<Json<CreateViewerResponse>, (StatusCode, String)> {
     let viewer = Viewer::from_request(&req);
 
+    // Encrypt private key with RECOVERY_SECRET if provided
+    let encrypted_private_key = if let (Some(pk), Some(secret)) =
+        (&req.private_key, state.config.recovery_secret.as_ref())
+    {
+        match encrypt_for_recovery(pk, secret) {
+            Ok(encrypted) => Some(encrypted),
+            Err(e) => {
+                tracing::warn!("Failed to encrypt viewer private key: {}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let result = sqlx::query(
         r#"
-        INSERT INTO viewers (id, name, email, public_key, role, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO viewers (id, name, email, public_key, role, created_at, recovery_encrypted_private_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(email) DO UPDATE SET
             name = excluded.name,
             public_key = excluded.public_key,
-            role = excluded.role
+            role = excluded.role,
+            recovery_encrypted_private_key = COALESCE(excluded.recovery_encrypted_private_key, viewers.recovery_encrypted_private_key)
         "#,
     )
     .bind(&viewer.id)
@@ -39,6 +56,7 @@ pub async fn create_viewer(
     .bind(&viewer.public_key)
     .bind(&viewer.role)
     .bind(&viewer.created_at)
+    .bind(&encrypted_private_key)
     .execute(&state.db)
     .await;
 
