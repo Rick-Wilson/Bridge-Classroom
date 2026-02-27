@@ -261,18 +261,34 @@ function formatTimeSince(timestamp) {
 }
 
 /**
- * Get the teacher's RSA private key from sessionStorage.
+ * Get the teacher's RSA private key.
+ * Checks sessionStorage first (fast path), then falls back to localStorage user object.
  * @returns {string|null} Base64-encoded private key
  */
 function getTeacherPrivateKey() {
+  // 1. Check sessionStorage (fast path)
   try {
     const session = JSON.parse(sessionStorage.getItem('bridgeTeacherSession') || 'null')
-    if (!session || !session.privateKeyBase64) return null
-    if (session.expiry && new Date(session.expiry) < new Date()) return null
-    return session.privateKeyBase64
-  } catch {
-    return null
+    if (session?.privateKeyBase64) {
+      if (!session.expiry || new Date(session.expiry) >= new Date()) {
+        return session.privateKeyBase64
+      }
+    }
+  } catch { /* fall through */ }
+
+  // 2. Fall back to localStorage user object
+  const userStore = useUserStore()
+  const user = userStore.currentUser.value
+  if (user?.viewerPrivateKey) {
+    // Re-establish sessionStorage for this session
+    sessionStorage.setItem('bridgeTeacherSession', JSON.stringify({
+      privateKeyBase64: user.viewerPrivateKey,
+      expiry: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString()
+    }))
+    return user.viewerPrivateKey
   }
+
+  return null
 }
 
 /**
@@ -285,7 +301,10 @@ async function getStudentKey(studentUserId) {
   if (studentKeyCache[studentUserId]) return studentKeyCache[studentUserId]
 
   const privateKey = getTeacherPrivateKey()
-  if (!privateKey) return null
+  if (!privateKey) {
+    console.warn(`[getStudentKey] No teacher private key available`)
+    return null
+  }
 
   // Fetch grants if not cached
   if (!grantsCache && viewerId.value) {
@@ -297,22 +316,27 @@ async function getStudentKey(studentUserId) {
       if (res.ok) {
         const data = await res.json()
         grantsCache = data.grants || []
+        console.log(`[getStudentKey] Fetched ${grantsCache.length} grants for viewer ${viewerId.value}`)
       }
-    } catch {
+    } catch (err) {
+      console.warn(`[getStudentKey] Failed to fetch grants:`, err)
       return null
     }
   }
 
   // Find grant for this student
   const grant = (grantsCache || []).find(g => g.grantor_id === studentUserId)
-  if (!grant) return null
+  if (!grant) {
+    console.warn(`[getStudentKey] No grant found for student ${studentUserId} in ${(grantsCache || []).length} grants`)
+    return null
+  }
 
   try {
     const aesKey = await decryptSharingGrant(grant.encrypted_payload, privateKey)
     studentKeyCache[studentUserId] = aesKey
     return aesKey
   } catch (err) {
-    console.error(`Failed to decrypt grant for student ${studentUserId}:`, err)
+    console.error(`[getStudentKey] Failed to decrypt grant for student ${studentUserId}:`, err)
     return null
   }
 }
@@ -357,14 +381,32 @@ async function decryptStudentObservation(studentUserId, rawObs) {
 async function findAndDecryptObservation(studentUserId, timestamp, dealNumber, correct) {
   const rawObs = studentRawObservations.value[studentUserId] || []
 
+  if (rawObs.length === 0) {
+    console.warn(`[findAndDecrypt] No raw observations cached for student ${studentUserId}`)
+    return null
+  }
+
   // Find matching observation by timestamp and deal_number
   const match = rawObs.find(o => {
     const obsTs = new Date(o.timestamp).getTime()
     return Math.abs(obsTs - timestamp) < 1000 && o.deal_number === dealNumber && o.correct === correct
   })
 
-  if (!match) return null
-  return decryptStudentObservation(studentUserId, match)
+  if (!match) {
+    console.warn(`[findAndDecrypt] No match found in ${rawObs.length} raw obs for ts=${timestamp} deal=${dealNumber} correct=${correct}`)
+    return null
+  }
+
+  if (!match.encrypted_data || !match.iv) {
+    console.warn(`[findAndDecrypt] Match found but missing encrypted_data/iv`, match.id)
+    return null
+  }
+
+  const result = await decryptStudentObservation(studentUserId, match)
+  if (!result) {
+    console.warn(`[findAndDecrypt] Decryption returned null for obs ${match.id}`)
+  }
+  return result
 }
 
 /**
