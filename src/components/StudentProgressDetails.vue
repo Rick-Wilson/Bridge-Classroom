@@ -325,8 +325,9 @@ const statsItems = computed(() => {
 })
 
 const legend = [
-  { color: '#3b82f6', label: 'Correct' },
-  { color: '#f59e0b', label: 'Corrected (fail then fix within 1 hour)' },
+  { color: '#10b981', label: 'Clean correct' },
+  { color: '#3b82f6', label: 'Recent correct (after fail within 1 hr)' },
+  { color: '#f59e0b', label: 'Corrected (errors fixed within board)' },
   { color: '#f43f5e', label: 'Fail (uncorrected)' },
 ]
 

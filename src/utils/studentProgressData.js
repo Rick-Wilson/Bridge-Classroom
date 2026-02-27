@@ -245,8 +245,8 @@ export const STATUS_COLORS = {
 
 /** Attempt quality → dot color */
 export function yColor(y) {
-  if (y >= 0.9) return '#3b82f6'  // clean correct (blue)
-  if (y >= 0.6) return '#f59e0b'  // corrected (orange)
-  if (y >= 0.4) return '#f59e0b'  // corrected fail (orange)
-  return '#f43f5e'                 // uncorrected fail (red)
+  if (y >= 0.9) return '#10b981'  // clean correct (green)
+  if (y >= 0.6) return '#3b82f6'  // recent correct (blue) — correct after fail within 1 hr
+  if (y >= 0.4) return '#f59e0b'  // corrected (orange) — errors fixed within same board
+  return '#f43f5e'                 // fail (red) — uncorrected
 }
