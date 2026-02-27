@@ -8,6 +8,7 @@ const API_KEY = import.meta.env.VITE_API_KEY || ''
 // Singleton cache: { "userId::subfolder" → { boards: [...], fetchedAt: timestamp } }
 const cache = reactive({})
 const loading = ref(false)
+const cacheVersion = ref(0)
 
 // Cooldown: 1 hour in ms (for yellow → orange distinction)
 const COOLDOWN_MS = 60 * 60 * 1000
@@ -68,6 +69,7 @@ function invalidateCache(userId = null, dealSubfolder = null) {
     for (const key in cache) {
       delete cache[key]
     }
+    cacheVersion.value++
     return
   }
 
@@ -79,6 +81,7 @@ function invalidateCache(userId = null, dealSubfolder = null) {
       }
     }
   }
+  cacheVersion.value++
 }
 
 /**
@@ -179,6 +182,7 @@ function mergeLocalPending(mastery, lessonSubfolder) {
 export function useBoardStatus() {
   return {
     loading,
+    cacheVersion,
     fetchBoardStatus,
     invalidateCache,
     getDisplayColor,

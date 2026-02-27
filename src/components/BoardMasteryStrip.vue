@@ -98,6 +98,7 @@ async function loadBoardStatus() {
 
 onMounted(loadBoardStatus)
 watch(() => props.lessonSubfolder, loadBoardStatus)
+watch(() => boardStatusApi.cacheVersion.value, loadBoardStatus)
 
 const boardMastery = computed(() => {
   let results
