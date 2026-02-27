@@ -87,13 +87,17 @@ function statusLabel(assignment) {
   return 'New'
 }
 
+function isComplete(assignment) {
+  return assignment.attempted_boards >= assignment.total_boards && assignment.total_boards > 0
+}
+
 function dueText(assignment) {
   if (!assignment.due_at) return null
   const due = new Date(assignment.due_at)
   const now = new Date()
   const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
 
-  if (diffDays < 0) return 'Overdue'
+  if (diffDays < 0) return isComplete(assignment) ? 'Completed' : 'Overdue'
   if (diffDays === 0) return 'Due today'
   if (diffDays === 1) return 'Due tomorrow'
   return `Due in ${diffDays} days`
@@ -101,6 +105,7 @@ function dueText(assignment) {
 
 function dueClass(assignment) {
   if (!assignment.due_at) return ''
+  if (isComplete(assignment)) return ''
   const due = new Date(assignment.due_at)
   const now = new Date()
   const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
