@@ -301,10 +301,7 @@ async function getStudentKey(studentUserId) {
   if (studentKeyCache[studentUserId]) return studentKeyCache[studentUserId]
 
   const privateKey = getTeacherPrivateKey()
-  if (!privateKey) {
-    console.warn(`[getStudentKey] No teacher private key available`)
-    return null
-  }
+  if (!privateKey) return null
 
   // Fetch grants if not cached
   if (!grantsCache && viewerId.value) {
@@ -316,27 +313,22 @@ async function getStudentKey(studentUserId) {
       if (res.ok) {
         const data = await res.json()
         grantsCache = data.grants || []
-        console.log(`[getStudentKey] Fetched ${grantsCache.length} grants for viewer ${viewerId.value}`)
       }
-    } catch (err) {
-      console.warn(`[getStudentKey] Failed to fetch grants:`, err)
+    } catch {
       return null
     }
   }
 
   // Find grant for this student
   const grant = (grantsCache || []).find(g => g.grantor_id === studentUserId)
-  if (!grant) {
-    console.warn(`[getStudentKey] No grant found for student ${studentUserId} in ${(grantsCache || []).length} grants`)
-    return null
-  }
+  if (!grant) return null
 
   try {
     const aesKey = await decryptSharingGrant(grant.encrypted_payload, privateKey)
     studentKeyCache[studentUserId] = aesKey
     return aesKey
   } catch (err) {
-    console.error(`[getStudentKey] Failed to decrypt grant for student ${studentUserId}:`, err)
+    console.error(`Failed to decrypt grant for student ${studentUserId}:`, err)
     return null
   }
 }
@@ -381,32 +373,14 @@ async function decryptStudentObservation(studentUserId, rawObs) {
 async function findAndDecryptObservation(studentUserId, timestamp, dealNumber, correct) {
   const rawObs = studentRawObservations.value[studentUserId] || []
 
-  if (rawObs.length === 0) {
-    console.warn(`[findAndDecrypt] No raw observations cached for student ${studentUserId}`)
-    return null
-  }
-
   // Find matching observation by timestamp and deal_number
   const match = rawObs.find(o => {
     const obsTs = new Date(o.timestamp).getTime()
     return Math.abs(obsTs - timestamp) < 1000 && o.deal_number === dealNumber && o.correct === correct
   })
 
-  if (!match) {
-    console.warn(`[findAndDecrypt] No match found in ${rawObs.length} raw obs for ts=${timestamp} deal=${dealNumber} correct=${correct}`)
-    return null
-  }
-
-  if (!match.encrypted_data || !match.iv) {
-    console.warn(`[findAndDecrypt] Match found but missing encrypted_data/iv`, match.id)
-    return null
-  }
-
-  const result = await decryptStudentObservation(studentUserId, match)
-  if (!result) {
-    console.warn(`[findAndDecrypt] Decryption returned null for obs ${match.id}`)
-  }
-  return result
+  if (!match) return null
+  return decryptStudentObservation(studentUserId, match)
 }
 
 /**
