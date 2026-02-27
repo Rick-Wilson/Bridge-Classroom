@@ -166,8 +166,7 @@ const totalObs = computed(() => lessons.value.reduce((s, l) => s + l.totalAttemp
 
 const legend = [
   { color: '#10b981', label: 'Clean correct' },
-  { color: '#3b82f6', label: 'Recent correct (after fail within 1 hr)' },
-  { color: '#f59e0b', label: 'Corrected (errors fixed within board)' },
+  { color: '#f59e0b', label: 'Corrected (errors fixed)' },
   { color: '#f43f5e', label: 'Fail (uncorrected)' },
 ]
 
