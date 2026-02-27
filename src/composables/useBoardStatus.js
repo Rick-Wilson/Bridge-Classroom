@@ -100,7 +100,7 @@ function getDisplayColor(status, lastObservationAt) {
       const age = Date.now() - new Date(lastObservationAt).getTime()
       return age < COOLDOWN_MS ? 'yellow' : 'orange'
     }
-    case 'fresh_correct': return 'blue'
+    case 'fresh_correct': return 'orange'
     case 'clean_correct': return 'green'
     case 'not_attempted':
     default: return 'grey'
