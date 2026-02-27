@@ -283,6 +283,7 @@ import { useBoardMastery } from '../composables/useBoardMastery.js'
 import { useTeacherRole } from '../composables/useTeacherRole.js'
 import { useAnnouncement } from '../composables/useAnnouncement.js'
 import { useAssignments } from '../composables/useAssignments.js'
+import { useBoardStatus } from '../composables/useBoardStatus.js'
 
 import BridgeTable from '../components/BridgeTable.vue'
 import BiddingBox from '../components/BiddingBox.vue'
@@ -333,9 +334,10 @@ const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 const showBecomeTeacher = ref(false)
 
-// Local mastery override: force a board circle status during mid-board play
-// { board: number, status: 'red'|'yellow' } or null
-const forceBoardStatus = ref(null)
+// Local mastery override: force board circle statuses during/after play
+// { [boardNumber]: 'red'|'yellow'|'green' }
+const forceBoardStatus = ref({})
+const boardStatusApi = useBoardStatus()
 
 // Intro PDF state
 const introUrl = ref(null)
@@ -546,11 +548,20 @@ watch(() => practice.observationStore.pendingCount.value, (newCount, oldCount) =
   }
 })
 
-// Clear board status override when deal completes (real computed status takes over)
+// Set final board status when deal completes (persists until API refreshes)
 watch(() => practice.isComplete.value, (isComplete) => {
-  if (isComplete) {
-    forceBoardStatus.value = null
+  if (isComplete && currentDeal.value) {
+    const board = currentDeal.value.boardNumber
+    const hadWrong = practice.boardState.boardHadWrong
+    const allFixed = hadWrong && Object.keys(practice.boardState.wrongStepIndices).length === 0
+    const status = !hadWrong ? 'green' : allFixed ? 'yellow' : 'red'
+    forceBoardStatus.value = { ...forceBoardStatus.value, [board]: status }
   }
+})
+
+// Clear force overrides when API board status refreshes
+watch(() => boardStatusApi.cacheVersion.value, () => {
+  forceBoardStatus.value = {}
 })
 
 // File handling
@@ -663,10 +674,10 @@ function onCardClick({ seat, suit, rank }) {
 function updateBoardOverride(correct) {
   const board = currentDeal.value.boardNumber
   if (!correct) {
-    forceBoardStatus.value = { board, status: 'red' }
+    forceBoardStatus.value = { ...forceBoardStatus.value, [board]: 'red' }
   } else if (practice.boardState.boardHadWrong) {
     const allFixed = Object.keys(practice.boardState.wrongStepIndices).length === 0
-    forceBoardStatus.value = { board, status: allFixed ? 'yellow' : 'red' }
+    forceBoardStatus.value = { ...forceBoardStatus.value, [board]: allFixed ? 'yellow' : 'red' }
   }
 }
 
@@ -685,7 +696,6 @@ function prevDeal() {
 
 function nextDeal() {
   if (currentDealIndex.value < deals.value.length - 1) {
-    forceBoardStatus.value = null
     currentDealIndex.value++
     practice.loadDeal(deals.value[currentDealIndex.value])
   }
@@ -693,7 +703,6 @@ function nextDeal() {
 
 function gotoDeal(index) {
   if (index >= 0 && index < deals.value.length) {
-    forceBoardStatus.value = null
     currentDealIndex.value = index
     practice.loadDeal(deals.value[index])
   }

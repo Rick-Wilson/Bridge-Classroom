@@ -56,7 +56,7 @@ const props = defineProps({
   },
   forceBoardStatus: {
     type: Object,
-    default: null
+    default: () => ({})
   },
   introUrl: {
     type: String,
@@ -117,10 +117,12 @@ const boardMastery = computed(() => {
     )
   }
 
-  // Local override: force a board status during mid-board play
+  // Local override: force board statuses during/after play
   if (props.forceBoardStatus) {
-    const board = results.find(b => b.boardNumber === props.forceBoardStatus.board)
-    if (board) board.status = props.forceBoardStatus.status
+    for (const [bn, status] of Object.entries(props.forceBoardStatus)) {
+      const board = results.find(b => b.boardNumber === Number(bn))
+      if (board) board.status = status
+    }
   }
   return results
 })
