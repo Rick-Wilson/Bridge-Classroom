@@ -3,12 +3,12 @@
     class="obs-viewer"
     :class="{ 'obs-viewer--mobile': isMobile }"
     :style="isMobile ? { zIndex: zIndex } : { left: posX + 'px', top: posY + 'px', zIndex: zIndex }"
-    @mousedown="$emit('focus')"
-    @touchstart="$emit('focus')"
+    @mousedown.prevent="startDrag"
+    @touchstart.prevent="startDrag"
   >
 
-    <!-- ── Header (draggable) ── -->
-    <div class="obs-header" @mousedown.prevent="startDrag" @touchstart.prevent="startDrag">
+    <!-- ── Header ── -->
+    <div class="obs-header">
       <div class="obs-header-left">
         <span class="suit-icon">&spades;</span>
         <span class="obs-title">Observation Detail</span>
@@ -19,7 +19,7 @@
         <span class="result-badge" :class="isCorrected ? 'corrected' : (correct ? 'correct' : 'incorrect')">
           {{ isCorrected ? '\u21BB Corrected' : (correct ? '\u2713 Correct' : '\u2717 Incorrect') }}
         </span>
-        <button class="close-btn" @click="$emit('close')" @touchend.stop.prevent="$emit('close')" title="Close">&times;</button>
+        <button class="close-btn" @click.stop="$emit('close')" @touchstart.stop @touchend.stop.prevent="$emit('close')" title="Close">&times;</button>
       </div>
     </div>
 
@@ -276,7 +276,10 @@ function getClientXY(e) {
 }
 
 function startDrag(e) {
-  if (isMobile.value) return
+  if (isMobile.value) {
+    e.stopPropagation()
+    return
+  }
   dragging = true
   const { x, y } = getClientXY(e)
   dragOffsetX = x - posX.value
@@ -485,7 +488,10 @@ function parseSuits(hand) {
   max-width: 960px;
   width: 680px;
   user-select: none;
+  touch-action: none;
+  cursor: grab;
 }
+.obs-viewer:active { cursor: grabbing; }
 
 /* Mobile: full-screen scrollable overlay */
 .obs-viewer--mobile {
@@ -497,6 +503,7 @@ function parseSuits(hand) {
   border-radius: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -510,9 +517,7 @@ function parseSuits(hand) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  cursor: grab;
 }
-.obs-header:active { cursor: grabbing; }
 .obs-header-left, .obs-header-right { display: flex; align-items: center; gap: 8px; }
 .suit-icon    { font-size: 1.1rem;  color: var(--gold); line-height: 1; }
 .suit-icon-sm { font-size: 0.9rem;  color: var(--gold); line-height: 1; }
