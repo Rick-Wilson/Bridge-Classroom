@@ -19,7 +19,7 @@
         <span class="result-badge" :class="isCorrected ? 'corrected' : (correct ? 'correct' : 'incorrect')">
           {{ isCorrected ? '\u21BB Corrected' : (correct ? '\u2713 Correct' : '\u2717 Incorrect') }}
         </span>
-        <button class="close-btn" @click="$emit('close')" title="Close">&times;</button>
+        <button class="close-btn" @click="$emit('close')" @touchend.stop.prevent="$emit('close')" title="Close">&times;</button>
       </div>
     </div>
 
