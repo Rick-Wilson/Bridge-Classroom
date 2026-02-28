@@ -1,12 +1,14 @@
 <template>
   <div
     class="obs-viewer"
-    :style="{ left: posX + 'px', top: posY + 'px', zIndex: zIndex }"
+    :class="{ 'obs-viewer--mobile': isMobile }"
+    :style="isMobile ? { zIndex: zIndex } : { left: posX + 'px', top: posY + 'px', zIndex: zIndex }"
     @mousedown="$emit('focus')"
+    @touchstart="$emit('focus')"
   >
 
     <!-- ── Header (draggable) ── -->
-    <div class="obs-header" @mousedown.prevent="startDrag">
+    <div class="obs-header" @mousedown.prevent="startDrag" @touchstart.prevent="startDrag">
       <div class="obs-header-left">
         <span class="suit-icon">&spades;</span>
         <span class="obs-title">Observation Detail</span>
@@ -261,36 +263,52 @@ const emit = defineEmits(['close', 'focus'])
 
 const posX = ref(props.initialX)
 const posY = ref(props.initialY)
+const isMobile = ref(window.innerWidth <= 680)
 
 // Drag state
 let dragging = false
 let dragOffsetX = 0
 let dragOffsetY = 0
 
+function getClientXY(e) {
+  if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  return { x: e.clientX, y: e.clientY }
+}
+
 function startDrag(e) {
+  if (isMobile.value) return
   dragging = true
-  dragOffsetX = e.clientX - posX.value
-  dragOffsetY = e.clientY - posY.value
+  const { x, y } = getClientXY(e)
+  dragOffsetX = x - posX.value
+  dragOffsetY = y - posY.value
   document.addEventListener('mousemove', onDrag)
   document.addEventListener('mouseup', stopDrag)
+  document.addEventListener('touchmove', onDrag, { passive: false })
+  document.addEventListener('touchend', stopDrag)
   emit('focus')
 }
 
 function onDrag(e) {
   if (!dragging) return
-  posX.value = e.clientX - dragOffsetX
-  posY.value = e.clientY - dragOffsetY
+  e.preventDefault()
+  const { x, y } = getClientXY(e)
+  posX.value = x - dragOffsetX
+  posY.value = y - dragOffsetY
 }
 
 function stopDrag() {
   dragging = false
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
+  document.removeEventListener('touchmove', onDrag)
+  document.removeEventListener('touchend', stopDrag)
 }
 
 onBeforeUnmount(() => {
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
+  document.removeEventListener('touchmove', onDrag)
+  document.removeEventListener('touchend', stopDrag)
 })
 
 // Computed data from observation
@@ -469,6 +487,18 @@ function parseSuits(hand) {
   user-select: none;
 }
 
+/* Mobile: full-screen scrollable overlay */
+.obs-viewer--mobile {
+  left: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100%;
+  border-radius: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 *, *::before, *::after { box-sizing: border-box; }
 
 /* Header */
@@ -531,7 +561,11 @@ function parseSuits(hand) {
   gap: 12px;
   padding: 12px;
 }
-@media (max-width: 680px) { .obs-body { grid-template-columns: 1fr; } }
+@media (max-width: 680px) {
+  .obs-body { grid-template-columns: 1fr; }
+  .obs-header { cursor: default; }
+  .obs-header:active { cursor: default; }
+}
 .obs-col { display: flex; flex-direction: column; gap: 10px; }
 
 /* Cards */
