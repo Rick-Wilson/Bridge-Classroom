@@ -582,6 +582,12 @@ async function syncRole() {
       }
     }
 
+    // Sync viewer private key for teachers/admins (enables observation decryption on new devices)
+    if (data.viewer_private_key && !user.viewerPrivateKey) {
+      user.viewerPrivateKey = data.viewer_private_key
+      changed = true
+    }
+
     if (changed) saveToStorage()
   } catch {
     // Best-effort — don't block startup

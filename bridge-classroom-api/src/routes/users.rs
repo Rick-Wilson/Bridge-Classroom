@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use crate::{
     models::{CreateUserRequest, CreateUserResponse, SharingGrant, User, UserInfo, UsersListResponse},
-    routes::recovery::encrypt_for_recovery,
+    routes::recovery::{encrypt_for_recovery, decrypt_for_recovery},
     AppState,
 };
 
@@ -307,10 +307,36 @@ pub async fn get_user(
             .await
             .unwrap_or_default();
 
+            // For teachers/admins, include decrypted viewer private key if available
+            let viewer_private_key = if info.role == "teacher" || info.role == "admin" {
+                if let Some(ref recovery_secret) = state.config.recovery_secret {
+                    let viewer_row = sqlx::query_scalar::<_, Option<String>>(
+                        "SELECT recovery_encrypted_private_key FROM viewers WHERE email = ?"
+                    )
+                    .bind(&info.email)
+                    .fetch_optional(&state.db)
+                    .await
+                    .ok()
+                    .flatten()
+                    .flatten();
+
+                    if let Some(encrypted_pk) = viewer_row {
+                        decrypt_for_recovery(&encrypted_pk, recovery_secret).ok()
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
             Ok(Json(serde_json::json!({
                 "success": true,
                 "user": info,
-                "classrooms": classroom_ids
+                "classrooms": classroom_ids,
+                "viewer_private_key": viewer_private_key
             })))
         }
         None => Err((StatusCode::NOT_FOUND, "User not found".to_string())),
