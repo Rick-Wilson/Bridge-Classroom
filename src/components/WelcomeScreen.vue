@@ -553,9 +553,6 @@ function toggleClassroom(classroomId) {
               @click="handleSelectUser(user.id)"
             >
               <span class="user-name">{{ user.firstName }} {{ user.lastName }}</span>
-              <span v-if="user.classrooms?.length" class="user-class">
-                {{ user.classrooms.join(', ') }}
-              </span>
             </button>
           </div>
 
