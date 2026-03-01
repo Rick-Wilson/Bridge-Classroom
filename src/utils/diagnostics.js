@@ -62,11 +62,21 @@ export async function flush() {
       body: JSON.stringify({ events })
     })
   } catch {
-    // If we can't reach the server, put events back so they aren't lost.
-    // But cap the buffer so it doesn't grow forever.
-    buffer.unshift(...events)
-    if (buffer.length > MAX_BUFFER_SIZE * 2) {
-      buffer = buffer.slice(-MAX_BUFFER_SIZE)
+    // POST failed (likely CORS preflight blocked) — fall back to simple GET
+    // requests which skip preflight entirely (same as announcements polling).
+    for (const evt of events) {
+      try {
+        const params = new URLSearchParams({
+          event: evt.event,
+          context: evt.context || '',
+          error: evt.error || '',
+          browser: evt.user_agent || navigator.userAgent,
+          timestamp: evt.timestamp || ''
+        })
+        fetch(`${API_URL}/diagnostics?${params}`).catch(() => {})
+      } catch {
+        // Silently ignore — best-effort only
+      }
     }
   }
 }
