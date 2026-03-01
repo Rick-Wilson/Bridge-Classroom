@@ -559,10 +559,9 @@ watch(() => practice.isComplete.value, (isComplete) => {
   }
 })
 
-// Clear force overrides when API board status refreshes
-watch(() => boardStatusApi.cacheVersion.value, () => {
-  forceBoardStatus.value = {}
-})
+// Note: forceBoardStatus is NOT cleared on cache refresh — the local override
+// persists for the session to avoid a grey flicker between cache invalidation
+// and the API response arriving. Both use the same status logic so they agree.
 
 // File handling
 async function onFileSelect(event) {
