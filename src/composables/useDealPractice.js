@@ -746,6 +746,14 @@ export function useDealPractice() {
       return true
     }
 
+    // On step 0 with a completed bid — rewind to let user retry
+    if (isBidStep.value && auctionState.currentBidIndex > 0) {
+      rewindAuctionToStep(0)
+      complete.value = false
+      bidAnswered.value = false
+      return true
+    }
+
     return false
   }
 
