@@ -189,6 +189,10 @@ watch(() => props.assignments, async (assignments) => {
 
       const allObs = mastery.getObservations()
 
+      // Only count observations made after the assignment was created
+      const cutoff = a.assigned_at
+      const filteredObs = cutoff ? allObs.filter(o => o.timestamp >= cutoff) : allObs
+
       const bySubfolder = {}
       for (const b of boards) {
         if (!bySubfolder[b.deal_subfolder]) bySubfolder[b.deal_subfolder] = []
@@ -197,7 +201,7 @@ watch(() => props.assignments, async (assignments) => {
 
       let masteredCount = 0, progressingCount = 0, untriedCount = 0
       for (const [subfolder, boardNumbers] of Object.entries(bySubfolder)) {
-        const boardMastery = mastery.computeBoardMastery(allObs, subfolder, boardNumbers)
+        const boardMastery = mastery.computeBoardMastery(filteredObs, subfolder, boardNumbers)
         for (const b of boardMastery) {
           if (b.status === 'green') masteredCount++
           else if (b.status === 'grey') untriedCount++

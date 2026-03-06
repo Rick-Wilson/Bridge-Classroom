@@ -89,17 +89,18 @@
           <div class="practice-left">
             <BoardMasteryStrip
               v-if="deals.length > 1"
-              :boardNumbers="deals.map(d => d.boardNumber)"
+              :boardNumbers="deals.map(d => d.displayNumber || d.boardNumber)"
               :lessonSubfolder="currentDeal?.subfolder || currentDeal?.category || ''"
               :currentIndex="currentDealIndex"
               :forceBoardStatus="forceBoardStatus"
+              :exerciseContext="exerciseContext"
               :introUrl="introUrl"
               @goto="gotoDeal"
               @open-intro="handleOpenIntro"
             />
 
             <DealInfo
-              :boardNumber="currentDeal?.boardNumber"
+              :boardNumber="currentDeal?.displayNumber || currentDeal?.boardNumber"
               :dealer="currentDeal?.dealer"
               :vulnerable="currentDeal?.vulnerable"
               :contract="currentDeal?.contract"
@@ -341,6 +342,9 @@ const showBecomeTeacher = ref(false)
 const forceBoardStatus = ref({})
 const boardStatusApi = useBoardStatus()
 
+// Exercise context for assignment-scoped mastery (null when not in exercise mode)
+const exerciseContext = ref(null)
+
 // Intro PDF state
 const introUrl = ref(null)
 const showIntroPdf = ref(false)
@@ -492,6 +496,7 @@ function handleSwitchUser() {
   currentDealIndex.value = 0
   currentCollection.value = null
   currentLesson.value = null
+  exerciseContext.value = null
   practice.resetStats()
   appConfig.setCollectionInUrl(null)
   appConfig.setLessonInUrl(null)
@@ -676,7 +681,7 @@ function onCardClick({ seat, suit, rank }) {
 }
 
 function updateBoardOverride(correct) {
-  const board = currentDeal.value.boardNumber
+  const board = currentDeal.value.displayNumber || currentDeal.value.boardNumber
   if (!correct) {
     forceBoardStatus.value = { ...forceBoardStatus.value, [board]: 'red' }
   } else if (practice.boardState.boardHadWrong) {
@@ -776,6 +781,7 @@ function returnToLessons() {
   introUrl.value = null
   showTeacherView.value = false
   selectedStudentId.value = null
+  exerciseContext.value = null
 }
 
 // Return to lobby (exit collection and clear deals)
@@ -791,6 +797,7 @@ function returnToLobby() {
   introUrl.value = null
   showTeacherView.value = false
   selectedStudentId.value = null
+  exerciseContext.value = null
 }
 
 // Check if an intro PDF exists for the current lesson
@@ -923,17 +930,32 @@ async function handleSelectAssignment(assignment) {
   // Sort by the exercise's sort_order
   allDeals.sort((a, b) => a._sortOrder - b._sortOrder)
 
+  // Assign sequential display numbers for the exercise (1, 2, ..., N)
+  allDeals.forEach((deal, i) => {
+    deal.displayNumber = i + 1
+  })
+
+  // Build exercise context for assignment-scoped mastery
+  exerciseContext.value = {
+    boards: allDeals.map(d => ({
+      displayNumber: d.displayNumber,
+      originalSubfolder: d.subfolder,
+      originalBoardNumber: d.boardNumber
+    })),
+    assignedAt: assignment.assigned_at
+  }
+
   // Load into practice mode
   deals.value = allDeals
   currentDealIndex.value = 0
   practice.loadDeal(allDeals[0])
   practice.resetStats()
 
-  // Cache board numbers for mastery tracking
+  // Cache display numbers for mastery tracking
   const boardMastery = useBoardMastery()
   boardMastery.saveLessonBoardNumbers(
     assignment.exercise_name,
-    allDeals.map(d => d.boardNumber)
+    allDeals.map(d => d.displayNumber)
   )
 
   currentLesson.value = {

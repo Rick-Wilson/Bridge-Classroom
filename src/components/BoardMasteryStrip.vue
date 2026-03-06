@@ -69,6 +69,11 @@ const props = defineProps({
   userId: {
     type: String,
     default: null
+  },
+  exerciseContext: {
+    type: Object,
+    default: null
+    // Shape: { boards: [{displayNumber, originalSubfolder, originalBoardNumber}], assignedAt: string }
   }
 })
 
@@ -82,6 +87,7 @@ const useApi = ref(false)
 
 // Fetch board status from API
 async function loadBoardStatus() {
+  if (props.exerciseContext) return // Exercise mode uses local computation with date filtering
   const uid = props.userId || userStore.currentUser.value?.id
   if (!uid || !props.lessonSubfolder) return
 
@@ -101,6 +107,38 @@ watch(() => props.lessonSubfolder, loadBoardStatus)
 watch(() => boardStatusApi.cacheVersion.value, loadBoardStatus)
 
 const boardMastery = computed(() => {
+  // Exercise mode: compute mastery locally with date filtering across multiple subfolders
+  if (props.exerciseContext) {
+    const allObs = mastery.getObservations()
+    const cutoff = props.exerciseContext.assignedAt
+    const filtered = cutoff ? allObs.filter(o => o.timestamp >= cutoff) : allObs
+
+    const results = props.exerciseContext.boards.map(eb => {
+      const boardObs = filtered
+        .filter(o =>
+          (o.deal_subfolder || o.deal?.subfolder) === eb.originalSubfolder &&
+          (o.deal_number ?? o.deal?.deal_number) === eb.originalBoardNumber
+        )
+        .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+
+      return {
+        boardNumber: eb.displayNumber,
+        status: mastery.calculateCurrentStatus(boardObs),
+        achievement: mastery.calculateAchievement(boardObs),
+        attemptCount: mastery.groupIntoBoardAttempts(boardObs).length,
+        lastAttemptTime: boardObs.length > 0 ? boardObs[boardObs.length - 1].timestamp : null
+      }
+    })
+
+    if (props.forceBoardStatus) {
+      for (const [bn, status] of Object.entries(props.forceBoardStatus)) {
+        const board = results.find(b => b.boardNumber === Number(bn))
+        if (board) board.status = status
+      }
+    }
+    return results
+  }
+
   let results
 
   if (useApi.value && apiBoards.value.length > 0) {
