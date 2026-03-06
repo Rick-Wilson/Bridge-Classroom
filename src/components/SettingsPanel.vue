@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useUserStore } from '../composables/useUserStore.js'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useAssignmentStore } from '../composables/useAssignmentStore.js'
@@ -28,18 +28,27 @@ const editConsent = ref(true)
 // Computed
 const user = computed(() => userStore.currentUser.value)
 
-const classroomNames = computed(() => {
-  if (!user.value || !user.value.classrooms?.length) {
-    return 'No classroom assigned'
-  }
+// Resolve classroom IDs to names via API
+const classroomNameMap = ref({})
 
-  return user.value.classrooms
-    .map(id => {
-      const classroom = appConfig.availableClassrooms.value.find(c => c.id === id)
-      return classroom ? classroom.name : id
-    })
-    .join(', ')
-})
+async function fetchClassroomNames() {
+  const ids = user.value?.classrooms || []
+  for (const id of ids) {
+    if (classroomNameMap.value[id]) continue
+    try {
+      const data = await classroomStore.fetchClassroomDetail(id)
+      if (data?.success && data.classroom?.name) {
+        classroomNameMap.value = { ...classroomNameMap.value, [id]: data.classroom.name }
+      }
+    } catch { /* ignore */ }
+  }
+}
+
+watch(() => user.value?.classrooms, () => fetchClassroomNames(), { immediate: true })
+
+function classroomName(id) {
+  return classroomNameMap.value[id] || id
+}
 
 const activeAssignments = computed(() => {
   return assignmentStore.getAllAssignments().filter(a => a.completionPercent < 100)
@@ -141,8 +150,13 @@ function formatDate(isoString) {
             </div>
 
             <div class="info-row">
+              <span class="info-label">Email</span>
+              <span class="info-value">{{ user?.email || 'Not set' }}</span>
+            </div>
+
+            <div v-if="user?.classrooms?.length" class="info-row">
               <span class="info-label">Class</span>
-              <span class="info-value">{{ classroomNames }}</span>
+              <span class="info-value">{{ user.classrooms.map(id => classroomName(id)).join(', ') }}</span>
             </div>
 
             <div class="info-row">
@@ -275,7 +289,7 @@ function formatDate(isoString) {
         <section v-if="user && user.classrooms && user.classrooms.length" class="settings-section">
           <h3>My Classrooms</h3>
           <div v-for="classroomId in user.classrooms" :key="classroomId" class="classroom-row">
-            <span class="classroom-id">{{ classroomId }}</span>
+            <span class="classroom-name-text">{{ classroomName(classroomId) }}</span>
             <button
               class="leave-btn"
               :disabled="leavingClassroom === classroomId"
@@ -606,10 +620,10 @@ function formatDate(isoString) {
   border-bottom: 1px solid #f0f0f0;
 }
 
-.classroom-id {
+.classroom-name-text {
   font-size: 14px;
   color: #333;
-  font-family: monospace;
+  font-weight: 500;
 }
 
 .leave-btn {

@@ -553,6 +553,7 @@ function toggleClassroom(classroomId) {
               @click="handleSelectUser(user.id)"
             >
               <span class="user-name">{{ user.firstName }} {{ user.lastName }}</span>
+              <span v-if="user.email" class="user-email">{{ user.email }}</span>
             </button>
           </div>
 
@@ -891,8 +892,9 @@ function toggleClassroom(classroomId) {
 
 .user-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   padding: 14px 16px;
   background: #f8f9fa;
   border: 2px solid #e0e0e0;
@@ -914,6 +916,11 @@ function toggleClassroom(classroomId) {
 .user-name {
   font-weight: 500;
   color: #333;
+}
+
+.user-email {
+  font-size: 13px;
+  color: #777;
 }
 
 .user-class {
