@@ -270,6 +270,47 @@ const LESSON_BOARDS_KEY = 'bridgeLessonBoards'
 const boardCountCache = ref(loadBoardCacheFromStorage())
 const fetchesInFlight = new Set()
 
+// Collection mapping cache (subfolder → collectionId)
+const LESSON_COLLECTIONS_KEY = 'bridgeLessonCollections'
+const collectionCache = ref(loadCollectionCacheFromStorage())
+
+function loadCollectionCacheFromStorage() {
+  try {
+    const stored = localStorage.getItem(LESSON_COLLECTIONS_KEY)
+    return stored ? JSON.parse(stored) : {}
+  } catch {
+    return {}
+  }
+}
+
+function persistCollectionCache() {
+  try {
+    localStorage.setItem(LESSON_COLLECTIONS_KEY, JSON.stringify(collectionCache.value))
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+/**
+ * Save the collection mapping for a lesson subfolder.
+ * @param {string} subfolder - Lesson subfolder identifier
+ * @param {string} collectionId - Collection ID (e.g. 'baker-bridge')
+ */
+function saveLessonCollection(subfolder, collectionId) {
+  if (!subfolder || !collectionId) return
+  collectionCache.value = { ...collectionCache.value, [subfolder]: collectionId }
+  persistCollectionCache()
+}
+
+/**
+ * Get the collection ID for a lesson subfolder, or null if unknown.
+ * @param {string} subfolder
+ * @returns {string|null}
+ */
+function getLessonCollection(subfolder) {
+  return collectionCache.value[subfolder] || null
+}
+
 function loadBoardCacheFromStorage() {
   try {
     const stored = localStorage.getItem(LESSON_BOARDS_KEY)
@@ -419,6 +460,8 @@ export function useBoardMastery() {
     extractLessonsFromObservations,
     saveLessonBoardNumbers,
     fetchMissingBoardCounts,
+    saveLessonCollection,
+    getLessonCollection,
     // Exposed for testing
     groupIntoBoardAttempts,
     calculateCurrentStatus,

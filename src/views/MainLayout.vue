@@ -63,6 +63,8 @@
         v-else-if="!deals.length && !currentCollection"
         @select-collection="selectCollection"
         @select-assignment="handleSelectAssignment"
+        @resume-lesson="handleResumeLesson"
+        @show-progress="showProgress = true"
         @show-become-teacher="showBecomeTeacher = true"
         @load-file="onFileSelect"
       />
@@ -636,9 +638,12 @@ function handleLessonLoad({ subfolder, name, category, content }) {
     practice.loadDeal(dealsWithCategory[0])
     practice.resetStats()
 
-    // Cache board numbers for progress/accomplishments views
+    // Cache board numbers and collection mapping for progress views
     const boardMastery = useBoardMastery()
     boardMastery.saveLessonBoardNumbers(subfolder, dealsWithCategory.map(d => d.boardNumber))
+    if (currentCollection.value) {
+      boardMastery.saveLessonCollection(subfolder, currentCollection.value)
+    }
 
     // Store lesson metadata and update URL
     currentLesson.value = { id: subfolder, name, category }
@@ -748,6 +753,10 @@ function handleNavigateToDeal(payload) {
   showTeacherView.value = false
   selectedStudentId.value = null
   navigateToDeal(payload)
+}
+
+function handleResumeLesson({ subfolder, dealNumber }) {
+  navigateToDeal({ subfolder, dealNumber })
 }
 
 function handleTeacherNavigateToLesson(subfolder, boardNumber) {
@@ -1002,6 +1011,10 @@ async function loadLessonFromUrl(collectionId, lessonId) {
       currentDealIndex.value = dealIdx >= 0 ? dealIdx : 0
       practice.loadDeal(dealsWithCategory[currentDealIndex.value])
       practice.resetStats()
+
+      // Cache collection mapping for Recent Lessons panel
+      const boardMastery = useBoardMastery()
+      boardMastery.saveLessonCollection(lessonId, collectionId)
 
       // Store lesson metadata (URL already has the params)
       currentLesson.value = {

@@ -6,6 +6,7 @@
       :loading="assignmentsLoading"
       @select-assignment="handleSelectAssignment"
     />
+    <RecentLessons @resume-lesson="$emit('resume-lesson', $event)" @show-progress="$emit('show-progress')" />
     <CollectionGrid @select-collection="$emit('select-collection', $event)" @load-file="$emit('load-file', $event)" />
   </div>
 </template>
@@ -16,8 +17,9 @@ import { useUserStore } from '../../composables/useUserStore.js'
 import { useAssignments } from '../../composables/useAssignments.js'
 import CollectionGrid from './CollectionGrid.vue'
 import AssignmentPanel from './AssignmentPanel.vue'
+import RecentLessons from './RecentLessons.vue'
 
-const emit = defineEmits(['select-collection', 'select-assignment', 'load-file'])
+const emit = defineEmits(['select-collection', 'select-assignment', 'load-file', 'resume-lesson', 'show-progress'])
 
 const userStore = useUserStore()
 const assignmentStore = useAssignments()
