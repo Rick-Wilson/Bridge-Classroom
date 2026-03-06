@@ -172,7 +172,7 @@ const activeAssignments = computed(() => {
   const cutoff = new Date(now.getTime() - ACTIVE_WINDOW_DAYS * 24 * 60 * 60 * 1000)
   return props.assignments.filter(a => {
     if (!a.due_at) return true
-    return new Date(a.due_at) >= cutoff
+    return parseDueDate(a.due_at) >= cutoff
   })
 })
 
@@ -240,7 +240,7 @@ function statusClass(assignment) {
   if (assignment.attempted_boards >= assignment.total_boards && assignment.total_boards > 0) {
     return 'complete'
   }
-  if (assignment.due_at && new Date(assignment.due_at) < new Date() && assignment.attempted_boards < assignment.total_boards) {
+  if (assignment.due_at && parseDueDate(assignment.due_at) < new Date() && assignment.attempted_boards < assignment.total_boards) {
     return 'overdue'
   }
   if (assignment.attempted_boards > 0) {
@@ -269,9 +269,15 @@ function getWeekStart(date) {
   return d
 }
 
+function parseDueDate(due) {
+  // Parse date-only strings (YYYY-MM-DD) as local dates, not UTC
+  const parts = String(due).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return parts ? new Date(+parts[1], +parts[2] - 1, +parts[3]) : new Date(due)
+}
+
 function formatDueDate(due) {
   const now = new Date()
-  const dueDate = new Date(due)
+  const dueDate = parseDueDate(due)
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate())
   const diffDays = Math.round((dueDay - today) / (1000 * 60 * 60 * 24))
@@ -307,7 +313,7 @@ function dueText(assignment) {
 
 function dueBadgeText(assignment) {
   if (!assignment.due_at) return ''
-  const due = new Date(assignment.due_at)
+  const due = parseDueDate(assignment.due_at)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   if (due < today) return 'OVERDUE'
@@ -317,7 +323,7 @@ function dueBadgeText(assignment) {
 function dueClass(assignment) {
   if (!assignment.due_at) return ''
   if (isComplete(assignment)) return ''
-  const due = new Date(assignment.due_at)
+  const due = parseDueDate(assignment.due_at)
   const now = new Date()
   const diffDays = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
   if (diffDays < 0) return 'overdue'

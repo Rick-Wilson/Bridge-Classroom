@@ -52,8 +52,14 @@ function describeItem(item) {
 
 function daysUntil(dateStr) {
   if (!dateStr) return 0
-  const diff = new Date(dateStr) - Date.now()
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+  // Parse date-only strings as local dates (not UTC) to avoid off-by-one
+  const parts = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  const due = parts
+    ? new Date(+parts[1], +parts[2] - 1, +parts[3])
+    : new Date(dateStr)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.round((due - today) / (1000 * 60 * 60 * 24)))
 }
 </script>
 
