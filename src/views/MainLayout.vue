@@ -519,12 +519,6 @@ async function handleTeacherActivated() {
 const deals = ref([])
 const currentDealIndex = ref(0)
 
-// Bundled files (we'll add these later)
-const baseUrl = import.meta.env.BASE_URL
-const bundledFiles = ref([
-  { name: 'Cue-bid', url: `${baseUrl}data/Cue-bid.pbn` },
-  { name: 'Drury', url: `${baseUrl}data/Drury.pbn` }
-])
 
 // Current deal
 const currentDeal = computed(() => deals.value[currentDealIndex.value] || null)

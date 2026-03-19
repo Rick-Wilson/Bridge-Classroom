@@ -335,7 +335,7 @@ pub async fn request_recovery(
 
     // Build recovery URL
     let base_url = std::env::var("FRONTEND_URL")
-        .unwrap_or_else(|_| "https://practice.harmonicsystems.com".to_string());
+        .unwrap_or_else(|_| "https://bridge-classroom.com".to_string());
     let recovery_url = format!("{}?recover={}&user_id={}", base_url, token, user_id);
     tracing::info!("Recovery URL token (first 20 chars): {}...", &token.chars().take(20).collect::<String>());
     tracing::info!("Full recovery URL: {}", recovery_url);
