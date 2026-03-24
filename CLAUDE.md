@@ -13,6 +13,7 @@ Bridge Classroom is a bridge (card game) teaching platform with role-based dashb
 - **Frontend**: Vue 3 (Composition API, `<script setup>`), Vite, plain CSS
 - **Backend**: Rust (Axum 0.7), SQLite (sqlx), single-binary server
 - **Deployment**: GitHub Pages (frontend in `docs/`), Cloudflare Tunnel to localhost:3000
+- **DigitalOcean Droplet**: `146.190.135.172` (SSH as root with Mac's ed25519 key), runs LiveKit via Docker
 
 ---
 
@@ -45,6 +46,9 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Frontend**: GitHub Pages (served from `docs/` directory)
 - **Backend API**: Rust server running locally on Mac at port 3000
 - **Tunnel**: Cloudflare Tunnel routes https://api.bridge-classroom.com → localhost:3000
+- **LiveKit**: `wss://livekit.bridge-classroom.com` on DigitalOcean droplet (Caddy + Docker at `/opt/livekit/`)
+- **Recovery emails**: Sent from `noreply@bridge-classroom.com` via Resend
+- **DNS security**: SPF (`-all`), DKIM (via Resend), DMARC (`p=reject`) configured in Cloudflare
 - **Database**: SQLite at `bridge-classroom-api/data/bridge_classroom.db`
 - **Database backups**: Nightly at 2AM Pacific via `com.bridgeclassroom.backup` launchd job
   - Script: `bridge-classroom-api/scripts/backup-db.sh`
@@ -58,7 +62,20 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Service management**: `launchctl list | grep -E "bridge|cloudflare"`
 - **Restart backend**: `launchctl kickstart -k gui/$(id -u)/com.bridgeclassroom.api`
 - **Build & deploy frontend**: `npx vite build && cp -r dist/* docs/` then commit and push
-- See `docs/cloudflare-setup.md` for full details
+- See `documentation/cloudflare-setup.md` for full details
+
+### Directory Conventions
+
+- **`docs/`** — GitHub Pages root. **Only web-served files** (build output, CNAME, assets). No documentation, no SQL files, no design docs. Everything here is publicly served at bridge-classroom.com.
+- **`documentation/`** — Project documentation, design specs, mockups, and reference material. Not served by GitHub Pages.
+- **`tools/`** — Local-only admin utilities (gitignored). May contain secrets — never commit.
+
+### API Security Notes
+
+- The shared API key (`VITE_API_KEY`) is baked into the frontend JS bundle and is **not secret**. It only filters casual misuse.
+- Observation data is protected by E2E encryption regardless of API key exposure.
+- `GET /api/users` currently returns all users to any caller with the API key — a privacy concern.
+- **Planned improvement**: Replace shared API key auth with RSA-signed requests for teacher/viewer endpoints. Teachers sign requests with their existing RSA private key; backend verifies against stored public key. This provides per-user auth with no new infrastructure, and scopes data access to only users the viewer has grants for.
 
 ---
 

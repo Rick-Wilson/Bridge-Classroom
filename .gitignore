@@ -3,6 +3,8 @@ node_modules/
 
 # Build output
 dist/
+bridge-classroom-api/bridge-classroom-api
+bridge-classroom-api/target/
 
 # Local env files
 .env
@@ -23,6 +25,14 @@ yarn-error.log*
 *.njsproj
 *.sln
 *.sw?
+
+# Local tools (may contain secrets)
+tools/
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
 
 # OS files
 .DS_Store
