@@ -63,7 +63,8 @@ async fn main() -> anyhow::Result<()> {
 
     // Build router
     let app = Router::new()
-        // Health check
+        // Root and health check
+        .route("/", get(root))
         .route("/health", get(health_check))
         // Auth routes
         .route("/api/auth/teacher", post(routes::authenticate_teacher))
@@ -189,6 +190,10 @@ fn build_cors_layer(config: &Config) -> CorsLayer {
 }
 
 /// Health check endpoint
+async fn root() -> &'static str {
+    "Bridge Classroom API — an educational platform for learning the card game of bridge."
+}
+
 async fn health_check() -> &'static str {
     "OK"
 }

@@ -29,6 +29,9 @@ yarn-error.log*
 # Local tools (may contain secrets)
 tools/
 
+# Reputation monitoring (contains API keys)
+reputation/
+
 # Database files
 *.db
 *.db-wal
