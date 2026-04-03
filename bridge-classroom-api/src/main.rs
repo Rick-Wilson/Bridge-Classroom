@@ -152,7 +152,22 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/admin/users/:id", patch(routes::admin_correct_name))
         .route("/api/admin/decrypt-observations", post(routes::admin_decrypt_observations))
         .layer(cors)
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &axum::http::Request<_>| {
+                    let ua = request.headers()
+                        .get(header::USER_AGENT)
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("-");
+                    tracing::info_span!(
+                        "request",
+                        method = %request.method(),
+                        uri = %request.uri(),
+                        version = ?request.version(),
+                        user_agent = %ua,
+                    )
+                }),
+        )
         .with_state(state);
 
     // Start server

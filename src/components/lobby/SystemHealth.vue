@@ -23,10 +23,15 @@
         <span class="health-label">Last Observation</span>
         <span class="health-value">{{ health.last_observation_at ? formatTimeSince(health.last_observation_at) : 'None' }}</span>
       </div>
+      <div v-if="database" class="health-row">
+        <span class="status-dot green"></span>
+        <span class="health-label">Database Size</span>
+        <span class="health-value">{{ formatBytes(database.file_size_bytes) }}</span>
+      </div>
       <div class="health-row">
         <span class="status-dot green"></span>
-        <span class="health-label">Disk</span>
-        <span class="health-value">{{ health.disk_available_gb }} GB / {{ health.disk_total_gb }} GB available</span>
+        <span class="health-label">System Disk</span>
+        <span class="health-value">{{ health.disk_available_gb }} GB free / {{ health.disk_total_gb }} GB total</span>
       </div>
       <div class="health-row">
         <span class="status-dot blue"></span>
@@ -42,12 +47,13 @@ import { useAdminDashboard } from '../../composables/useAdminDashboard.js'
 
 defineProps({
   health: { type: Object, default: null },
+  database: { type: Object, default: null },
   refreshing: { type: Boolean, default: false }
 })
 
 defineEmits(['refresh'])
 
-const { formatUptime } = useAdminDashboard()
+const { formatUptime, formatBytes } = useAdminDashboard()
 
 function formatTimeSince(timestamp) {
   if (!timestamp) return ''

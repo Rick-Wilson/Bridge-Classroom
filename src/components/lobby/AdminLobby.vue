@@ -80,6 +80,7 @@
       <!-- System Health -->
       <SystemHealth
         :health="admin.health.value"
+        :database="admin.database.value"
         :refreshing="refreshing"
         @refresh="handleRefresh"
       />
