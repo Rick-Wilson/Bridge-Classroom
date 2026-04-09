@@ -33,7 +33,20 @@ jobs:
         run: npm run build
 
       - name: Copy standalone pages into dist
-        run: cp -r docs/curator dist/curator
+        run: |
+          cp -r docs/curator dist/curator
+          cp -r docs/screenshots dist/screenshots
+          cp docs/styles.css dist/styles.css
+          cp docs/index-preview.html dist/index-preview.html
+          cp docs/about.html dist/about.html
+          cp docs/solo-practice.html dist/solo-practice.html
+          cp docs/classrooms.html dist/classrooms.html
+          cp docs/club-game-analysis.html dist/club-game-analysis.html
+          cp docs/bbo-scenarios.html dist/bbo-scenarios.html
+          cp docs/lesson-materials.html dist/lesson-materials.html
+          cp docs/teacher-utilities.html dist/teacher-utilities.html
+          cp docs/hand-curator.html dist/hand-curator.html
+          cp docs/deal-library.html dist/deal-library.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
