@@ -1,0 +1,180 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:var(--color-background-primary)}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:11px 32px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--color-text-primary);cursor:pointer}
+.suit{color:#1D9E75}
+.nav-back{font-size:12px;color:var(--color-text-secondary);cursor:pointer}
+.nav-back:hover{color:var(--color-text-primary)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+
+.left{padding:28px 36px;display:flex;flex-direction:column;gap:14px;border-right:0.5px solid var(--color-border-tertiary)}
+
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:#E6F1FB;color:#185FA5;letter-spacing:0.04em;text-transform:uppercase;width:fit-content}
+h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.sub{font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+
+.stat-row{display:flex;gap:16px}
+.stat{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 16px;flex:1;text-align:center}
+.stat-num{font-size:22px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.stat-label{font-size:11px;color:var(--color-text-secondary)}
+
+.features{display:flex;flex-direction:column;gap:10px}
+.feat{display:flex;align-items:flex-start;gap:10px}
+.fi{width:28px;height:28px;border-radius:6px;background:#E6F1FB;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fi svg{width:14px;height:14px;stroke:#185FA5;fill:none;stroke-width:2}
+.feat h3{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.feat p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+
+.credit-note{padding:10px 12px;background:#E6F1FB;border-radius:var(--border-radius-md);border-left:2px solid #B5D4F4;font-size:11px;color:#185FA5;line-height:1.6}
+.credit-note a{color:#0C447C;cursor:pointer;font-weight:500}
+
+.access-btns{display:flex;gap:10px}
+.vlink{font-size:13px;font-weight:500;padding:9px 18px;border-radius:var(--border-radius-md);cursor:pointer;display:flex;align-items:center;gap:8px;text-decoration:none;border:0.5px solid}
+.vlink svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
+.vlink.github{border-color:#B5D4F4;color:#185FA5;background:#E6F1FB}
+.vlink.github:hover{background:#DBEAFE}
+
+.right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:12px}
+
+.mock-browser{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.browser-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:#111}
+.bdot{width:7px;height:7px;border-radius:50%}
+.burl{flex:1;background:#222;border-radius:3px;padding:3px 10px;font-size:10px;color:#666;margin-left:6px}
+
+.gh-inner{background:#0d1117;padding:12px 14px}
+.gh-repo-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.gh-avatar{width:20px;height:20px;border-radius:50%;background:#333;overflow:hidden}
+.gh-avatar img{width:100%;height:100%;object-fit:cover}
+.gh-repo-name{font-size:11px;color:#58a6ff}
+.gh-path{font-size:10px;color:#8b949e;margin-bottom:8px;padding-bottom:8px;border-bottom:0.5px solid #30363d}
+.gh-path span{color:#58a6ff;cursor:pointer}
+
+.gh-file-list{display:flex;flex-direction:column}
+.gh-file{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid #21262d}
+.gh-file:last-child{border-bottom:none}
+.gh-file-icon{font-size:12px;width:16px;text-align:center;flex-shrink:0}
+.gh-file-name{font-size:11px;flex:1}
+.gh-file-name.pbn{color:#58a6ff;cursor:pointer}
+.gh-file-name.pdf{color:#f0883e;cursor:pointer}
+.gh-file-name.dim{color:#8b949e}
+
+.caption{font-size:11px;color:var(--color-text-secondary);line-height:1.6;padding:10px 12px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)}
+
+.footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+
+<nav class="nav">
+  <div class="nav-logo" onclick="alert('→ /')"><span class="suit">♠</span> Bridge Classroom</div>
+  <span class="nav-back" onclick="alert('→ /')">← All tools</span>
+</nav>
+
+<div class="main">
+  <div class="left">
+    <div class="badge">GitHub · David Bailey</div>
+    <h1>300+ pre-bid deal scenarios, ready to use</h1>
+    <p class="sub">A curated library of bridge deals organized by bidding scenario — the primary source material for building lessons with the Hand Curator. Each scenario comes as a PBN file for importing into tools, and a PDF for printing or reviewing.</p>
+
+    <div class="stat-row">
+      <div class="stat">
+        <div class="stat-num">300+</div>
+        <div class="stat-label">scenarios</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">2</div>
+        <div class="stat-label">formats per scenario</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num">A→Z</div>
+        <div class="stat-label">alphabetically listed</div>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div>
+          <h3>PBN files for every scenario</h3>
+          <p>Load directly into Bridge Curator to build a lesson, or into bridge-wrangler for further processing. Already pre-bid by BBA — hands are ready to teach from.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></div>
+        <div>
+          <h3>PDF hand records alongside each PBN</h3>
+          <p>Every scenario has a matching PDF so you can review or print the deals without needing any bridge software.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+        <div>
+          <h3>Alphabetically organized, easy to browse</h3>
+          <p>Scenarios run from 1C_WalshStyle to WeakTwo and everything in between — find what you need quickly.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="credit-note">
+      Maintained by <a onclick="alert('→ github.com/ADavidBailey')">David Bailey</a>. The <code style="font-size:10px;background:rgba(24,95,165,0.1);padding:1px 4px;border-radius:3px">bba-filtered/</code> folder contains deals pre-bid using the BBA bidding engine, filtered for quality and consistency. This is the recommended source for Curator input.
+    </div>
+
+    <div class="access-btns">
+      <a class="vlink github" onclick="alert('→ github.com/ADavidBailey/Practice-Bidding-Scenarios/tree/main/bba-filtered')">
+        <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+        Browse on GitHub
+      </a>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">github.com / ADavidBailey / Practice-Bidding-Scenarios / bba-filtered</div>
+      </div>
+      <div class="gh-inner">
+        <div class="gh-repo-header">
+          <div style="width:20px;height:20px;border-radius:50%;background:#444;display:flex;align-items:center;justify-content:center;font-size:10px;color:#ccc;overflow:hidden">
+            <span>DB</span>
+          </div>
+          <span class="gh-repo-name">ADavidBailey / Practice-Bidding-Scenarios</span>
+        </div>
+        <div class="gh-path">
+          <span>Practice-Bidding-Scenarios</span>
+          <span style="color:#8b949e"> / </span>
+          <span>bba-filtered</span>
+          <span style="color:#8b949e"> /</span>
+        </div>
+        <div class="gh-file-list">
+          <div class="gh-file"><span class="gh-file-icon">📄</span><span class="gh-file-name pbn">1C_WalshStyle.pbn</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📋</span><span class="gh-file-name pdf">1C_WalshStyle.pdf</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📄</span><span class="gh-file-name pbn">1N.pbn</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📋</span><span class="gh-file-name pdf">1N.pdf</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📄</span><span class="gh-file-name pbn">1N_5M_and_6m.pbn</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📋</span><span class="gh-file-name pdf">1N_5M_and_6m.pdf</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📄</span><span class="gh-file-name pbn">1N_with_Singleton.pbn</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📋</span><span class="gh-file-name pdf">1N_with_Singleton.pdf</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📄</span><span class="gh-file-name pbn">2over1.pbn</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📋</span><span class="gh-file-name pdf">2over1.pdf</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📄</span><span class="gh-file-name pbn">Checkback_Stayman.pbn</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📋</span><span class="gh-file-name pdf">Checkback_Stayman.pdf</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📄</span><span class="gh-file-name pbn">Jacoby_Transfers.pbn</span></div>
+          <div class="gh-file"><span class="gh-file-icon">📋</span><span class="gh-file-name pdf">Jacoby_Transfers.pdf</span></div>
+          <div class="gh-file"><span class="gh-file-icon" style="color:#8b949e">···</span><span class="gh-file-name dim">300+ more scenarios</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="caption">Each scenario is a pair of files: a <strong>.pbn</strong> for importing into tools, and a <strong>.pdf</strong> for printing or reviewing the deals. Download individual files or clone the full repo to work with the complete library.</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-copy">Bridge Classroom · free &amp; open source · bridge-classroom.com</span>
+  <span class="nav-back" onclick="alert('→ /')" style="font-size:11px">← Back to all tools</span>
+</div>

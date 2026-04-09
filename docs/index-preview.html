@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bridge Classroom</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+.page{background:var(--color-background-tertiary);padding:40px 24px 48px}
+
+.header{text-align:center;margin-bottom:32px}
+.header-logo{display:flex;align-items:center;justify-content:center;gap:10px;font-size:20px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px}
+.header-logo .suit{color:#1D9E75;font-size:22px}
+.header-sub{font-size:13px;color:var(--color-text-secondary)}
+
+.welcome-banner{display:flex;align-items:center;gap:14px;padding:10px 18px;background:#E1F5EE;border:0.5px solid #9FE1CB;border-radius:var(--border-radius-lg);max-width:900px;margin:0 auto 28px;width:fit-content}
+.welcome-text{font-size:13px;color:#0F6E56;white-space:nowrap}
+.welcome-launch{font-size:13px;font-weight:500;padding:5px 14px;border-radius:var(--border-radius-md);border:none;background:#1D9E75;color:white;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+.welcome-launch:hover{background:#0F6E56}
+
+.grid-outer{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+
+.section-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.section-label{font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.07em;white-space:nowrap}
+.section-line{flex:1;height:0.5px;background:var(--color-border-tertiary)}
+
+.tiles{display:flex;gap:16px;flex-wrap:wrap}
+
+.tile{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;width:196px;cursor:pointer;transition:border-color 0.15s;position:relative;flex-shrink:0}
+.tile:hover{border-color:var(--color-border-secondary)}
+.tile.featured{border:2px solid #1D9E75}
+.tile.disabled{cursor:default;opacity:0.75}
+.tile.disabled:hover{border-color:var(--color-border-tertiary)}
+
+.tile-link{text-decoration:none;color:inherit;display:block}
+
+.thumb{height:108px;position:relative;overflow:hidden;background:var(--color-background-secondary)}
+
+.thumb-practice{background:#F0F7F4;display:flex;flex-direction:column;padding:10px;gap:5px}
+.tp-row{display:flex;align-items:center;justify-content:space-between}
+.tp-tag{font-size:8px;color:#0F6E56;font-weight:500;text-transform:uppercase;letter-spacing:0.04em}
+.tp-title{font-size:11px;font-weight:500;color:var(--color-text-primary)}
+.tp-bar-wrap{height:4px;background:#C7E8DA;border-radius:2px}
+.tp-bar{height:4px;border-radius:2px;background:#1D9E75}
+.tp-dots{display:flex;gap:4px;align-items:center}
+.tp-dot{width:5px;height:5px;border-radius:50%}
+.tp-hand{font-size:8px;color:var(--color-text-secondary);line-height:1.7}
+.tp-red{color:#D85A30}
+.tp-bid{display:flex;gap:3px;margin-top:2px}
+.tp-btn{font-size:8px;font-weight:500;padding:2px 5px;border-radius:3px}
+.tp-pass{background:#1D9E75;color:white}
+.tp-dbl{background:#D85A30;color:white}
+.tp-rdbl{background:#ddd;color:#888}
+
+.thumb-club{background:#EFF4FB;display:flex;flex-direction:column;padding:10px;gap:5px}
+.tc-table{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;width:100%}
+.tc-cell{background:#C5D8F0;border-radius:2px;height:14px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#185FA5;font-weight:500}
+.tc-cell.head{background:#378ADD;color:white}
+
+.thumb-pbs{background:#F5F0FB;display:flex;flex-direction:column;padding:10px;gap:5px}
+.pbs-bar{height:20px;background:#E8DFFE;border-radius:3px;display:flex;align-items:center;padding:0 6px;gap:5px}
+.pbs-dot{width:6px;height:6px;border-radius:50%;background:#7F77DD}
+.pbs-text{font-size:8px;color:#534AB7;font-weight:500}
+.pbs-hand{font-size:8px;color:var(--color-text-secondary);line-height:1.7}
+.pbs-red{color:#D85A30}
+
+.thumb-class{background:#F0F7F4;display:flex;flex-direction:column;padding:10px;gap:4px}
+.cls-label{font-size:9px;font-weight:500;color:var(--color-text-secondary)}
+.cls-row{display:flex;align-items:center;justify-content:space-between}
+.cls-name{font-size:9px;color:var(--color-text-secondary)}
+.cls-prog{font-size:8px;color:#1D9E75;font-weight:500}
+.cls-bar-wrap{height:3px;background:#C7E8DA;border-radius:2px}
+.cls-bar{height:3px;border-radius:2px;background:#1D9E75}
+.cls-invite{font-size:8px;padding:3px 7px;background:#E1F5EE;border-radius:3px;color:#0F6E56;margin-top:4px;display:inline-block}
+
+.thumb-res{background:#FFFBF0;display:flex;flex-direction:column;padding:10px;gap:5px}
+.res-item{display:flex;align-items:center;gap:5px}
+.res-text{font-size:8px;color:var(--color-text-secondary)}
+.res-tag{font-size:7px;padding:1px 5px;border-radius:2px;font-weight:500}
+.res-gh{background:#E6F1FB;color:#185FA5}
+.res-gd{background:#FEF3C7;color:#92400E}
+
+.thumb-cli{background:#F5F5F0;display:flex;flex-direction:column;padding:10px;gap:4px}
+.cli-row{display:flex;align-items:center;justify-content:space-between;padding:4px 6px;background:var(--color-background-secondary);border-radius:3px}
+.cli-name{font-size:8px;font-weight:500;color:var(--color-text-secondary)}
+.cli-dl{font-size:7px;padding:1px 5px;border-radius:2px;background:#E1F5EE;color:#0F6E56;font-weight:500}
+
+.thumb-cur{background:#F0F7F4;display:flex;flex-direction:column;padding:10px;gap:4px}
+.cur-filter{display:flex;gap:3px;flex-wrap:wrap}
+.cur-chip{font-size:7px;padding:2px 5px;border-radius:2px;background:#C7E8DA;color:#0F6E56;font-weight:500}
+.cur-row{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.cur-deal{font-size:8px;color:var(--color-text-secondary)}
+.cur-badge{font-size:7px;padding:1px 5px;border-radius:2px;background:#E1F5EE;color:#0F6E56}
+
+.thumb-deals{background:#F0F4FB;display:flex;flex-direction:column;padding:10px;gap:4px}
+.dr-header{font-size:8px;font-weight:500;color:#185FA5;margin-bottom:2px}
+.dr-folder{display:flex;align-items:center;gap:5px;padding:3px 5px;border-radius:3px;background:#D8E6F8}
+.dr-folder-name{font-size:8px;color:#185FA5;font-weight:500}
+.dr-file{display:flex;align-items:center;justify-content:space-between;padding:2px 5px 2px 14px}
+.dr-file-name{font-size:7px;color:var(--color-text-secondary)}
+.dr-ext{font-size:7px;color:#185FA5;font-weight:500}
+
+.coming-soon-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.82);display:flex;align-items:center;justify-content:center;z-index:2}
+.coming-soon-badge{font-size:10px;font-weight:500;padding:5px 12px;border-radius:20px;background:#E6F1FB;color:#185FA5;border:0.5px solid #B5D4F4}
+
+.tile-body{padding:11px 12px 13px}
+.tile-name{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px}
+.tile-desc{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+.tile-tags{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:500}
+.tag-green{background:#E1F5EE;color:#0F6E56}
+.tag-blue{background:#E6F1FB;color:#185FA5}
+.tag-amber{background:#FEF3C7;color:#92400E}
+.tag-purple{background:#EEEDFE;color:#3C3489}
+.tag-gray{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+
+.footer{text-align:center;margin-top:40px;padding-top:24px;border-top:0.5px solid var(--color-border-tertiary);max-width:960px;margin-left:auto;margin-right:auto}
+.footer-links{display:flex;align-items:center;justify-content:center;gap:18px;margin-bottom:12px}
+.footer-link{font-size:12px;color:var(--color-text-secondary);cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none}
+.footer-link:hover{color:var(--color-text-primary)}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+<div class="header">
+  <div class="header-logo"><span class="suit">&#9824;</span> Bridge Classroom</div>
+  <div class="header-sub">Free tools for the bridge community</div>
+</div>
+
+<div style="display:flex;justify-content:center">
+  <div class="welcome-banner" id="welcomeBanner" style="display:none">
+    <span class="welcome-text">Welcome back, <strong id="returningName"></strong>.</span>
+    <a class="welcome-launch" href="/">Resume Practice</a>
+  </div>
+</div>
+
+<div class="grid-outer">
+
+  <div>
+    <div class="section-header">
+      <span class="section-label">For students</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="tiles">
+
+      <div class="tile featured">
+        <a class="tile-link" href="solo-practice.html">
+        <div class="thumb thumb-practice">
+          <div class="tp-row"><span class="tp-tag">Baker Bridge</span><span style="font-size:8px;color:#1D9E75">&#10003; Synced</span></div>
+          <div class="tp-title">Negative doubles</div>
+          <div class="tp-bar-wrap"><div class="tp-bar" style="width:40%"></div></div>
+          <div class="tp-dots">
+            <div class="tp-dot" style="background:#1D9E75"></div><span style="font-size:8px;color:var(--color-text-secondary)">5 mastered</span>
+            <div class="tp-dot" style="background:#ccc;margin-left:4px"></div><span style="font-size:8px;color:var(--color-text-secondary)">14 untried</span>
+          </div>
+          <div class="tp-hand">&#9824; K10 &nbsp;<span class="tp-red">&#9829; A4 &nbsp;&#9830; KJ106</span> &nbsp;&#9827; KQJ65</div>
+          <div class="tp-bid">
+            <span class="tp-btn tp-pass">Pass</span>
+            <span class="tp-btn tp-dbl">Double</span>
+            <span class="tp-btn tp-rdbl">Redbl</span>
+          </div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">Solo Practice</div>
+          <div class="tile-desc">Practice bidding deals, track mastery, and join your teacher's class.</div>
+          <div class="tile-tags"><span class="tag tag-green">Live</span></div>
+        </div>
+        </a>
+      </div>
+
+      <div class="tile disabled">
+        <div class="thumb thumb-club">
+          <div class="tc-table">
+            <div class="tc-cell head">N-S</div><div class="tc-cell head">Bd</div><div class="tc-cell head">Score</div><div class="tc-cell head">Pct</div>
+            <div class="tc-cell">2&#9824;</div><div class="tc-cell">3</div><div class="tc-cell">+140</div><div class="tc-cell">67%</div>
+            <div class="tc-cell">3NT</div><div class="tc-cell">7</div><div class="tc-cell">+400</div><div class="tc-cell">83%</div>
+            <div class="tc-cell">4&#9829;</div><div class="tc-cell">11</div><div class="tc-cell">-50</div><div class="tc-cell">25%</div>
+          </div>
+          <div style="display:flex;gap:4px;margin-top:4px">
+            <span style="font-size:8px;padding:2px 6px;background:#C5D8F0;color:#185FA5;border-radius:3px;font-weight:500">Final: 58.3%</span>
+          </div>
+        </div>
+        <div class="coming-soon-overlay"><span class="coming-soon-badge">Coming soon</span></div>
+        <div class="tile-body">
+          <div class="tile-name">Club Game Analysis</div>
+          <div class="tile-desc">Review your club game results board by board.</div>
+          <div class="tile-tags"><span class="tag tag-blue">In development</span></div>
+        </div>
+      </div>
+
+      <div class="tile">
+        <a class="tile-link" href="bbo-scenarios.html">
+        <div class="thumb thumb-pbs">
+          <div class="pbs-bar">
+            <div class="pbs-dot"></div>
+            <span class="pbs-text">BBO Practice Bidding Scenarios</span>
+          </div>
+          <div class="pbs-hand">&#9824; A Q 7 4<br><span class="pbs-red">&#9829; K J 3 &nbsp;&#9830; A 10 6</span><br>&#9827; 9 5 2</div>
+          <div style="display:flex;gap:3px;margin-top:4px;flex-wrap:wrap">
+            <span style="font-size:7px;padding:2px 5px;background:#EEEDFE;color:#534AB7;border-radius:3px;font-weight:500">Chrome</span>
+            <span style="font-size:7px;padding:2px 5px;background:#EEEDFE;color:#534AB7;border-radius:3px;font-weight:500">Firefox</span>
+            <span style="font-size:7px;padding:2px 5px;background:#EEEDFE;color:#534AB7;border-radius:3px;font-weight:500">Safari</span>
+            <span style="font-size:7px;padding:2px 5px;background:#EEEDFE;color:#534AB7;border-radius:3px;font-weight:500">Edge</span>
+          </div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">BBO Bidding Scenarios</div>
+          <div class="tile-desc">Browser extension &#8212; practice bidding on BBO with curated scenario deals.</div>
+          <div class="tile-tags"><span class="tag tag-purple">4 browser stores</span></div>
+        </div>
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <div>
+    <div class="section-header">
+      <span class="section-label">Teacher resources</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="tiles">
+
+      <div class="tile">
+        <a class="tile-link" href="classrooms.html">
+        <div class="thumb thumb-class">
+          <div class="cls-label">My classrooms</div>
+          <div class="cls-row"><span class="cls-name">Stoneridge Creek &#8212; Thu</span><span class="cls-prog">12 students</span></div>
+          <div class="cls-bar-wrap"><div class="cls-bar" style="width:65%"></div></div>
+          <div class="cls-row" style="margin-top:4px"><span class="cls-name">Advanced Group</span><span class="cls-prog">6 students</span></div>
+          <div class="cls-bar-wrap"><div class="cls-bar" style="width:40%"></div></div>
+          <div class="cls-invite">+ Invite students via link</div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">Classrooms</div>
+          <div class="tile-desc">Create classes, invite students, and track their progress. Unlocks in your profile.</div>
+          <div class="tile-tags"><span class="tag tag-green">Inside the app</span></div>
+        </div>
+        </a>
+      </div>
+
+      <div class="tile">
+        <a class="tile-link" href="lesson-materials.html">
+        <div class="thumb thumb-res">
+          <div style="font-size:9px;font-weight:500;color:var(--color-text-secondary);margin-bottom:4px">Supporting materials</div>
+          <div class="res-item"><span style="font-size:10px">&#128196;</span><span class="res-text">Lesson plans</span><span class="res-tag res-gd">Google Drive</span></div>
+          <div class="res-item"><span style="font-size:10px">&#128424;</span><span class="res-text">Printable handouts</span><span class="res-tag res-gd">Google Drive</span></div>
+          <div class="res-item"><span style="font-size:10px">&#127139;</span><span class="res-text">Pre-made dealer files</span><span class="res-tag res-gh">GitHub</span></div>
+          <div style="font-size:7px;color:var(--color-text-tertiary);margin-top:5px">Matched to online lesson collections</div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">Lesson Materials</div>
+          <div class="tile-desc">Lesson plans, handouts, and dealer files matched to the online lessons.</div>
+          <div class="tile-tags"><span class="tag tag-amber">Google Drive</span><span class="tag tag-blue">GitHub</span></div>
+        </div>
+        </a>
+      </div>
+
+      <div class="tile">
+        <a class="tile-link" href="teacher-utilities.html">
+        <div class="thumb thumb-cli">
+          <div style="font-size:9px;font-weight:500;color:var(--color-text-secondary);margin-bottom:4px">Download for Mac &#183; Windows &#183; Linux</div>
+          <div class="cli-row"><span class="cli-name">bridge-wrangler</span><span class="cli-dl">Download</span></div>
+          <div class="cli-row"><span class="cli-name">pdf-handouts</span><span class="cli-dl">Download</span></div>
+          <div class="cli-row"><span class="cli-name">dealer3</span><span class="cli-dl">Download</span></div>
+          <div class="cli-row"><span class="cli-name">bridge-solver</span><span class="cli-dl">Download</span></div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">Teacher Utilities</div>
+          <div class="tile-desc">Downloadable tools for processing deals, generating hands, and preparing handouts.</div>
+          <div class="tile-tags"><span class="tag tag-gray">Mac &#183; Windows &#183; Linux</span></div>
+        </div>
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+  <div>
+    <div class="section-header">
+      <span class="section-label">Author tools</span>
+      <div class="section-line"></div>
+    </div>
+    <div class="tiles">
+
+      <div class="tile">
+        <a class="tile-link" href="hand-curator.html">
+        <div class="thumb thumb-cur">
+          <div style="font-size:9px;font-weight:500;color:var(--color-text-secondary);margin-bottom:4px">Filter deals</div>
+          <div class="cur-filter">
+            <span class="cur-chip">Competitive</span>
+            <span class="cur-chip">HCP: 10&#8211;14</span>
+            <span class="cur-chip">5+ suit</span>
+          </div>
+          <div class="cur-row"><span class="cur-deal">neg_doubles_04.pbn</span><span class="cur-badge">Add</span></div>
+          <div class="cur-row"><span class="cur-deal">neg_doubles_07.pbn</span><span class="cur-badge">Add</span></div>
+          <div class="cur-row"><span class="cur-deal">cue_bid_02.pbn</span><span class="cur-badge">Add</span></div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">Hand Curator</div>
+          <div class="tile-desc">Browse, filter, and assemble PBN deals into lesson collections.</div>
+          <div class="tile-tags"><span class="tag tag-green">Live</span></div>
+        </div>
+        </a>
+      </div>
+
+      <div class="tile">
+        <a class="tile-link" href="deal-library.html">
+        <div class="thumb thumb-deals">
+          <div class="dr-header">ADavidBailey / Practice-Bidding-Scenarios</div>
+          <div class="dr-folder"><span style="font-size:10px">&#128193;</span><span class="dr-folder-name">bba-filtered/</span></div>
+          <div class="dr-file"><span class="dr-file-name">negative_doubles.pbn</span><span class="dr-ext">.pbn</span></div>
+          <div class="dr-file"><span class="dr-file-name">weak_two_bids.pbn</span><span class="dr-ext">.pbn</span></div>
+          <div class="dr-file"><span class="dr-file-name">cue_bids.pbn</span><span class="dr-ext">.pbn</span></div>
+          <div class="dr-file"><span class="dr-file-name">notrump_openings.pbn</span><span class="dr-ext">.pbn</span></div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">Deal Library</div>
+          <div class="tile-desc">Pre-bid PBN files sorted by scenario. Primary input for the Hand Curator.</div>
+          <div class="tile-tags"><span class="tag tag-blue">GitHub &#183; David Bailey</span></div>
+        </div>
+        </a>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-links">
+    <a class="footer-link" href="https://github.com/Rick-Wilson">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+      GitHub
+    </a>
+    <a class="footer-link" href="#">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03z"/></svg>
+      Discord
+    </a>
+    <a class="footer-link" href="#">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      Email support
+    </a>
+    <a class="footer-link" href="about.html">About</a>
+  </div>
+  <div class="footer-copy">Bridge Classroom &#183; free &amp; open source &#183; bridge-classroom.com</div>
+</div>
+
+</div>
+
+<script>
+try {
+  var data = JSON.parse(localStorage.getItem('bridgePractice') || '{}');
+  if (data.userId && data.firstName) {
+    document.getElementById('returningName').textContent = data.firstName;
+    document.getElementById('welcomeBanner').style.display = 'flex';
+  }
+} catch(e) {}
+</script>
+
+</body>
+</html>

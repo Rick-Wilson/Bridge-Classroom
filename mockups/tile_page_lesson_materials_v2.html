@@ -1,0 +1,188 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:var(--color-background-primary)}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:11px 32px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--color-text-primary);cursor:pointer}
+.suit{color:#1D9E75}
+.nav-back{font-size:12px;color:var(--color-text-secondary);cursor:pointer}
+.nav-back:hover{color:var(--color-text-primary)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+
+.left{padding:28px 36px;display:flex;flex-direction:column;gap:16px;border-right:0.5px solid var(--color-border-tertiary)}
+
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:#FEF3C7;color:#92400E;letter-spacing:0.04em;text-transform:uppercase;width:fit-content}
+h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.sub{font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+
+.hotseat-note{padding:12px 14px;background:#FFFBF0;border:0.5px solid #FDE68A;border-radius:var(--border-radius-md)}
+.hotseat-note h3{font-size:12px;font-weight:500;color:#92400E;margin-bottom:5px}
+.hotseat-note p{font-size:11px;color:#78350F;line-height:1.6}
+
+.what-included{display:flex;flex-direction:column;gap:8px}
+.wi-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em}
+.wi-list{display:flex;flex-direction:column;gap:6px}
+.wi-row{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--color-text-secondary);line-height:1.5}
+.wi-icon{font-size:14px;flex-shrink:0;width:20px;text-align:center}
+.wi-text{flex:1}
+.wi-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}
+.tag{font-size:9px;padding:2px 7px;border-radius:20px;font-weight:500}
+.tag-green{background:#E1F5EE;color:#0F6E56}
+.tag-amber{background:#FEF3C7;color:#92400E}
+.tag-blue{background:#E6F1FB;color:#185FA5}
+
+.access-block{display:flex;flex-direction:column;gap:8px}
+.access-label{font-size:11px;font-weight:500;color:var(--color-text-secondary)}
+.access-btns{display:flex;gap:10px}
+.vlink{font-size:13px;font-weight:500;padding:9px 18px;border-radius:var(--border-radius-md);cursor:pointer;display:flex;align-items:center;gap:8px;text-decoration:none;border:0.5px solid}
+.vlink svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
+.vlink.gdrive{border-color:#FDE68A;color:#92400E;background:#FFFBF0}
+.vlink.gdrive:hover{background:#FEF3C7}
+.vlink.github{border-color:#B5D4F4;color:#185FA5;background:#E6F1FB}
+.vlink.github:hover{background:#DBEAFE}
+
+.footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+
+.right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:14px}
+
+.folder-frame{background:#1e1e1e;border-radius:var(--border-radius-lg);overflow:hidden;border:0.5px solid #333}
+.folder-titlebar{background:#2d2d2d;padding:8px 14px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid #444}
+.folder-nav{display:flex;gap:2px}
+.folder-nav-btn{background:#3d3d3d;border:none;color:#aaa;font-size:11px;padding:2px 8px;border-radius:3px;cursor:pointer}
+.folder-title{font-size:12px;font-weight:500;color:#ddd;flex:1;text-align:center}
+.folder-body{padding:8px 0;font-family:var(--font-sans)}
+
+.frow{display:flex;align-items:center;gap:6px;padding:3px 14px;font-size:11px;color:#ccc;cursor:pointer}
+.frow:hover{background:rgba(255,255,255,0.05)}
+.frow.selected{background:#0058d1;color:white}
+.frow.selected .fname{color:white}
+.findent1{padding-left:28px}
+.findent2{padding-left:44px}
+.findent3{padding-left:60px}
+.ficon{font-size:12px;flex-shrink:0;width:16px}
+.ftri{font-size:8px;color:#666;flex-shrink:0;width:10px}
+.ftri.open{color:#aaa}
+.fname{flex:1}
+.fname.dim{color:#888}
+
+.caption{font-size:11px;color:var(--color-text-secondary);line-height:1.6;padding:10px 12px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md)}
+</style>
+
+<nav class="nav">
+  <div class="nav-logo" onclick="alert('→ /')"><span class="suit">♠</span> Bridge Classroom</div>
+  <span class="nav-back" onclick="alert('→ /')">← All tools</span>
+</nav>
+
+<div class="main">
+  <div class="left">
+    <div class="badge">Teacher resource</div>
+    <h1>Lesson plans, handouts,<br>and dealer files</h1>
+    <p class="sub">Supporting materials for each Baker Bridge lesson — matched to the online practice hands your students are using in the app. Organized by lesson, then by set size and table format.</p>
+
+    <div class="hotseat-note">
+      <h3>About the teaching format variants</h3>
+      <p>Each lesson has a "hot seat" — the player whose decision is being practiced (usually declarer or opener). Materials come in three variants so the hot seat rotates correctly: <strong>Full Table</strong> (face-to-face, rotates N/E/S/W), <strong>South</strong> (online, one player per table), and <strong>North-South</strong> (online, two players per table). The folder structure inside each lesson shows you exactly which files to use.</p>
+    </div>
+
+    <div class="what-included">
+      <div class="wi-label">What's included</div>
+      <div class="wi-list">
+        <div class="wi-row">
+          <span class="wi-icon">📄</span>
+          <div class="wi-text">
+            Lesson plan and printable handout (PDF)
+            <div class="wi-tags"><span class="tag tag-green">All formats</span></div>
+          </div>
+        </div>
+        <div class="wi-row">
+          <span class="wi-icon">✏️</span>
+          <div class="wi-text">
+            Pencil-and-paper exercises
+            <div class="wi-tags"><span class="tag tag-amber">Face-to-face only</span></div>
+          </div>
+        </div>
+        <div class="wi-row">
+          <span class="wi-icon">🃏</span>
+          <div class="wi-text">
+            Dealer files in 4-, 5-, and 6-board sets
+            <div class="wi-tags"><span class="tag tag-amber">Face-to-face only</span></div>
+          </div>
+        </div>
+        <div class="wi-row">
+          <span class="wi-icon">🃏</span>
+          <div class="wi-text">
+            Dealer files — all boards in one set
+            <div class="wi-tags"><span class="tag tag-blue">Online only</span></div>
+          </div>
+        </div>
+        <div class="wi-row">
+          <span class="wi-icon">📋</span>
+          <div class="wi-text">
+            Full PBN file for the lesson
+            <div class="wi-tags"><span class="tag tag-green">All formats</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="access-block">
+      <div class="access-label">Access the materials</div>
+      <div class="access-btns">
+        <a class="vlink gdrive" onclick="alert('→ Google Drive · Baker Bridge Collection')">
+          <svg viewBox="0 0 24 24"><path d="M12 2L2 20h20L12 2z"/></svg>
+          Google Drive
+        </a>
+        <a class="vlink github" onclick="alert('→ github.com/Rick-Wilson/baker-bridge')">
+          <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="folder-frame">
+      <div class="folder-titlebar">
+        <div class="folder-nav">
+          <button class="folder-nav-btn">‹</button>
+          <button class="folder-nav-btn">›</button>
+        </div>
+        <div class="folder-title">Baker Bridge Collection</div>
+      </div>
+      <div class="folder-body">
+        <div class="frow"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">1. Basic Bidding</span></div>
+        <div class="frow"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">2. Bidding Conventions</span></div>
+        <div class="frow"><span class="ftri open">∨</span><span class="ficon">📁</span><span class="fname">3. Competitive Bidding</span></div>
+        <div class="frow findent1"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">DONT</span></div>
+        <div class="frow findent1"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">Lebensohl over 1NT Interference</span></div>
+        <div class="frow findent1"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">Michaels Cue Bids and Unusual 2NT</span></div>
+        <div class="frow findent1 selected"><span class="ftri open">∨</span><span class="ficon">📁</span><span class="fname">Negative Doubles</span></div>
+        <div class="frow findent2"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">4-Board Sets</span></div>
+        <div class="frow findent2"><span class="ftri open">∨</span><span class="ficon">📁</span><span class="fname">5-Board Sets</span></div>
+        <div class="frow findent3"><span class="ftri"></span><span class="ficon">📄</span><span class="fname">Baker Bridge Negative_Intro.pdf</span></div>
+        <div class="frow findent3"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">Full Table</span></div>
+        <div class="frow findent3"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">North-South</span></div>
+        <div class="frow findent3"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">South</span></div>
+        <div class="frow findent2"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">6-Board Sets</span></div>
+        <div class="frow findent2"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname">All</span></div>
+        <div class="frow findent2"><span class="ftri"></span><span class="ficon">📄</span><span class="fname">Baker Bridge Negative_Intro.pdf</span></div>
+        <div class="frow findent2"><span class="ftri"></span><span class="ficon">🃏</span><span class="fname">Baker Bridge Negative.pbn</span></div>
+        <div class="frow findent1"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname dim">Overcalls</span></div>
+        <div class="frow findent1"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname dim">Support Cue-bids</span></div>
+        <div class="frow"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname dim">4. Declarer Play</span></div>
+        <div class="frow"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname dim">5. Defense</span></div>
+        <div class="frow"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname dim">6. Practice Deals</span></div>
+        <div class="frow"><span class="ftri">›</span><span class="ficon">📁</span><span class="fname dim">7. Partnership Bidding</span></div>
+      </div>
+    </div>
+    <div class="caption">Each lesson folder contains subsets by board count, then subfolders for each table format (Full Table, North-South, South). The PDF handout and full PBN file are at the lesson level.</div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-copy">Bridge Classroom · free &amp; open source · bridge-classroom.com</span>
+  <span class="nav-back" onclick="alert('→ /')" style="font-size:11px">← Back to all tools</span>
+</div>

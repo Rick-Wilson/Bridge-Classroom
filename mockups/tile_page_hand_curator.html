@@ -1,0 +1,276 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:var(--color-background-primary)}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:11px 32px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--color-text-primary);cursor:pointer}
+.suit{color:#1D9E75}
+.nav-back{font-size:12px;color:var(--color-text-secondary);cursor:pointer}
+.nav-back:hover{color:var(--color-text-primary)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+
+.left{padding:28px 36px;display:flex;flex-direction:column;gap:14px;border-right:0.5px solid var(--color-border-tertiary)}
+
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:#E1F5EE;color:#0F6E56;letter-spacing:0.04em;text-transform:uppercase;width:fit-content}
+h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.sub{font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+
+.features{display:flex;flex-direction:column;gap:10px}
+.feat{display:flex;align-items:flex-start;gap:10px}
+.fi{width:28px;height:28px;border-radius:6px;background:#E1F5EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fi svg{width:14px;height:14px;stroke:#1D9E75;fill:none;stroke-width:2}
+.feat h3{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.feat p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+
+.workflow{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px}
+.workflow-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px}
+.workflow-steps{display:flex;flex-direction:column;gap:6px}
+.wstep{display:flex;align-items:flex-start;gap:10px}
+.wnum{width:20px;height:20px;border-radius:50%;background:#1D9E75;color:white;font-size:10px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.wstep p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+.wstep a{color:#1D9E75;cursor:pointer;text-decoration:none}
+.wstep a:hover{text-decoration:underline}
+
+.btn-primary{font-size:14px;font-weight:500;padding:10px 26px;border-radius:var(--border-radius-md);border:none;background:#1D9E75;color:white;cursor:pointer;width:fit-content}
+.btn-primary:hover{background:#0F6E56}
+
+.right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:12px}
+
+.screen-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:2px}
+
+.mock-browser{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
+.browser-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:#111}
+.bdot{width:7px;height:7px;border-radius:50%}
+.burl{flex:1;background:#222;border-radius:3px;padding:3px 10px;font-size:10px;color:#666;margin-left:6px}
+
+/* Curator splash */
+.cur-splash{background:#e8eaf6;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:10px;text-align:center}
+.cur-app-icon{width:48px;height:48px;border-radius:12px;background:#5C6BC0;display:flex;align-items:center;justify-content:center;font-size:24px;color:white}
+.cur-splash-title{font-size:18px;font-weight:700;color:#1a1a3e}
+.cur-splash-sub{font-size:11px;color:#555;max-width:240px;line-height:1.5}
+.cur-splash-btns{display:flex;gap:8px;margin-top:4px}
+.cur-btn-p{font-size:11px;font-weight:600;padding:7px 16px;border-radius:8px;background:#5C6BC0;color:white;border:none;cursor:pointer}
+.cur-btn-s{font-size:11px;font-weight:500;padding:7px 16px;border-radius:8px;background:white;color:#333;border:0.5px solid #ccc;cursor:pointer}
+
+/* Curator editor */
+.cur-editor{background:#111;display:grid;grid-template-columns:160px 1fr 140px;height:220px;overflow:hidden}
+.cur-left{background:#1a1a1a;display:flex;flex-direction:column;border-right:0.5px solid #333}
+.cur-toolbar{background:#222;padding:6px 8px;display:flex;align-items:center;gap:6px;border-bottom:0.5px solid #333}
+.cur-logo{width:16px;height:16px;border-radius:3px;background:#5C6BC0;display:flex;align-items:center;justify-content:center;font-size:9px;color:white}
+.cur-toolbar-title{font-size:9px;color:#888;flex:1}
+.cur-toolbar-btns{display:flex;gap:4px}
+.cur-tbtn{font-size:8px;padding:2px 6px;border-radius:3px;border:0.5px solid #444;color:#aaa;background:transparent;cursor:pointer}
+.cur-boards{padding:6px}
+.cur-board-tabs{display:flex;gap:3px;flex-wrap:wrap}
+.cur-btab{width:20px;height:20px;border-radius:50%;font-size:8px;font-weight:500;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid transparent}
+.cur-btab.inc{background:#4CAF50;color:white;border-color:#4CAF50}
+.cur-btab.active{border-color:#5C6BC0;background:#1a1a2e;color:#aaa}
+.cur-btab.skip{background:#333;color:#666}
+.cur-inc-skip{display:flex;gap:4px;margin-top:8px}
+.cur-inc-btn{flex:1;font-size:8px;font-weight:500;padding:4px;border-radius:4px;text-align:center;cursor:pointer}
+.cur-inc{background:#4CAF50;color:white;border:none}
+.cur-skip-btn{background:transparent;color:#666;border:0.5px solid #444}
+.cur-hand-area{padding:6px;margin-top:4px}
+.cur-hand-label{font-size:8px;color:#666;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:4px}
+.cur-hand{font-size:9px;color:#ccc;line-height:1.7}
+.cur-hand-r{color:#E24B4A}
+
+.cur-center{display:flex;flex-direction:column;border-right:0.5px solid #333;overflow:hidden}
+.cur-scene-bar{background:#1a1a1a;padding:5px 8px;display:flex;align-items:center;gap:6px;border-bottom:0.5px solid #333}
+.cur-scene-label{font-size:9px;color:#666}
+.cur-seat-btn{font-size:8px;padding:2px 6px;border-radius:3px;border:0.5px solid #444;color:#888;cursor:pointer}
+.cur-seat-btn.active{background:#5C6BC0;color:white;border-color:#5C6BC0}
+.cur-tags{display:flex;gap:3px;padding:6px 8px;border-bottom:0.5px solid #222;flex-wrap:wrap}
+.cur-tag{font-size:8px;padding:2px 6px;border-radius:3px;font-weight:500}
+.cur-tag.bid{background:#FFF3CD;color:#856404}
+.cur-tag.card{background:#D1ECF1;color:#0c5460}
+.cur-tag.play{background:#D4EDDA;color:#155724}
+.cur-tag.sc{background:#E2D9F3;color:#6f42c1}
+.cur-tag.nxt{background:#333;color:#888}
+.cur-tag.rot{background:#333;color:#888}
+.cur-story{padding:8px;font-size:9px;color:#ccc;line-height:1.7;flex:1;overflow:hidden}
+.cur-story-bracket{color:#EF9F27;font-weight:500}
+
+.cur-right{background:#1a1a1a;display:flex;flex-direction:column}
+.cur-sb-header{background:#222;padding:5px 8px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid #333}
+.cur-sb-label{font-size:9px;color:#888;text-transform:uppercase;letter-spacing:0.04em}
+.cur-sb-add{font-size:8px;padding:2px 6px;border-radius:3px;background:#5C6BC0;color:white;border:none;cursor:pointer}
+.cur-scene-card{margin:6px;padding:6px;background:#222;border-radius:4px;border-left:2px solid #5C6BC0}
+.cur-scene-card.active{border-left-color:#4CAF50}
+.cur-sc-label{font-size:8px;color:#888;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:3px}
+.cur-sc-text{font-size:8px;color:#ccc;line-height:1.5}
+.cur-sc-tags{display:flex;gap:2px;margin-top:3px;flex-wrap:wrap}
+.cur-sc-tag{font-size:7px;padding:1px 4px;border-radius:2px;background:#333;color:#EF9F27;font-weight:500}
+
+.footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+
+<nav class="nav">
+  <div class="nav-logo" onclick="alert('→ /')"><span class="suit">♠</span> Bridge Classroom</div>
+  <span class="nav-back" onclick="alert('→ /')">← All tools</span>
+</nav>
+
+<div class="main">
+  <div class="left">
+    <div class="badge">Author tool · web app</div>
+    <h1>Build interactive bridge lessons from PBN files</h1>
+    <p class="sub">Bridge Curator is a visual lesson authoring tool. Load a PBN file, work through each deal, write the teaching narrative, tag the key bids and plays, and publish directly to the Solo Practice app — where students can bid through your lesson interactively.</p>
+
+    <div class="features">
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+        <div>
+          <h3>Visual storyboard authoring</h3>
+          <p>Each deal becomes a multi-scene story. Write the teaching narrative, reveal hands progressively, and tag which bids students need to make.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div>
+          <h3>Include or skip deals</h3>
+          <p>Browse all deals in the PBN file and mark each one as included or skipped. Build the exact lesson set you want from a larger source file.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+        <div>
+          <h3>Live student preview</h3>
+          <p>See exactly what your students will experience before publishing — the same interactive bidding interface they use in the app.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <div>
+          <h3>Publish to the app</h3>
+          <p>Save your lesson as a collection that appears directly in students' Solo Practice app. No manual file transfers or uploads needed.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="workflow">
+      <div class="workflow-label">Typical workflow</div>
+      <div class="workflow-steps">
+        <div class="wstep"><div class="wnum">1</div><p>Download scenario PBN files from the <a onclick="alert('→ /author/deal-library')">Deal Library</a> or generate your own with dealer3.</p></div>
+        <div class="wstep"><div class="wnum">2</div><p>Open the PBN in Bridge Curator. Browse the deals and mark which ones to include.</p></div>
+        <div class="wstep"><div class="wnum">3</div><p>For each deal, write the teaching narrative and tag the key bids and plays students need to find.</p></div>
+        <div class="wstep"><div class="wnum">4</div><p>Preview the lesson as a student, then publish to the app.</p></div>
+      </div>
+    </div>
+
+    <button class="btn-primary" onclick="alert('→ /curator')">Open Bridge Curator</button>
+  </div>
+
+  <div class="right">
+    <div class="screen-label">Load screen</div>
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">bridge-classroom.com/curator</div>
+      </div>
+      <div class="cur-splash">
+        <div class="cur-app-icon">♠</div>
+        <div class="cur-splash-title">Bridge Curator</div>
+        <div class="cur-splash-sub">Author interactive bridge lessons with visual storyboarding. Import PBN files, apply lesson templates, and tag bids and plays.</div>
+        <div class="cur-splash-btns">
+          <button class="cur-btn-p">Open PBN File</button>
+          <button class="cur-btn-s">Load Sample</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-label">Authoring view</div>
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">bridge-classroom.com/curator · 2over1.pbn</div>
+      </div>
+      <div class="cur-editor">
+        <div class="cur-left">
+          <div class="cur-toolbar">
+            <div class="cur-logo">♠</div>
+            <div class="cur-toolbar-title">Bridge Curator</div>
+            <div class="cur-toolbar-btns">
+              <button class="cur-tbtn">Open</button>
+              <button class="cur-tbtn">Save</button>
+            </div>
+          </div>
+          <div class="cur-boards">
+            <div style="font-size:8px;color:#555;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.04em">28 of 28 included</div>
+            <div class="cur-board-tabs">
+              <div class="cur-btab inc active" style="border-color:white">#1</div>
+              <div class="cur-btab inc">#2</div>
+              <div class="cur-btab inc">#3</div>
+              <div class="cur-btab inc">#4</div>
+              <div class="cur-btab inc">#5</div>
+              <div class="cur-btab skip">#6</div>
+              <div class="cur-btab inc">#7</div>
+              <div class="cur-btab inc">#8</div>
+            </div>
+            <div class="cur-inc-skip">
+              <button class="cur-inc-btn cur-inc">✓ Included</button>
+              <button class="cur-inc-btn cur-skip-btn">Skip →</button>
+            </div>
+            <div class="cur-hand-area">
+              <div class="cur-hand-label">South</div>
+              <div class="cur-hand">
+                ♠ J 8 4<br>
+                <span class="cur-hand-r">♥ A 2<br>♦ K 10 9 6 3</span><br>
+                ♣ K J 4
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="cur-center">
+          <div class="cur-scene-bar">
+            <span class="cur-scene-label">Scene 1 of 2</span>
+            <button class="cur-seat-btn">N</button>
+            <button class="cur-seat-btn">E</button>
+            <button class="cur-seat-btn active">S</button>
+            <button class="cur-seat-btn">W</button>
+          </div>
+          <div class="cur-tags">
+            <span class="cur-tag bid">BID</span>
+            <span class="cur-tag card">CARD</span>
+            <span class="cur-tag play">PLAY</span>
+            <span class="cur-tag sc">SHOWCARDS</span>
+            <span class="cur-tag nxt">NEXT</span>
+            <span class="cur-tag rot">ROTATE</span>
+          </div>
+          <div class="cur-story">
+            <span style="color:#aaa">[show S]</span><br>
+            After North's 1<span style="color:#E24B4A">♥</span> opening South counts 12 HCP plus one length point for the fifth <span style="color:#E24B4A">♦</span>. What do you bid?<span class="cur-story-bracket"> [BID 2D]</span><br>
+            That is enough for a 2/1 response so South says 2<span style="color:#E24B4A">♦</span>.<br>
+            The partnership is now forced to reach game so North bids 2NT. What should you bid now?<span class="cur-story-bracket"> [BID 3NT]</span>
+          </div>
+        </div>
+        <div class="cur-right">
+          <div class="cur-sb-header">
+            <span class="cur-sb-label">Storyboard</span>
+            <button class="cur-sb-add">+ Scene</button>
+          </div>
+          <div class="cur-scene-card active">
+            <div class="cur-sc-label">Scene 1</div>
+            <div class="cur-sc-text">[show S] After North's 1♥ opening South counts 12 HCP...</div>
+            <div class="cur-sc-tags"><span class="cur-sc-tag">BID 2D</span><span class="cur-sc-tag">BID 3NT</span></div>
+          </div>
+          <div class="cur-scene-card">
+            <div class="cur-sc-label">Scene 2</div>
+            <div class="cur-sc-text">[show NS]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-copy">Bridge Classroom · free &amp; open source · bridge-classroom.com</span>
+  <span class="nav-back" onclick="alert('→ /')" style="font-size:11px">← Back to all tools</span>
+</div>

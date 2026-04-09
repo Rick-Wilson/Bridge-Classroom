@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hand Curator - Bridge Classroom</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+body{background:var(--color-background-primary)}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:11px 32px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--color-text-primary);cursor:pointer;text-decoration:none}
+.suit{color:#1D9E75}
+.nav-back{font-size:12px;color:var(--color-text-secondary);cursor:pointer;text-decoration:none}
+.nav-back:hover{color:var(--color-text-primary)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+
+.left{padding:28px 36px;display:flex;flex-direction:column;gap:14px;border-right:0.5px solid var(--color-border-tertiary)}
+
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:#E1F5EE;color:#0F6E56;letter-spacing:0.04em;text-transform:uppercase;width:fit-content}
+h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.sub{font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+
+.features{display:flex;flex-direction:column;gap:10px}
+.feat{display:flex;align-items:flex-start;gap:10px}
+.fi{width:28px;height:28px;border-radius:6px;background:#E1F5EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fi svg{width:14px;height:14px;stroke:#1D9E75;fill:none;stroke-width:2}
+.feat h3{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.feat p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+
+.workflow{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px}
+.workflow-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px}
+.workflow-steps{display:flex;flex-direction:column;gap:6px}
+.wstep{display:flex;align-items:flex-start;gap:10px}
+.wnum{width:20px;height:20px;border-radius:50%;background:#1D9E75;color:white;font-size:10px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.wstep p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+.wstep a{color:#1D9E75;cursor:pointer;text-decoration:none}
+.wstep a:hover{text-decoration:underline}
+
+.btn-primary{font-size:14px;font-weight:500;padding:10px 26px;border-radius:var(--border-radius-md);border:none;background:#1D9E75;color:white;cursor:pointer;width:fit-content;text-decoration:none;display:inline-block}
+.btn-primary:hover{background:#0F6E56}
+
+.right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:12px}
+
+.screen-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:2px}
+
+.mock-browser{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
+.browser-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:#111}
+.bdot{width:7px;height:7px;border-radius:50%}
+.burl{flex:1;background:#222;border-radius:3px;padding:3px 10px;font-size:10px;color:#666;margin-left:6px}
+
+/* Curator splash */
+.cur-splash{background:#e8eaf6;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:10px;text-align:center}
+.cur-app-icon{width:48px;height:48px;border-radius:12px;background:#5C6BC0;display:flex;align-items:center;justify-content:center;font-size:24px;color:white}
+.cur-splash-title{font-size:18px;font-weight:700;color:#1a1a3e}
+.cur-splash-sub{font-size:11px;color:#555;max-width:240px;line-height:1.5}
+.cur-splash-btns{display:flex;gap:8px;margin-top:4px}
+.cur-btn-p{font-size:11px;font-weight:600;padding:7px 16px;border-radius:8px;background:#5C6BC0;color:white;border:none;cursor:pointer}
+.cur-btn-s{font-size:11px;font-weight:500;padding:7px 16px;border-radius:8px;background:white;color:#333;border:0.5px solid #ccc;cursor:pointer}
+
+.footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="index-preview.html"><span class="suit">&#9824;</span> Bridge Classroom</a>
+  <a class="nav-back" href="index-preview.html">&larr; All tools</a>
+</nav>
+
+<div class="main">
+  <div class="left">
+    <div class="badge">Author tool &middot; web app</div>
+    <h1>Build interactive bridge lessons from PBN files</h1>
+    <p class="sub">Bridge Curator is a visual lesson authoring tool. Load a PBN file, work through each deal, write the teaching narrative, tag the key bids and plays, and publish directly to the Solo Practice app — where students can bid through your lesson interactively.</p>
+
+    <div class="features">
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></div>
+        <div>
+          <h3>Visual storyboard authoring</h3>
+          <p>Each deal becomes a multi-scene story. Write the teaching narrative, reveal hands progressively, and tag which bids students need to make.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div>
+          <h3>Include or skip deals</h3>
+          <p>Browse all deals in the PBN file and mark each one as included or skipped. Build the exact lesson set you want from a larger source file.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+        <div>
+          <h3>Live student preview</h3>
+          <p>See exactly what your students will experience before publishing — the same interactive bidding interface they use in the app.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+        <div>
+          <h3>Publish to the app</h3>
+          <p>Save your lesson as a collection that appears directly in students' Solo Practice app. No manual file transfers or uploads needed.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="workflow">
+      <div class="workflow-label">Typical workflow</div>
+      <div class="workflow-steps">
+        <div class="wstep"><div class="wnum">1</div><p>Download scenario PBN files from the <a href="deal-library.html">Deal Library</a> or generate your own with dealer3.</p></div>
+        <div class="wstep"><div class="wnum">2</div><p>Open the PBN in Bridge Curator. Browse the deals and mark which ones to include.</p></div>
+        <div class="wstep"><div class="wnum">3</div><p>For each deal, write the teaching narrative and tag the key bids and plays students need to find.</p></div>
+        <div class="wstep"><div class="wnum">4</div><p>Preview the lesson as a student, then publish to the app.</p></div>
+      </div>
+    </div>
+
+    <a class="btn-primary" href="/curator">Open Bridge Curator</a>
+  </div>
+
+  <div class="right">
+    <div class="screen-label">Load screen</div>
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">bridge-classroom.com/curator</div>
+      </div>
+      <img src="screenshots/curator-start.png" alt="Curator load screen" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    </div>
+
+    <div class="screen-label">Authoring view</div>
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">bridge-classroom.com/curator &middot; 2over1.pbn</div>
+      </div>
+      <img src="screenshots/curator-editor.png" alt="Curator authoring view" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    </div>
+
+    <div class="screen-label">Student preview</div>
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">bridge-classroom.com/app &middot; Preview</div>
+      </div>
+      <img src="screenshots/curator-preview.png" alt="Curator student preview" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-copy">Bridge Classroom &middot; free &amp; open source &middot; bridge-classroom.com</span>
+  <a class="nav-back" href="index-preview.html" style="font-size:11px">&larr; Back to all tools</a>
+</div>
+
+</body>
+</html>

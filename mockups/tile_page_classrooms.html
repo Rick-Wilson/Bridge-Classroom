@@ -1,0 +1,233 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans);background:var(--color-background-primary)}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:11px 32px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--color-text-primary);cursor:pointer}
+.suit{color:#1D9E75}
+.nav-back{font-size:12px;color:var(--color-text-secondary);cursor:pointer}
+.nav-back:hover{color:var(--color-text-primary)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+
+.left{padding:28px 36px;display:flex;flex-direction:column;gap:14px;border-right:0.5px solid var(--color-border-tertiary)}
+
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:#E1F5EE;color:#0F6E56;letter-spacing:0.04em;text-transform:uppercase;width:fit-content}
+h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.sub{font-size:13px;color:var(--color-text-secondary);line-height:1.65}
+
+.features{display:flex;flex-direction:column;gap:10px}
+.feat{display:flex;align-items:flex-start;gap:10px;padding:12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md)}
+.fi{width:28px;height:28px;border-radius:6px;background:#E1F5EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fi svg{width:14px;height:14px;stroke:#1D9E75;fill:none;stroke-width:2}
+.feat h3{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.feat p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+
+.unlock-note{font-size:11px;color:var(--color-text-tertiary);line-height:1.6;padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border-left:2px solid #9FE1CB}
+
+.btn-primary{font-size:14px;font-weight:500;padding:10px 26px;border-radius:var(--border-radius-md);border:none;background:#1D9E75;color:white;cursor:pointer;width:fit-content}
+.btn-primary:hover{background:#0F6E56}
+
+.right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:14px}
+
+.mock-browser{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
+.browser-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
+.bdot{width:7px;height:7px;border-radius:50%}
+.burl{flex:1;background:var(--color-background-secondary);border-radius:3px;padding:3px 10px;font-size:10px;color:var(--color-text-tertiary);margin-left:6px}
+
+/* Student list mock */
+.slist{padding:12px 14px}
+.slist-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.slist-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.slist-filter{font-size:10px;padding:3px 10px;border-radius:3px;border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);background:var(--color-background-primary)}
+.slist-cols{display:grid;grid-template-columns:1fr 80px 60px 1fr;gap:4px;padding:0 4px 6px;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:6px}
+.slist-col{font-size:8px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.04em}
+.srow{display:grid;grid-template-columns:1fr 80px 60px 1fr;gap:4px;padding:5px 4px;border-bottom:0.5px solid var(--color-border-tertiary);align-items:center}
+.srow:last-child{border-bottom:none}
+.savatar{width:20px;height:20px;border-radius:50%;background:#7F77DD;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:500;color:white;flex-shrink:0}
+.sname-wrap{display:flex;align-items:center;gap:6px}
+.sname{font-size:11px;color:var(--color-text-primary)}
+.mastery-dots{display:flex;gap:3px;align-items:center}
+.mbadge{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:500;color:white}
+.mg{background:#1D9E75}
+.mo{background:#EF9F27}
+.mr{background:#E24B4A}
+.sactive{font-size:10px;color:var(--color-text-secondary)}
+.slessons{font-size:10px;color:var(--color-text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Progress drill-down mock */
+.drill{padding:12px 14px}
+.drill-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.drill-avatar{width:28px;height:28px;border-radius:50%;background:#7F77DD;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:white;flex-shrink:0}
+.drill-name{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.drill-sub{font-size:10px;color:var(--color-text-secondary)}
+.drill-tabs{display:flex;gap:0;border-bottom:0.5px solid var(--color-border-tertiary);margin-bottom:10px}
+.drill-tab{font-size:10px;padding:5px 12px;color:var(--color-text-secondary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-0.5px}
+.drill-tab.active{color:#185FA5;border-bottom-color:#185FA5;font-weight:500}
+.drill-chart-area{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:8px 10px;margin-bottom:8px}
+.drill-chart-label{font-size:9px;color:var(--color-text-secondary);margin-bottom:6px}
+.drill-bars{display:flex;align-items:flex-end;gap:3px;height:36px}
+.dbar{border-radius:2px 2px 0 0;width:8px;flex-shrink:0}
+.drill-lessons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.dl-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px}
+.dl-name{font-size:10px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;display:flex;align-items:center;justify-content:space-between}
+.dl-pct{font-size:10px;font-weight:500}
+.dl-pct.good{color:#1D9E75}
+.dl-pct.mid{color:#EF9F27}
+.dl-meta{font-size:8px;color:var(--color-text-tertiary);margin-bottom:5px}
+.dl-bar-wrap{height:3px;background:var(--color-background-secondary);border-radius:2px;margin-bottom:4px}
+.dl-bar-g{height:3px;border-radius:2px 0 0 2px;background:#1D9E75;display:inline-block}
+.dl-bar-o{height:3px;background:#EF9F27;display:inline-block}
+.dl-bar-b{height:3px;border-radius:0 2px 2px 0;background:#378ADD;display:inline-block}
+.dl-bar-row{display:flex;height:3px;border-radius:2px;overflow:hidden;margin-bottom:4px}
+.dl-stat{font-size:8px;color:var(--color-text-secondary)}
+
+.footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+
+<nav class="nav">
+  <div class="nav-logo" onclick="alert('→ /')"><span class="suit">♠</span> Bridge Classroom</div>
+  <span class="nav-back" onclick="alert('→ /')">← All tools</span>
+</nav>
+
+<div class="main">
+  <div class="left">
+    <div class="badge">Teacher feature · inside the app</div>
+    <h1>Bring Bridge Classroom<br>into your teaching</h1>
+    <p class="sub">Classroom tools are built into the same Solo Practice app your students already use. Once you enable teacher mode in your profile, you get three additional capabilities.</p>
+
+    <div class="features">
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div>
+          <h3>Create classrooms and invite students</h3>
+          <p>Each classroom gets a unique link. Email it to your students — when they click it, they're enrolled in your class. Students who haven't signed up yet are guided through the 30-second registration.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+        <div>
+          <h3>Assign lessons to your class</h3>
+          <p>Choose any lesson collection and assign it to a classroom. Students see your assigned lessons highlighted in their app so they know what to focus on.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div>
+        <div>
+          <h3>Monitor student progress</h3>
+          <p>See each student's mastery counts, recent activity, and which lessons they've been working on. Drill into any student for a detailed per-lesson breakdown with accuracy charts.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="unlock-note">Teacher tools are part of the Solo Practice app — no separate account needed. To enable them, sign in to the app, open your profile, and tap <strong>"Become a teacher."</strong> It's instant.</div>
+    <button class="btn-primary" onclick="alert('→ /app')">Open the app</button>
+  </div>
+
+  <div class="right">
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">bridge-classroom.com/app · Students</div>
+      </div>
+      <div class="slist">
+        <div class="slist-header">
+          <span class="slist-title">My Students</span>
+          <span class="slist-filter">All Students ▾</span>
+        </div>
+        <div class="slist-cols">
+          <span class="slist-col">Student</span>
+          <span class="slist-col">Mastery</span>
+          <span class="slist-col">Last active</span>
+          <span class="slist-col">Recent lessons</span>
+        </div>
+        <div class="srow">
+          <div class="sname-wrap"><div class="savatar">PJ</div><span class="sname">Paula Jones</span></div>
+          <div class="mastery-dots"><div class="mbadge mg">1</div><div class="mbadge mr">8</div></div>
+          <span class="sactive">7h ago</span>
+          <span class="slessons">Roman</span>
+        </div>
+        <div class="srow">
+          <div class="sname-wrap"><div class="savatar">CR</div><span class="sname">Carol Russell</span></div>
+          <div class="mastery-dots"><div class="mbadge mg">118</div><div class="mbadge mo">3</div><div class="mbadge mr">27</div></div>
+          <span class="sactive">16h ago</span>
+          <span class="slessons">Basic Bidding · Stayman</span>
+        </div>
+        <div class="srow">
+          <div class="sname-wrap"><div class="savatar">LJ</div><span class="sname">Laura Jenkins</span></div>
+          <div class="mastery-dots"><div class="mbadge mg">164</div><div class="mbadge mo">66</div><div class="mbadge mr">27</div></div>
+          <span class="sactive">1d ago</span>
+          <span class="slessons">Roman Key Card · Jacoby</span>
+        </div>
+        <div class="srow">
+          <div class="sname-wrap"><div class="savatar">KK</div><span class="sname">Kenneth Kelly</span></div>
+          <div class="mastery-dots"><div class="mbadge mg">1</div><div class="mbadge mo">2</div><div class="mbadge mr">17</div></div>
+          <span class="sactive">1d ago</span>
+          <span class="slessons">Major</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mock-browser">
+      <div class="browser-bar">
+        <div class="bdot" style="background:#E24B4A"></div>
+        <div class="bdot" style="background:#EF9F27"></div>
+        <div class="bdot" style="background:#639922"></div>
+        <div class="burl">bridge-classroom.com/app · Student detail</div>
+      </div>
+      <div class="drill">
+        <div class="drill-header">
+          <div class="drill-avatar">CR</div>
+          <div>
+            <div class="drill-name">Carol Russell</div>
+            <div class="drill-sub">Last active 16h ago · 13 lessons · 147 boards</div>
+          </div>
+        </div>
+        <div class="drill-tabs">
+          <div class="drill-tab active">Progress</div>
+          <div class="drill-tab">Lesson Mastery</div>
+        </div>
+        <div class="drill-chart-area">
+          <div class="drill-chart-label">Daily practice activity · 313 observations</div>
+          <div class="drill-bars">
+            <div class="dbar" style="height:14px;background:#E24B4A"></div>
+            <div class="dbar" style="height:8px;background:#7F77DD"></div>
+            <div class="dbar" style="height:6px;background:#378ADD"></div>
+            <div class="dbar" style="height:0px"></div>
+            <div class="dbar" style="height:10px;background:#1D9E75"></div>
+            <div class="dbar" style="height:4px;background:#EF9F27"></div>
+            <div class="dbar" style="height:0px"></div>
+            <div class="dbar" style="height:36px;background:#5DCAA5"></div>
+            <div class="dbar" style="height:28px;background:#1D9E75"></div>
+            <div class="dbar" style="height:20px;background:#EF9F27"></div>
+            <div class="dbar" style="height:16px;background:#E24B4A"></div>
+            <div class="dbar" style="height:24px;background:#5DCAA5"></div>
+          </div>
+        </div>
+        <div class="drill-lessons">
+          <div class="dl-card">
+            <div class="dl-name">Basic Bidding <span class="dl-pct good">92%</span></div>
+            <div class="dl-meta">13 boards · last Apr 8 · 14 min</div>
+            <div class="dl-bar-row"><div style="width:85%;background:#1D9E75;height:3px"></div><div style="width:8%;background:#EF9F27;height:3px"></div><div style="width:7%;background:#ccc;height:3px"></div></div>
+            <div class="dl-stat">12 Mastered · 1 Struggling · 11 Untried</div>
+          </div>
+          <div class="dl-card">
+            <div class="dl-name">Stayman <span class="dl-pct mid">71%</span></div>
+            <div class="dl-meta">25 boards · last Apr 8 · 42 hr</div>
+            <div class="dl-bar-row"><div style="width:60%;background:#1D9E75;height:3px"></div><div style="width:5%;background:#378ADD;height:3px"></div><div style="width:20%;background:#EF9F27;height:3px"></div><div style="width:15%;background:#ccc;height:3px"></div></div>
+            <div class="dl-stat">18 Mastered · 1 Progressing · 6 Struggling</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-copy">Bridge Classroom · free &amp; open source · bridge-classroom.com</span>
+  <span class="nav-back" onclick="alert('→ /')" style="font-size:11px">← Back to all tools</span>
+</div>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teacher Utilities - Bridge Classroom</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+body{background:var(--color-background-primary)}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:11px 32px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--color-text-primary);cursor:pointer;text-decoration:none}
+.suit{color:#1D9E75}
+.nav-back{font-size:12px;color:var(--color-text-secondary);cursor:pointer;text-decoration:none}
+.nav-back:hover{color:var(--color-text-primary)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+
+.left{padding:28px 36px;display:flex;flex-direction:column;gap:16px;border-right:0.5px solid var(--color-border-tertiary)}
+
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:var(--color-background-secondary);color:var(--color-text-secondary);letter-spacing:0.04em;text-transform:uppercase;width:fit-content}
+h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.sub{font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+
+.cli-note{padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border-left:2px solid var(--color-border-secondary);font-size:11px;color:var(--color-text-tertiary);line-height:1.6}
+
+.tool-group{display:flex;flex-direction:column;gap:8px}
+.group-label{font-size:11px;font-weight:500;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.05em}
+
+.tool-card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden}
+.tool-head{padding:12px 14px;display:flex;align-items:flex-start;gap:12px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.tool-icon{width:32px;height:32px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tool-icon svg{width:15px;height:15px;fill:none;stroke-width:2}
+.tool-name{font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tool-code{font-size:10px;font-family:var(--font-mono);color:var(--color-text-tertiary);background:var(--color-background-secondary);padding:1px 6px;border-radius:3px;font-weight:400}
+.tool-desc{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+.tool-uses{padding:10px 14px;display:flex;flex-direction:column;gap:5px}
+.tool-use{font-size:11px;color:var(--color-text-secondary);line-height:1.5;display:flex;gap:7px;align-items:flex-start}
+.tool-use:before{content:"\2192";color:var(--color-text-tertiary);flex-shrink:0;font-size:10px;margin-top:1px}
+.tool-foot{padding:8px 14px;border-top:0.5px solid var(--color-border-tertiary);display:flex;gap:8px;background:var(--color-background-secondary);align-items:center}
+.dl-btn{font-size:11px;font-weight:500;padding:5px 12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);color:var(--color-text-secondary);background:var(--color-background-primary);cursor:pointer;display:flex;align-items:center;gap:5px;text-decoration:none}
+.dl-btn:hover{border-color:var(--color-text-secondary);color:var(--color-text-primary)}
+.dl-btn svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2}
+.gh-link{font-size:11px;color:#185FA5;cursor:pointer;padding:5px 0;display:flex;align-items:center;gap:5px;text-decoration:none;margin-left:auto}
+.gh-link svg{width:11px;height:11px;fill:#185FA5}
+.gh-link:hover{text-decoration:underline}
+
+.footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+
+.right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:14px}
+
+.terminal{background:#1e1e1e;border-radius:var(--border-radius-lg);overflow:hidden;border:0.5px solid #333}
+.term-bar{background:#2d2d2d;padding:7px 12px;display:flex;align-items:center;gap:6px;border-bottom:0.5px solid #444}
+.tdot{width:7px;height:7px;border-radius:50%}
+.term-title{flex:1;text-align:center;font-size:10px;color:#888}
+.term-body{padding:12px 14px;font-family:var(--font-mono),monospace;font-size:10.5px;line-height:1.8}
+.t-prompt{color:#5DCAA5}
+.t-cmd{color:#ddd}
+.t-arg{color:#AFA9EC}
+.t-flag{color:#EF9F27}
+.t-val{color:#85B7EB}
+.t-comment{color:#555;font-style:italic}
+.t-out{color:#888;font-size:10px;line-height:1.6}
+.t-out-g{color:#5DCAA5;font-size:10px}
+.t-sep{border-top:0.5px solid #333;margin:10px 0}
+.example-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:2px}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="index-preview.html"><span class="suit">&#9824;</span> Bridge Classroom</a>
+  <a class="nav-back" href="index-preview.html">&larr; All tools</a>
+</nav>
+
+<div class="main">
+  <div class="left">
+    <div class="badge">Downloadable tools &middot; Mac &middot; Windows &middot; Linux</div>
+    <h1>Teacher utilities</h1>
+    <p class="sub">Command-line tools for preparing lesson materials. Download the pre-built binary for your computer — no programming knowledge required to run them, though they do require using a Terminal or Command Prompt.</p>
+
+    <div class="cli-note">These are command-line tools — they run in a Terminal (Mac/Linux) or Command Prompt (Windows). If that's not familiar territory, the pre-built lesson materials in the <strong>Lesson Materials</strong> section may be all you need.</div>
+
+    <div class="tool-group">
+      <div class="group-label">Everyday teacher tools</div>
+
+      <div class="tool-card">
+        <div class="tool-head">
+          <div class="tool-icon" style="background:#E1F5EE"><svg viewBox="0 0 24 24" stroke="#1D9E75"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div>
+            <div class="tool-name">PDF Handouts <span class="tool-code">pdf-handouts</span></div>
+            <div class="tool-desc">Assemble class handouts from multiple PDFs and add your class name, date, and page numbers in one step.</div>
+          </div>
+        </div>
+        <div class="tool-uses">
+          <div class="tool-use">Merge several PDF sections into a single handout</div>
+          <div class="tool-use">Add title, class name, presenter name, and date to every page</div>
+          <div class="tool-use">Automatic page numbers — "Page 3 of 14"</div>
+          <div class="tool-use">Smart date expressions — "next tuesday" fills in the right date automatically</div>
+        </div>
+        <div class="tool-foot">
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/pdf-handouts/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Mac</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/pdf-handouts/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Windows</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/pdf-handouts/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Linux</a>
+          <a class="gh-link" href="https://github.com/Rick-Wilson/pdf-handouts"><svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg> GitHub</a>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-head">
+          <div class="tool-icon" style="background:#E1F5EE"><svg viewBox="0 0 24 24" stroke="#1D9E75"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></div>
+          <div>
+            <div class="tool-name">Bridge Wrangler <span class="tool-code">bridge-wrangler</span></div>
+            <div class="tool-desc">Process and transform PBN deal files — rotate hands for the hot seat, convert to PDF, filter by criteria, and more.</div>
+          </div>
+        </div>
+        <div class="tool-uses">
+          <div class="tool-use">Rotate deals so a specific seat is always in the hot seat</div>
+          <div class="tool-use">Convert PBN files directly to printable PDF</div>
+          <div class="tool-use">Replicate boards into sets for multi-table play</div>
+          <div class="tool-use">Filter deals by any tag or pattern</div>
+          <div class="tool-use">Convert PBN to LIN format for BBO</div>
+        </div>
+        <div class="tool-foot">
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/bridge-wrangler/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Mac</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/bridge-wrangler/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Windows</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/bridge-wrangler/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Linux</a>
+          <a class="gh-link" href="https://github.com/Rick-Wilson/bridge-wrangler"><svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg> GitHub</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="tool-group">
+      <div class="group-label">For creating your own materials</div>
+
+      <div class="tool-card">
+        <div class="tool-head">
+          <div class="tool-icon" style="background:#E6F1FB"><svg viewBox="0 0 24 24" stroke="#185FA5"><rect x="2" y="2" width="9" height="9"/><rect x="13" y="2" width="9" height="9"/><rect x="2" y="13" width="9" height="9"/><rect x="13" y="13" width="9" height="9"/></svg></div>
+          <div>
+            <div class="tool-name">Dealer3 <span class="tool-code">dealer3</span></div>
+            <div class="tool-desc">Generate bridge hands to a precise specification. A Rust rewrite that supersedes both the original Dealer and Dealer2 — drop-in compatible with existing scripts, with added multi-threading for fast generation of large sets.</div>
+          </div>
+        </div>
+        <div class="tool-uses">
+          <div class="tool-use">Generate hands matching specific HCP ranges, suit lengths, or distributions</div>
+          <div class="tool-use">Drop-in replacement for Dealer and Dealer2 — existing scripts work unchanged</div>
+          <div class="tool-use">Multi-threaded generation for large deal sets — significantly faster than the originals</div>
+          <div class="tool-use">Predeal specific cards to specific seats for constrained scenarios</div>
+          <div class="tool-use">CSV output for analysis pipelines; PBN output for direct use in other tools</div>
+        </div>
+        <div class="tool-foot">
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/dealer3/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Mac</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/dealer3/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Windows</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/dealer3/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Linux</a>
+          <a class="gh-link" href="https://github.com/Rick-Wilson/dealer3"><svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg> GitHub</a>
+        </div>
+      </div>
+
+      <div class="tool-card">
+        <div class="tool-head">
+          <div class="tool-icon" style="background:#E6F1FB"><svg viewBox="0 0 24 24" stroke="#185FA5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+          <div>
+            <div class="tool-name">Bridge Solver <span class="tool-code">bridge-solver</span></div>
+            <div class="tool-desc">Double-dummy analysis for any bridge deal. A Rust rewrite based on the Bo Haglund double-dummy solver — the same algorithm used by most bridge software worldwide.</div>
+          </div>
+        </div>
+        <div class="tool-uses">
+          <div class="tool-use">Find the optimal result on any deal with double-dummy analysis</div>
+          <div class="tool-use">Verify par contracts when preparing lesson materials</div>
+          <div class="tool-use">Used internally by bridge-wrangler's analyze command</div>
+        </div>
+        <div class="tool-foot">
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/bridge-solver/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Mac</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/bridge-solver/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Windows</a>
+          <a class="dl-btn" href="https://github.com/Rick-Wilson/bridge-solver/releases/latest"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>Linux</a>
+          <a class="gh-link" href="https://github.com/Rick-Wilson/bridge-solver"><svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/></svg> GitHub</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="example-label">Example: preparing a class handout</div>
+    <div class="terminal">
+      <div class="term-bar">
+        <div class="tdot" style="background:#E24B4A"></div>
+        <div class="tdot" style="background:#EF9F27"></div>
+        <div class="tdot" style="background:#639922"></div>
+        <div class="term-title">Terminal</div>
+      </div>
+      <div class="term-body">
+        <div class="t-comment"># Assemble handout from multiple PDFs,</div>
+        <div class="t-comment"># add class name, presenter, date and page numbers</div>
+        <div style="margin-top:6px"><span class="t-prompt">$ </span><span class="t-cmd">pdf-handouts build</span></div>
+        <div style="padding-left:16px">
+          <span class="t-arg">"1. NT Ladder Intro.pdf"</span><br>
+          <span class="t-arg">"2. Practice Sheet.pdf"</span><br>
+          <span class="t-arg">"3. Exercises.pdf"</span><br>
+          <span class="t-flag">-o</span> <span class="t-val">"Handout.pdf"</span><br>
+          <span class="t-flag">--title</span> <span class="t-val">"Bridge Class Handout"</span><br>
+          <span class="t-flag">--footer-left</span> <span class="t-val">"Stoneridge Creek"</span><br>
+          <span class="t-flag">--footer-center</span> <span class="t-val">"Presented by: Rick Wilson"</span><br>
+          <span class="t-flag">--footer-right</span> <span class="t-val">"Page [page] of [pages]|[date]"</span><br>
+          <span class="t-flag">--date</span> <span class="t-val">"next tuesday"</span>
+        </div>
+        <div class="t-out" style="margin-top:8px">Merging 3 PDFs... done</div>
+        <div class="t-out">Adding headers and footers... done</div>
+        <div class="t-out-g">&#10003; Written to Handout.pdf (14 pages)</div>
+
+        <div class="t-sep"></div>
+
+        <div class="t-comment"># Rotate deals so South is always declarer</div>
+        <div style="margin-top:4px"><span class="t-prompt">$ </span><span class="t-cmd">bridge-wrangler rotate-deals</span></div>
+        <div style="padding-left:16px">
+          <span class="t-arg">lesson.pbn</span><br>
+          <span class="t-flag">--seat</span> <span class="t-val">south</span><br>
+          <span class="t-flag">--role</span> <span class="t-val">declarer</span><br>
+          <span class="t-flag">-o</span> <span class="t-val">lesson-south.pbn</span>
+        </div>
+        <div class="t-out" style="margin-top:8px">Processing 20 deals... done</div>
+        <div class="t-out-g">&#10003; Written to lesson-south.pbn</div>
+
+        <div class="t-sep"></div>
+
+        <div class="t-comment"># Generate 40 hands with 5-card major, 15-17 HCP</div>
+        <div style="margin-top:4px"><span class="t-prompt">$ </span><span class="t-cmd">dealer3</span> <span class="t-arg">major_open.dl</span></div>
+        <div style="padding-left:16px">
+          <span class="t-flag">-p</span> <span class="t-val">40</span><br>
+          <span class="t-flag">-f</span> <span class="t-val">pbn</span><br>
+          <span class="t-flag">-R</span> <span class="t-val">0</span> <span class="t-comment"># auto-detect threads</span>
+        </div>
+        <div class="t-out" style="margin-top:8px">Generating with 10 threads...</div>
+        <div class="t-out-g">&#10003; 40 deals written to major_open.pbn</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-copy">Bridge Classroom &middot; free &amp; open source &middot; bridge-classroom.com</span>
+  <a class="nav-back" href="index-preview.html" style="font-size:11px">&larr; Back to all tools</a>
+</div>
+
+</body>
+</html>
