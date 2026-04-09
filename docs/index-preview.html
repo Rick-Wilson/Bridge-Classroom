@@ -354,8 +354,10 @@
 <script>
 try {
   var data = JSON.parse(localStorage.getItem('bridgePractice') || '{}');
-  if (data.userId && data.firstName) {
-    document.getElementById('returningName').textContent = data.firstName;
+  var uid = data.currentUserId;
+  var user = uid && data.users && data.users[uid];
+  if (user && user.firstName) {
+    document.getElementById('returningName').textContent = user.firstName;
     document.getElementById('welcomeBanner').style.display = 'flex';
   }
 } catch(e) {}
