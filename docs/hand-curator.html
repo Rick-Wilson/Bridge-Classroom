@@ -45,19 +45,9 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 
 .screen-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:2px}
 
-.mock-browser{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
-.browser-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:#111}
-.bdot{width:7px;height:7px;border-radius:50%}
-.burl{flex:1;background:#222;border-radius:3px;padding:3px 10px;font-size:10px;color:#666;margin-left:6px}
-
-/* Curator splash */
-.cur-splash{background:#e8eaf6;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;gap:10px;text-align:center}
-.cur-app-icon{width:48px;height:48px;border-radius:12px;background:#5C6BC0;display:flex;align-items:center;justify-content:center;font-size:24px;color:white}
-.cur-splash-title{font-size:18px;font-weight:700;color:#1a1a3e}
-.cur-splash-sub{font-size:11px;color:#555;max-width:240px;line-height:1.5}
-.cur-splash-btns{display:flex;gap:8px;margin-top:4px}
-.cur-btn-p{font-size:11px;font-weight:600;padding:7px 16px;border-radius:8px;background:#5C6BC0;color:white;border:none;cursor:pointer}
-.cur-btn-s{font-size:11px;font-weight:500;padding:7px 16px;border-radius:8px;background:white;color:#333;border:0.5px solid #ccc;cursor:pointer}
+.screenshot{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.screenshot img{display:block;width:100%;height:auto}
+.screenshot-caption{font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:8px;background:var(--color-background-primary)}
 
 .footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
 .footer-copy{font-size:11px;color:var(--color-text-tertiary)}
@@ -122,36 +112,21 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 
   <div class="right">
     <div class="screen-label">Load screen</div>
-    <div class="mock-browser">
-      <div class="browser-bar">
-        <div class="bdot" style="background:#E24B4A"></div>
-        <div class="bdot" style="background:#EF9F27"></div>
-        <div class="bdot" style="background:#639922"></div>
-        <div class="burl">bridge-classroom.com/curator</div>
-      </div>
-      <img src="screenshots/curator-start.png" alt="Curator load screen" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    <div class="screenshot">
+      <img src="screenshots/curator-start.png" alt="Curator load screen">
+      <div class="screenshot-caption">Load screen</div>
     </div>
 
     <div class="screen-label">Authoring view</div>
-    <div class="mock-browser">
-      <div class="browser-bar">
-        <div class="bdot" style="background:#E24B4A"></div>
-        <div class="bdot" style="background:#EF9F27"></div>
-        <div class="bdot" style="background:#639922"></div>
-        <div class="burl">bridge-classroom.com/curator &middot; 2over1.pbn</div>
-      </div>
-      <img src="screenshots/curator-editor.png" alt="Curator authoring view" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    <div class="screenshot">
+      <img src="screenshots/curator-editor.png" alt="Curator authoring view">
+      <div class="screenshot-caption">Authoring view</div>
     </div>
 
     <div class="screen-label">Student preview</div>
-    <div class="mock-browser">
-      <div class="browser-bar">
-        <div class="bdot" style="background:#E24B4A"></div>
-        <div class="bdot" style="background:#EF9F27"></div>
-        <div class="bdot" style="background:#639922"></div>
-        <div class="burl">bridge-classroom.com/app &middot; Preview</div>
-      </div>
-      <img src="screenshots/curator-preview.png" alt="Curator student preview" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    <div class="screenshot">
+      <img src="screenshots/curator-preview.png" alt="Curator student preview">
+      <div class="screenshot-caption">Student preview</div>
     </div>
   </div>
 </div>

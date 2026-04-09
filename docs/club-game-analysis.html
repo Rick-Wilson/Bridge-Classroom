@@ -14,7 +14,7 @@ body{background:var(--color-background-primary)}
 .nav-back{font-size:12px;color:var(--color-text-secondary);text-decoration:none}
 .nav-back:hover{color:var(--color-text-primary)}
 
-.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+.top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
 
 .left{padding:28px 36px;display:flex;flex-direction:column;gap:14px;border-right:0.5px solid var(--color-border-tertiary)}
 
@@ -51,35 +51,31 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 .dl-btn:hover{border-color:#1D9E75;color:#1D9E75}
 .dl-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
 
-.right{padding:28px 24px;background:var(--color-background-secondary)}
+.right-info{padding:28px 36px;display:flex;flex-direction:column;gap:14px}
 
-.mock-terminal{background:#1a1a1a;border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
-.terminal-bar{display:flex;align-items:center;gap:6px;padding:8px 14px;background:#2a2a2a;border-bottom:0.5px solid #333}
-.tdot{width:8px;height:8px;border-radius:50%}
-.terminal-title{flex:1;text-align:center;font-size:10px;color:#888;margin-left:6px}
-.terminal-body{padding:14px 16px;font-family:var(--font-mono),monospace;font-size:10.5px;line-height:1.7;overflow:hidden}
-.t-label{color:#5DCAA5;font-weight:500}
-.t-head{color:#5DCAA5}
-.t-dim{color:#666}
-.t-white{color:#ccc}
-.t-red{color:#E24B4A}
+.terminal-section{padding:0 32px 32px}
+.terminal{background:#1a1a2e;border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
+.terminal-body{padding:20px 24px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:13px;line-height:1.65;overflow-x:auto}
+
 .t-green{color:#5DCAA5}
+.t-red{color:#E24B4A}
 .t-yellow{color:#EF9F27}
-.t-purple{color:#AFA9EC}
+.t-purple{color:#C792EA}
 .t-cyan{color:#5DCAA5}
-.t-pct-good{color:#5DCAA5}
-.t-pct-bad{color:#E24B4A}
-.t-pct-mid{color:#EF9F27}
-.t-row{display:flex;gap:0}
-.t-summary{margin-bottom:10px;padding-bottom:8px;border-bottom:0.5px solid #333}
-.t-col-bd{display:inline-block;width:28px}
-.t-col-dir{display:inline-block;width:32px}
-.t-col-con{display:inline-block;width:60px}
-.t-col-sc{display:inline-block;width:50px;text-align:right;padding-right:8px}
-.t-col-mp{display:inline-block;width:52px;text-align:right;padding-right:8px}
-.t-col-fld{display:inline-block;width:44px}
-.t-col-cause{display:inline-block;width:60px}
-.t-col-note{display:inline-block;color:#888;font-size:10px}
+.t-white{color:#d4d4d4}
+.t-dim{color:#666}
+.t-bold{font-weight:600}
+
+.t-summary{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #333}
+.t-results-header{color:#5DCAA5;font-weight:600;margin-bottom:4px}
+.t-separator{color:#444;margin-bottom:8px}
+.t-table{border-collapse:collapse;width:100%;white-space:nowrap}
+.t-table th{color:#666;font-weight:500;text-align:left;padding:2px 12px 2px 0;font-size:13px}
+.t-table th.r{text-align:right;padding-right:16px}
+.t-table td{padding:1px 12px 1px 0;font-size:13px;color:#d4d4d4}
+.t-table td.r{text-align:right;padding-right:16px}
+.t-table td.dim{color:#666}
+.t-legend{margin-top:14px;padding-top:12px;border-top:1px solid #333;font-size:11px;color:#666;line-height:1.7}
 
 .footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
 .footer-copy{font-size:11px;color:var(--color-text-tertiary)}
@@ -92,7 +88,7 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
   <a class="nav-back" href="index-preview.html">&larr; All tools</a>
 </nav>
 
-<div class="main">
+<div class="top">
   <div class="left">
     <div class="badge-row">
       <span class="badge badge-blue">Web app coming soon</span>
@@ -124,7 +120,9 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
         </div>
       </div>
     </div>
+  </div>
 
+  <div class="right-info">
     <div class="how-it-works">
       <div class="how-title">How to use it today</div>
       <div class="steps">
@@ -163,50 +161,68 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
       </div>
     </div>
   </div>
+</div>
 
-  <div class="right">
-    <div class="mock-terminal">
-      <div class="terminal-bar">
-        <div class="tdot" style="background:#E24B4A"></div>
-        <div class="tdot" style="background:#EF9F27"></div>
-        <div class="tdot" style="background:#639922"></div>
-        <div class="terminal-title">bridge-club-game-analysis output</div>
+<div class="terminal-section">
+  <div class="terminal">
+    <div class="terminal-body">
+      <div class="t-summary">
+        <span class="t-green t-bold">Seat:</span> <span class="t-white">South</span><br>
+        <span class="t-green t-bold">Boards played:</span> <span class="t-white">27</span><br>
+        <span class="t-green t-bold">Boards declared:</span> <span class="t-white">6</span><br>
+        <span class="t-green t-bold">Avg matchpoints:</span> <span class="t-green">45.0%</span><br>
+        <span class="t-dim">&nbsp;&nbsp;Declaring:</span> <span class="t-red">27.6%</span>
+        <span class="t-dim">&nbsp;&nbsp;Dummy:</span> <span class="t-white">53.6%</span>
+        <span class="t-dim">&nbsp;&nbsp;Defending:</span> <span class="t-white">49.4%</span><br>
+        <span class="t-green t-bold">Declarer vs field:</span> <span class="t-red">-0.20 tricks</span><br>
+        <span class="t-green t-bold">Field contract:</span> <span class="t-white">51.9%</span>
       </div>
-      <div class="terminal-body">
-        <div class="t-summary">
-          <span class="t-label">Seat: </span><span class="t-white">South</span><br>
-          <span class="t-label">Boards played: </span><span class="t-white">27 &nbsp;&nbsp;&nbsp;</span><span class="t-label">Boards declared: </span><span class="t-white">6</span><br>
-          <span class="t-label">Avg matchpoints: </span><span class="t-pct-bad">45.0%</span><br>
-          <span class="t-dim">&nbsp;&nbsp;Declaring: </span><span class="t-pct-bad">27.6%</span><span class="t-dim"> &nbsp;&nbsp;Dummy: </span><span class="t-white">53.6%</span><span class="t-dim"> &nbsp;&nbsp;Defending: </span><span class="t-white">49.4%</span><br>
-          <span class="t-label">Declarer vs field: </span><span class="t-pct-bad">-0.20 tricks</span><span class="t-dim"> &nbsp;&nbsp;Field contract: </span><span class="t-white">51.9%</span>
-        </div>
-        <div style="color:#5DCAA5;font-weight:500;margin-bottom:4px">Board-by-Board Results</div>
-        <div style="color:#444;margin-bottom:6px">--------------------</div>
-        <div style="margin-bottom:4px">
-          <span class="t-col-bd t-dim">Bd</span>
-          <span class="t-col-dir t-dim">Dir</span>
-          <span class="t-col-con t-dim">Contract</span>
-          <span class="t-col-sc t-dim">Score</span>
-          <span class="t-col-mp t-dim">MP%</span>
-          <span class="t-col-fld t-dim">Field</span>
-          <span class="t-col-cause t-dim">Cause</span>
-          <span class="t-col-note t-dim">Notes</span>
-        </div>
-        <div><span class="t-col-bd t-white">1</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">1SE+1</span><span class="t-col-sc t-red">-110</span><span class="t-col-mp t-pct-mid">35.7%</span><span class="t-col-fld t-white">2S</span><span class="t-col-cause t-yellow">Unlucky</span><span class="t-col-note">opps underbid</span></div>
-        <div><span class="t-col-bd t-white">2</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">3SN-1</span><span class="t-col-sc t-red">-100</span><span class="t-col-mp t-pct-bad">7.1%</span><span class="t-col-fld t-white">3NT</span><span class="t-col-cause t-purple">Auction</span><span class="t-col-note">S vs NT</span></div>
-        <div><span class="t-col-bd t-white">6</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">6SS-1</span><span class="t-col-sc t-red">-50</span><span class="t-col-mp t-pct-bad">0.0%</span><span class="t-col-fld t-white">4S</span><span class="t-col-cause t-purple">Auction</span><span class="t-col-note">overbid (4S)</span></div>
-        <div><span class="t-col-bd t-white">8</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">2HXN=</span><span class="t-col-sc t-green">470</span><span class="t-col-mp t-pct-good">100%</span><span class="t-col-fld t-white">2S</span><span class="t-col-cause t-yellow">Lucky</span><span class="t-col-note">opps failed to compete</span></div>
-        <div><span class="t-col-bd t-white">11</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">6HS=</span><span class="t-col-sc t-green">980</span><span class="t-col-mp t-pct-good">71.4%</span><span class="t-col-fld t-white">=6H</span><span class="t-col-cause t-cyan">Good</span><span class="t-col-note">DD par (12)</span></div>
-        <div><span class="t-col-bd t-white">12</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">1NTE+1</span><span class="t-col-sc t-red">-120</span><span class="t-col-mp t-pct-good">100%</span><span class="t-col-fld t-white">1S</span><span class="t-col-cause t-yellow">Lucky</span><span class="t-col-note">opps inferior contract</span></div>
-        <div><span class="t-col-bd t-white">15</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">5SS-1</span><span class="t-col-sc t-red">-100</span><span class="t-col-mp t-pct-bad">14.3%</span><span class="t-col-fld t-white">6S</span><span class="t-col-cause t-red">Play</span><span class="t-col-note">2 tricks fewer, also underbid</span></div>
-        <div><span class="t-col-bd t-white">16</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">2SN=</span><span class="t-col-sc t-green">110</span><span class="t-col-mp t-pct-good">85.7%</span><span class="t-col-fld t-white">1NT</span><span class="t-col-cause t-cyan">Good</span><span class="t-col-note">competed successfully</span></div>
-        <div><span class="t-col-bd t-white">20</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">1NTS-1</span><span class="t-col-sc t-red">-100</span><span class="t-col-mp t-pct-bad">0.0%</span><span class="t-col-fld t-white">=1NT</span><span class="t-col-cause t-yellow">Lucky</span><span class="t-col-note">defense slip (DD 5)</span></div>
-        <div><span class="t-col-bd t-white">22</span><span class="t-col-dir t-dim">NS</span><span class="t-col-con t-white">4HW-3</span><span class="t-col-sc t-green">300</span><span class="t-col-mp t-pct-good">85.7%</span><span class="t-col-fld t-white">4S</span><span class="t-col-cause t-yellow">Lucky</span><span class="t-col-note">opps stopped low</span></div>
-        <div style="margin-top:8px;padding-top:8px;border-top:0.5px solid #333;font-size:9px;color:#555;line-height:1.6">
-          Legend: MP%=Matchpoint% &nbsp;&middot;&nbsp; Field=most common contract &nbsp;&middot;&nbsp; Decl=tricks vs field avg<br>
-          Cause: Good=skill &nbsp;&middot;&nbsp; <span style="color:#EF9F27">Lucky</span>=opp error &nbsp;&middot;&nbsp; <span style="color:#AFA9EC">Auction</span>=bidding &nbsp;&middot;&nbsp; <span style="color:#E24B4A">Play</span>=declarer &nbsp;&middot;&nbsp; Defense=defense<br>
-          Click board numbers to view hand in BBO Hand Viewer
-        </div>
+
+      <div class="t-results-header">Board-by-Board Results</div>
+      <div class="t-separator">------------------------</div>
+
+      <table class="t-table">
+        <thead>
+          <tr>
+            <th>Board</th><th>Dir</th><th>Contract</th><th class="r">Score</th><th class="r">MP%</th><th>Field</th><th class="r">Decl</th><th>Cause</th><th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>1</td><td class="dim">NS</td><td>1SE+1</td><td class="r t-red">-110</td><td class="r">35.7%</td><td>2S</td><td class="dim">-</td><td class="t-yellow">Unlucky</td><td class="dim">opps underbid</td></tr>
+          <tr><td>2</td><td class="dim">NS</td><td>3SN-1</td><td class="r t-red">-100</td><td class="r">7.1%</td><td>3NT</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">S vs NT</td></tr>
+          <tr><td>3</td><td class="dim">NS</td><td>1NTW=</td><td class="r t-red">-90</td><td class="r">42.9%</td><td>3NT</td><td class="dim">-</td><td class="t-white">Defense</td><td class="dim">held to -1</td></tr>
+          <tr><td>5</td><td class="dim">NS</td><td>4HN-1</td><td class="r t-red">-100</td><td class="r">21.4%</td><td>=4H</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (9)</td></tr>
+          <tr><td>6</td><td class="dim">NS</td><td>6SS-1</td><td class="r t-red">-50</td><td class="r">0.0%</td><td>4S</td><td>+0.0</td><td class="t-purple">Auction</td><td class="dim">overbid (4S)</td></tr>
+          <tr><td>7</td><td class="dim">NS</td><td>3CW+2</td><td class="r t-red">-150</td><td class="r">0.0%</td><td>=3C</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">failed to compete to 3D</td></tr>
+          <tr><td>8</td><td class="dim">NS</td><td>2HXN=</td><td class="r t-green">470</td><td class="r">100.0%</td><td>2S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">opps failed to compete</td></tr>
+          <tr><td>9</td><td class="dim">NS</td><td>1NTS=</td><td class="r t-green">90</td><td class="r">42.9%</td><td>=1NT</td><td>+0.5</td><td class="t-yellow">Lucky</td><td class="dim">defense slip (DD 6)</td></tr>
+          <tr><td>10</td><td class="dim">NS</td><td>1HW+4</td><td class="r t-red">-200</td><td class="r">71.4%</td><td>=1H</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (11)</td></tr>
+          <tr><td>11</td><td class="dim">NS</td><td>6HS=</td><td class="r t-green">980</td><td class="r">71.4%</td><td>=6H</td><td>+0.0</td><td class="t-green">Good</td><td class="dim">DD par (12)</td></tr>
+          <tr><td>12</td><td class="dim">NS</td><td>1NTE+1</td><td class="r t-red">-120</td><td class="r">100.0%</td><td>1S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">opps inferior contract</td></tr>
+          <tr><td>13</td><td class="dim">NS</td><td>2SS+1</td><td class="r t-green">140</td><td class="r">50.0%</td><td>=2S</td><td>+0.0</td><td class="t-green">Good</td><td class="dim">DD par (9)</td></tr>
+          <tr><td>14</td><td class="dim">NS</td><td>3HE-1</td><td class="r t-green">50</td><td class="r">14.3%</td><td>=3H</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">failed to compete to 3S</td></tr>
+          <tr><td>15</td><td class="dim">NS</td><td>5SS-1</td><td class="r t-red">-100</td><td class="r">14.3%</td><td>6S</td><td>-1.5</td><td class="t-red">Play</td><td class="dim">2 tricks fewer, also underbid (6S)</td></tr>
+          <tr><td>16</td><td class="dim">NS</td><td>2SN=</td><td class="r t-green">110</td><td class="r">85.7%</td><td>1NT</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">competed successfully</td></tr>
+          <tr><td>17</td><td class="dim">NS</td><td>4HN+1</td><td class="r t-green">450</td><td class="r">78.6%</td><td>=4H</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">defense slip (DD 10)</td></tr>
+          <tr><td>18</td><td class="dim">NS</td><td>4HE-1</td><td class="r t-green">50</td><td class="r">14.3%</td><td>4S</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">failed to compete to 4S</td></tr>
+          <tr><td>19</td><td class="dim">NS</td><td>2HN-1</td><td class="r t-red">-50</td><td class="r">78.6%</td><td>=2H</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (7)</td></tr>
+          <tr><td>20</td><td class="dim">NS</td><td>1NTS-1</td><td class="r t-red">-100</td><td class="r">0.0%</td><td>=1NT</td><td>-0.2</td><td class="t-yellow">Lucky</td><td class="dim">defense slip (DD 5)</td></tr>
+          <tr><td>21</td><td class="dim">NS</td><td>4SE+2</td><td class="r t-red">-480</td><td class="r">35.7%</td><td>=4S</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (12)</td></tr>
+          <tr><td>22</td><td class="dim">NS</td><td>4HW-3</td><td class="r t-green">300</td><td class="r">85.7%</td><td>4S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">opps stopped low</td></tr>
+          <tr><td>23</td><td class="dim">NS</td><td>2DS+1</td><td class="r t-green">110</td><td class="r">14.3%</td><td>3NT</td><td>*</td><td class="t-purple">Auction</td><td class="dim">D vs NT</td></tr>
+          <tr><td>24</td><td class="dim">NS</td><td>2HE+3</td><td class="r t-red">-200</td><td class="r">78.6%</td><td>=2H</td><td class="dim">-</td><td class="t-white">Defense</td><td class="dim">DD slip (gave 1 extra)</td></tr>
+          <tr><td>25</td><td class="dim">NS</td><td>3SW-2</td><td class="r t-green">200</td><td class="r">64.3%</td><td>=3S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">held below DD (8)</td></tr>
+          <tr><td>26</td><td class="dim">NS</td><td>3SN-1</td><td class="r t-red">-100</td><td class="r">21.4%</td><td>=3S</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (8)</td></tr>
+          <tr><td>27</td><td class="dim">NS</td><td>Pass</td><td class="r t-white">0</td><td class="r">50.0%</td><td>2S</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim"></td></tr>
+          <tr><td>28</td><td class="dim">NS</td><td>3SN+1</td><td class="r t-green">170</td><td class="r">35.7%</td><td>4S</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">underbid (4S)</td></tr>
+        </tbody>
+      </table>
+
+      <div class="t-legend">
+        Legend: Dir=Direction, MP%=Matchpoint%, Field=Field contract (= if matched)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Decl=Declarer tricks vs field avg (* = only declarer in strain)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cause: <span class="t-green">Good</span>=skill, <span class="t-yellow">Lucky</span>=opp error, <span class="t-red">Play</span>=declarer, <span class="t-white">Defense</span>=defense, <span class="t-purple">Auction</span>=bidding, <span class="t-yellow">Unlucky</span>=bad luck<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Click board numbers to view hand in BBO Hand Viewer
       </div>
     </div>
   </div>

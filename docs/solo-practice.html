@@ -38,52 +38,18 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 
 .right{padding:28px 32px;background:var(--color-background-secondary);display:flex;flex-direction:column}
 
-.mock-browser{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
-.browser-bar{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
-.bdot{width:8px;height:8px;border-radius:50%}
-.burl{flex:1;background:var(--color-background-secondary);border-radius:3px;padding:3px 10px;font-size:10px;color:var(--color-text-tertiary);margin-left:6px}
+.screenshots{display:flex;flex-direction:column;gap:16px}
+.screenshot{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.screenshot img{display:block;width:100%;height:auto}
+.screenshot-caption{font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:8px;background:var(--color-background-primary)}
 
-.mock-inner{padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
-
-.mc{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:12px}
-.mc-tag{font-size:8px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:0.04em;font-weight:500;margin-bottom:4px}
-.mc-title{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:3px}
-.mc-sub{font-size:10px;color:var(--color-text-secondary);margin-bottom:6px}
-.mc-pill{display:inline-block;font-size:9px;padding:2px 7px;border-radius:20px;background:#FEF3C7;color:#92400E;margin-bottom:6px}
-.mc-bar-wrap{height:4px;background:var(--color-background-secondary);border-radius:2px;margin-bottom:6px}
-.mc-bar{height:4px;border-radius:2px;background:#1D9E75}
-.mc-stats{display:flex;gap:6px;flex-wrap:wrap}
-.mc-stat{font-size:9px;color:var(--color-text-secondary);display:flex;align-items:center;gap:3px}
-.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
-
-.mc-prompt{font-size:9px;color:var(--color-text-secondary);line-height:1.5;margin-bottom:6px}
-.mc-hand{font-size:11px;line-height:1.85;margin-bottom:8px}
-.mc-red{color:#D85A30}
-.btable{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-bottom:5px}
-.bc{background:var(--color-background-secondary);border-radius:2px;padding:3px;text-align:center;font-size:9px;color:var(--color-text-secondary);font-weight:500}
-.bc.hdr{font-size:8px;color:var(--color-text-tertiary)}
-.bc.q{background:#E6F1FB;color:#185FA5}
-.bbtns{display:flex;gap:3px}
-.bbtn{flex:1;padding:4px;border-radius:3px;font-size:9px;font-weight:500;text-align:center}
-.bp{background:#1D9E75;color:white}
-.bd{background:#D85A30;color:white}
-.br{background:var(--color-background-secondary);color:var(--color-text-tertiary)}
+.attribution{font-size:12px;color:var(--color-text-tertiary);line-height:1.5;margin-top:16px;text-align:right}
+.attribution a{color:var(--color-text-tertiary);text-decoration:underline;text-decoration-color:var(--color-border-tertiary)}
+.attribution a:hover{color:var(--color-text-secondary)}
 
 .footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
 .footer-copy{font-size:11px;color:var(--color-text-tertiary)}
 
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;z-index:100}
-.modal-bg.open{display:flex}
-.modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);padding:24px;width:100%;max-width:380px;margin:16px}
-.modal h2{font-size:16px;font-weight:500;margin-bottom:5px}
-.modal-sub{font-size:12px;color:var(--color-text-secondary);margin-bottom:16px;line-height:1.5}
-.field{margin-bottom:11px}
-.field label{display:block;font-size:11px;font-weight:500;color:var(--color-text-secondary);margin-bottom:4px}
-.field input{width:100%;font-size:13px;padding:8px 11px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary)}
-.modal-privacy{font-size:11px;color:var(--color-text-tertiary);padding:8px 11px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);margin-bottom:14px;line-height:1.5;border-left:2px solid #9FE1CB}
-.modal-actions{display:flex;gap:8px}
-.modal-cancel{flex:1;padding:8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:transparent;color:var(--color-text-secondary);font-size:13px;cursor:pointer}
-.modal-submit{flex:2;padding:8px;border-radius:var(--border-radius-md);border:none;background:#1D9E75;color:white;font-size:13px;font-weight:500;cursor:pointer}
 </style>
 </head>
 <body>
@@ -118,46 +84,21 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
       </div>
     </div>
     <div class="privacy-strip">To get started, you'll enter your first name, last name, and email address. This information is used only to save your practice history and, if you choose, to connect with your teacher's class. It will never be shared with anyone without your express consent.</div>
-    <button class="btn-primary" onclick="openModal()">Start practicing &#8212; it's free</button>
+    <a class="btn-primary" href="/" style="text-decoration:none;display:inline-block">Start practicing &#8212; it's free</a>
   </div>
 
   <div class="right">
-    <div class="mock-browser">
-      <div class="browser-bar">
-        <div class="bdot" style="background:#E24B4A"></div>
-        <div class="bdot" style="background:#EF9F27"></div>
-        <div class="bdot" style="background:#639922"></div>
-        <div class="burl">bridge-classroom.com/app</div>
+    <div class="screenshots">
+      <div class="screenshot">
+        <img src="screenshots/solo-practice-detail.png" alt="Solo practice view showing a bidding exercise">
+        <div class="screenshot-caption">Practice bidding with instant feedback</div>
       </div>
-      <div class="mock-inner">
-        <div class="mc">
-          <div class="mc-tag">Baker Bridge</div>
-          <div class="mc-title">Negative doubles</div>
-          <div class="mc-sub">6 of 20 tried &#183; 4 weeks ago</div>
-          <div class="mc-pill">14 untried boards</div>
-          <div class="mc-bar-wrap"><div class="mc-bar" style="width:35%"></div></div>
-          <div class="mc-stats">
-            <span class="mc-stat"><span class="dot" style="background:#1D9E75"></span>5 Mastered</span>
-            <span class="mc-stat"><span class="dot" style="background:#378ADD"></span>1 Progressing</span>
-            <span class="mc-stat"><span class="dot" style="background:#ccc"></span>14 Untried</span>
-          </div>
-        </div>
-        <div class="mc">
-          <div class="mc-prompt">Board 7 &#183; South deals<br>What do you say?</div>
-          <div class="mc-hand">&#9824; K 10<br><span class="mc-red">&#9829; A 4<br>&#9830; K J 10 6</span><br>&#9827; K Q J 6 5</div>
-          <div class="btable">
-            <div class="bc hdr">W</div><div class="bc hdr">N</div><div class="bc hdr">E</div><div class="bc hdr">S</div>
-            <div class="bc"></div><div class="bc"></div><div class="bc"></div><div class="bc">1&#9827;</div>
-            <div class="bc">1&#9830;</div><div class="bc">X</div><div class="bc">Pass</div><div class="bc q">?</div>
-          </div>
-          <div class="bbtns">
-            <div class="bbtn bp">Pass</div>
-            <div class="bbtn bd">Dbl</div>
-            <div class="bbtn br">Rdbl</div>
-          </div>
-        </div>
+      <div class="screenshot">
+        <img src="screenshots/students-detail.png" alt="Student progress dashboard showing mastery tracking">
+        <div class="screenshot-caption">Track your progress across lessons</div>
       </div>
     </div>
+    <div class="attribution">Thanks to Jim and Gwen Baker, who authored the<br>original <a href="https://bakerbridge.coffeecup.com/">Baker Bridge website</a>.</div>
   </div>
 </div>
 
@@ -166,31 +107,6 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
   <a class="nav-back" href="index-preview.html" style="font-size:11px">&#8592; Back to all tools</a>
 </div>
 
-<div class="modal-bg" id="modalBg">
-  <div class="modal">
-    <h2>Start practicing</h2>
-    <p class="modal-sub">Enter your name and email to get started. New or returning &#8212; we'll handle it either way.</p>
-    <div class="field"><label>First name</label><input type="text" placeholder="e.g. Terry" id="firstName"/></div>
-    <div class="field"><label>Last name</label><input type="text" placeholder="e.g. Lee"/></div>
-    <div class="field"><label>Email address</label><input type="email" placeholder="you@example.com"/></div>
-    <div class="modal-privacy">Your name and email are used only to save your practice history. They won't be shared with anyone &#8212; including your teacher &#8212; without your express consent.</div>
-    <div class="modal-actions">
-      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
-      <button class="modal-submit" onclick="fakeEnroll()">Continue &#8594;</button>
-    </div>
-  </div>
-</div>
-
-<script>
-function openModal(){document.getElementById('modalBg').classList.add('open')}
-function closeModal(){document.getElementById('modalBg').classList.remove('open')}
-function fakeEnroll(){
-  var fn = document.getElementById('firstName').value.trim();
-  if(!fn){ alert('Please enter your first name'); return; }
-  window.location.href = '/';
-}
-document.getElementById('modalBg').addEventListener('click',function(e){if(e.target===this)closeModal()})
-</script>
 
 </body>
 </html>

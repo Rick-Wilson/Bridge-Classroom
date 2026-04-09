@@ -36,10 +36,9 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 
 .right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:14px}
 
-.mock-browser{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
-.browser-bar{display:flex;align-items:center;gap:6px;padding:7px 12px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary)}
-.bdot{width:7px;height:7px;border-radius:50%}
-.burl{flex:1;background:var(--color-background-secondary);border-radius:3px;padding:3px 10px;font-size:10px;color:var(--color-text-tertiary);margin-left:6px}
+.screenshot{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.screenshot img{display:block;width:100%;height:auto}
+.screenshot-caption{font-size:12px;color:var(--color-text-tertiary);text-align:center;padding:8px;background:var(--color-background-primary)}
 
 .footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
 .footer-copy{font-size:11px;color:var(--color-text-tertiary)}
@@ -87,34 +86,19 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
   </div>
 
   <div class="right">
-    <div class="mock-browser">
-      <div class="browser-bar">
-        <div class="bdot" style="background:#E24B4A"></div>
-        <div class="bdot" style="background:#EF9F27"></div>
-        <div class="bdot" style="background:#639922"></div>
-        <div class="burl">bridge-classroom.com/app &middot; Students</div>
-      </div>
-      <img src="screenshots/students-list.png" alt="Student list view" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    <div class="screenshot">
+      <img src="screenshots/students-list.png" alt="Student list view">
+      <div class="screenshot-caption">Student list view</div>
     </div>
 
-    <div class="mock-browser">
-      <div class="browser-bar">
-        <div class="bdot" style="background:#E24B4A"></div>
-        <div class="bdot" style="background:#EF9F27"></div>
-        <div class="bdot" style="background:#639922"></div>
-        <div class="burl">bridge-classroom.com/app &middot; Student detail</div>
-      </div>
-      <img src="screenshots/students-detail.png" alt="Student detail view" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    <div class="screenshot">
+      <img src="screenshots/students-detail.png" alt="Student detail view">
+      <div class="screenshot-caption">Student detail view</div>
     </div>
 
-    <div class="mock-browser">
-      <div class="browser-bar">
-        <div class="bdot" style="background:#E24B4A"></div>
-        <div class="bdot" style="background:#EF9F27"></div>
-        <div class="bdot" style="background:#639922"></div>
-        <div class="burl">bridge-classroom.com/app &middot; Observation detail</div>
-      </div>
-      <img src="screenshots/observation-detail.png" alt="Observation detail view" style="width:100%;display:block;border-radius:0 0 12px 12px">
+    <div class="screenshot">
+      <img src="screenshots/observation-detail.png" alt="Observation detail view">
+      <div class="screenshot-caption">Observation detail view</div>
     </div>
   </div>
 </div>
