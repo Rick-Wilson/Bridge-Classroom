@@ -53,10 +53,23 @@
 .tp-dbl{background:#D85A30;color:white}
 .tp-rdbl{background:#ddd;color:#888}
 
-.thumb-club{background:#EFF4FB;display:flex;flex-direction:column;padding:12px;gap:5px}
-.tc-table{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;width:100%}
-.tc-cell{background:#C5D8F0;border-radius:2px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#185FA5;font-weight:500}
-.tc-cell.head{background:#378ADD;color:white}
+.thumb-club{background:#f8f8fa;display:flex;flex-direction:column;padding:10px 12px;gap:0}
+.tc-row{display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:0.5px solid #eee}
+.tc-row:last-child{border-bottom:none}
+.tc-pct{font-size:9px;font-weight:500;width:36px;text-align:right;flex-shrink:0}
+.tc-bar-wrap{width:36px;height:5px;background:#e8e8e8;border-radius:3px;flex-shrink:0;overflow:hidden}
+.tc-bar{height:5px;border-radius:3px}
+.tc-bar.red{background:#E24B4A}
+.tc-bar.green{background:#1D9E75}
+.tc-bar.amber{background:#EF9F27}
+.tc-field{font-size:9px;color:#444;width:24px;text-align:center;flex-shrink:0}
+.tc-cause{font-size:8px;font-weight:600;padding:2px 6px;border-radius:10px;white-space:nowrap;flex-shrink:0}
+.tc-cause.unlucky{background:#fde8e8;color:#c0392b}
+.tc-cause.auction{background:#f0e6ff;color:#7b2cbf}
+.tc-cause.defense{background:#fff3cd;color:#856404}
+.tc-cause.good{background:#d4edda;color:#155724}
+.tc-cause.lucky{background:#d1ecf1;color:#0c5460}
+.tc-note{font-size:8px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
 
 .thumb-pbs{background:#F5F0FB;display:flex;flex-direction:column;padding:12px;gap:5px}
 .pbs-bar{height:24px;background:#E8DFFE;border-radius:3px;display:flex;align-items:center;padding:0 8px;gap:5px}
@@ -198,15 +211,13 @@
       <div class="tile">
         <a class="tile-link" href="club-game-analysis.html">
         <div class="thumb thumb-club">
-          <div class="tc-table">
-            <div class="tc-cell head">N-S</div><div class="tc-cell head">Bd</div><div class="tc-cell head">Score</div><div class="tc-cell head">Pct</div>
-            <div class="tc-cell">2&#9824;</div><div class="tc-cell">3</div><div class="tc-cell">+140</div><div class="tc-cell">67%</div>
-            <div class="tc-cell">3NT</div><div class="tc-cell">7</div><div class="tc-cell">+400</div><div class="tc-cell">83%</div>
-            <div class="tc-cell">4&#9829;</div><div class="tc-cell">11</div><div class="tc-cell">-50</div><div class="tc-cell">25%</div>
-          </div>
-          <div style="display:flex;gap:4px;margin-top:4px">
-            <span style="font-size:11px;padding:3px 7px;background:#C5D8F0;color:#185FA5;border-radius:3px;font-weight:500">Final: 58.3%</span>
-          </div>
+          <div class="tc-row"><span class="tc-pct" style="color:#c0392b">35.7%</span><div class="tc-bar-wrap"><div class="tc-bar red" style="width:36%"></div></div><span class="tc-field">2&#9824;</span><span class="tc-cause unlucky">Unlucky</span><span class="tc-note">opps underbid</span></div>
+          <div class="tc-row"><span class="tc-pct" style="color:#c0392b">7.1%</span><div class="tc-bar-wrap"><div class="tc-bar red" style="width:7%"></div></div><span class="tc-field">3NT</span><span class="tc-cause auction">Auction</span><span class="tc-note">S vs NT</span></div>
+          <div class="tc-row"><span class="tc-pct" style="color:#EF9F27">42.9%</span><div class="tc-bar-wrap"><div class="tc-bar amber" style="width:43%"></div></div><span class="tc-field">3NT</span><span class="tc-cause defense">Defense</span><span class="tc-note">held to -1</span></div>
+          <div class="tc-row"><span class="tc-pct" style="color:#c0392b">21.4%</span><div class="tc-bar-wrap"><div class="tc-bar red" style="width:21%"></div></div><span class="tc-field">=4<span style="color:#c0392b">&#9829;</span></span><span class="tc-cause good">Good</span><span class="tc-note">DD par (9)</span></div>
+          <div class="tc-row"><span class="tc-pct" style="color:#c0392b">0.0%</span><div class="tc-bar-wrap"><div class="tc-bar red" style="width:1%"></div></div><span class="tc-field">4&#9824;</span><span class="tc-cause auction">Auction</span><span class="tc-note">overbid (4S)</span></div>
+          <div class="tc-row"><span class="tc-pct" style="color:#c0392b">0.0%</span><div class="tc-bar-wrap"><div class="tc-bar red" style="width:1%"></div></div><span class="tc-field">3&#9830;</span><span class="tc-cause auction">Auction</span><span class="tc-note">failed to compete</span></div>
+          <div class="tc-row"><span class="tc-pct" style="color:#1D9E75">100%</span><div class="tc-bar-wrap"><div class="tc-bar green" style="width:100%"></div></div><span class="tc-field">2&#9824;</span><span class="tc-cause lucky">Lucky</span><span class="tc-note">opps failed to compete</span></div>
         </div>
         <div class="tile-body">
           <div class="tile-name">Club Game Analysis</div>
