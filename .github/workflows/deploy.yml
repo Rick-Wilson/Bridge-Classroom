@@ -17,27 +17,33 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
+      - name: Build SPA
         run: npm run build
 
-      - name: Copy standalone pages into dist
+      - name: Restructure for new site layout
         run: |
-          cp -r docs/curator dist/curator
-          cp -r docs/screenshots dist/screenshots
+          # Move SPA index.html to /solo-practice/, keep assets at root
+          mkdir -p dist/solo-practice
+          mv dist/index.html dist/solo-practice/index.html
+
+          # Copy static hub and detail pages
+          cp docs/index.html dist/index.html
+          cp docs/favicon.svg dist/favicon.svg
           cp docs/styles.css dist/styles.css
-          cp docs/index-preview.html dist/index-preview.html
           cp docs/about.html dist/about.html
           cp docs/solo-practice.html dist/solo-practice.html
           cp docs/classrooms.html dist/classrooms.html
@@ -47,6 +53,8 @@ jobs:
           cp docs/teacher-utilities.html dist/teacher-utilities.html
           cp docs/hand-curator.html dist/hand-curator.html
           cp docs/deal-library.html dist/deal-library.html
+          cp -r docs/curator dist/curator
+          cp -r docs/screenshots dist/screenshots
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
