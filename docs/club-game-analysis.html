@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Club Game Analysis - Bridge Classroom</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
 <link rel="stylesheet" href="styles.css">
 <style>
 body{background:var(--color-background-primary)}
@@ -42,7 +43,10 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 .step a{color:#185FA5;text-decoration:none}
 .step a:hover{text-decoration:underline}
 
-.coming-soon-note{font-size:11px;color:var(--color-text-tertiary);line-height:1.6;padding:10px 12px;background:var(--color-background-secondary);border-radius:var(--border-radius-md);border-left:2px solid #B5D4F4}
+.btn-primary{font-size:14px;font-weight:500;padding:10px 26px;border-radius:var(--border-radius-md);border:none;background:#1D9E75;color:white;cursor:pointer;width:fit-content}
+.btn-primary:hover{background:#0F6E56}
+
+.cli-note{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px}
 
 .download-row{display:flex;flex-direction:column;gap:6px}
 .download-label{font-size:11px;font-weight:500;color:var(--color-text-secondary)}
@@ -53,29 +57,9 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 
 .right-info{padding:28px 36px;display:flex;flex-direction:column;gap:14px}
 
-.terminal-section{padding:0 32px 32px}
-.terminal{background:#1a1a2e;border-radius:var(--border-radius-lg);overflow:hidden;width:100%}
-.terminal-body{padding:20px 24px;font-family:'SF Mono','Menlo','Consolas',monospace;font-size:13px;line-height:1.65;overflow-x:auto}
-
-.t-green{color:#5DCAA5}
-.t-red{color:#E24B4A}
-.t-yellow{color:#EF9F27}
-.t-purple{color:#C792EA}
-.t-cyan{color:#5DCAA5}
-.t-white{color:#d4d4d4}
-.t-dim{color:#666}
-.t-bold{font-weight:600}
-
-.t-summary{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #333}
-.t-results-header{color:#5DCAA5;font-weight:600;margin-bottom:4px}
-.t-separator{color:#444;margin-bottom:8px}
-.t-table{border-collapse:collapse;width:100%;white-space:nowrap}
-.t-table th{color:#666;font-weight:500;text-align:left;padding:2px 12px 2px 0;font-size:13px}
-.t-table th.r{text-align:right;padding-right:16px}
-.t-table td{padding:1px 12px 1px 0;font-size:13px;color:#d4d4d4}
-.t-table td.r{text-align:right;padding-right:16px}
-.t-table td.dim{color:#666}
-.t-legend{margin-top:14px;padding-top:12px;border-top:1px solid #333;font-size:11px;color:#666;line-height:1.7}
+.screenshot-section{padding:0 32px 32px}
+.screenshot{border-radius:var(--border-radius-lg);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)}
+.screenshot img{display:block;width:100%;height:auto}
 
 .footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
 .footer-copy{font-size:11px;color:var(--color-text-tertiary)}
@@ -91,8 +75,8 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
 <div class="top">
   <div class="left">
     <div class="badge-row">
-      <span class="badge badge-blue">Web app coming soon</span>
-      <span class="badge badge-green">CLI available now</span>
+      <span class="badge badge-green">Live</span>
+      <span class="badge badge-blue">CLI also available</span>
     </div>
     <h1>Understand your club game results, board by board</h1>
     <p class="sub">After your club game, find out not just how you scored — but <em>why</em>. Every board is categorized by cause: good play, lucky result, bidding error, declarer error, or defense. Spot your patterns over time.</p>
@@ -120,11 +104,13 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
         </div>
       </div>
     </div>
+
+    <a class="btn-primary" href="https://club-game-analysis.bridge-classroom.com" style="text-decoration:none;display:inline-block">Launch Club Game Analysis</a>
   </div>
 
   <div class="right-info">
     <div class="how-it-works">
-      <div class="how-title">How to use it today</div>
+      <div class="how-title">How it works</div>
       <div class="steps">
         <div class="step">
           <div class="step-num">1</div>
@@ -132,7 +118,7 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <p>Download the CLI for your computer below and run it with your two files as input.</p>
+          <p>Upload both files in the app and select your seat.</p>
         </div>
         <div class="step">
           <div class="step-num">3</div>
@@ -141,10 +127,9 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
       </div>
     </div>
 
-    <div class="coming-soon-note">A web version is in development — upload your files in the browser and get the same analysis without any downloads. No release date yet, but the core analysis is complete.</div>
-
-    <div class="download-row">
-      <div class="download-label">Download the CLI</div>
+    <div class="cli-note">
+      <div class="download-label">Prefer the command line?</div>
+      <p style="font-size:11px;color:var(--color-text-tertiary);line-height:1.6;margin-bottom:8px">The CLI version is useful for batch processing multiple games or integrating into your own workflow.</p>
       <div class="dl-btns">
         <a class="dl-btn" href="https://github.com/Rick-Wilson/bridge-club-game-analysis/releases/latest">
           <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
@@ -163,68 +148,9 @@ h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.
   </div>
 </div>
 
-<div class="terminal-section">
-  <div class="terminal">
-    <div class="terminal-body">
-      <div class="t-summary">
-        <span class="t-green t-bold">Seat:</span> <span class="t-white">South</span><br>
-        <span class="t-green t-bold">Boards played:</span> <span class="t-white">27</span><br>
-        <span class="t-green t-bold">Boards declared:</span> <span class="t-white">6</span><br>
-        <span class="t-green t-bold">Avg matchpoints:</span> <span class="t-green">45.0%</span><br>
-        <span class="t-dim">&nbsp;&nbsp;Declaring:</span> <span class="t-red">27.6%</span>
-        <span class="t-dim">&nbsp;&nbsp;Dummy:</span> <span class="t-white">53.6%</span>
-        <span class="t-dim">&nbsp;&nbsp;Defending:</span> <span class="t-white">49.4%</span><br>
-        <span class="t-green t-bold">Declarer vs field:</span> <span class="t-red">-0.20 tricks</span><br>
-        <span class="t-green t-bold">Field contract:</span> <span class="t-white">51.9%</span>
-      </div>
-
-      <div class="t-results-header">Board-by-Board Results</div>
-      <div class="t-separator">------------------------</div>
-
-      <table class="t-table">
-        <thead>
-          <tr>
-            <th>Board</th><th>Dir</th><th>Contract</th><th class="r">Score</th><th class="r">MP%</th><th>Field</th><th class="r">Decl</th><th>Cause</th><th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>1</td><td class="dim">NS</td><td>1SE+1</td><td class="r t-red">-110</td><td class="r">35.7%</td><td>2S</td><td class="dim">-</td><td class="t-yellow">Unlucky</td><td class="dim">opps underbid</td></tr>
-          <tr><td>2</td><td class="dim">NS</td><td>3SN-1</td><td class="r t-red">-100</td><td class="r">7.1%</td><td>3NT</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">S vs NT</td></tr>
-          <tr><td>3</td><td class="dim">NS</td><td>1NTW=</td><td class="r t-red">-90</td><td class="r">42.9%</td><td>3NT</td><td class="dim">-</td><td class="t-white">Defense</td><td class="dim">held to -1</td></tr>
-          <tr><td>5</td><td class="dim">NS</td><td>4HN-1</td><td class="r t-red">-100</td><td class="r">21.4%</td><td>=4H</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (9)</td></tr>
-          <tr><td>6</td><td class="dim">NS</td><td>6SS-1</td><td class="r t-red">-50</td><td class="r">0.0%</td><td>4S</td><td>+0.0</td><td class="t-purple">Auction</td><td class="dim">overbid (4S)</td></tr>
-          <tr><td>7</td><td class="dim">NS</td><td>3CW+2</td><td class="r t-red">-150</td><td class="r">0.0%</td><td>=3C</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">failed to compete to 3D</td></tr>
-          <tr><td>8</td><td class="dim">NS</td><td>2HXN=</td><td class="r t-green">470</td><td class="r">100.0%</td><td>2S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">opps failed to compete</td></tr>
-          <tr><td>9</td><td class="dim">NS</td><td>1NTS=</td><td class="r t-green">90</td><td class="r">42.9%</td><td>=1NT</td><td>+0.5</td><td class="t-yellow">Lucky</td><td class="dim">defense slip (DD 6)</td></tr>
-          <tr><td>10</td><td class="dim">NS</td><td>1HW+4</td><td class="r t-red">-200</td><td class="r">71.4%</td><td>=1H</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (11)</td></tr>
-          <tr><td>11</td><td class="dim">NS</td><td>6HS=</td><td class="r t-green">980</td><td class="r">71.4%</td><td>=6H</td><td>+0.0</td><td class="t-green">Good</td><td class="dim">DD par (12)</td></tr>
-          <tr><td>12</td><td class="dim">NS</td><td>1NTE+1</td><td class="r t-red">-120</td><td class="r">100.0%</td><td>1S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">opps inferior contract</td></tr>
-          <tr><td>13</td><td class="dim">NS</td><td>2SS+1</td><td class="r t-green">140</td><td class="r">50.0%</td><td>=2S</td><td>+0.0</td><td class="t-green">Good</td><td class="dim">DD par (9)</td></tr>
-          <tr><td>14</td><td class="dim">NS</td><td>3HE-1</td><td class="r t-green">50</td><td class="r">14.3%</td><td>=3H</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">failed to compete to 3S</td></tr>
-          <tr><td>15</td><td class="dim">NS</td><td>5SS-1</td><td class="r t-red">-100</td><td class="r">14.3%</td><td>6S</td><td>-1.5</td><td class="t-red">Play</td><td class="dim">2 tricks fewer, also underbid (6S)</td></tr>
-          <tr><td>16</td><td class="dim">NS</td><td>2SN=</td><td class="r t-green">110</td><td class="r">85.7%</td><td>1NT</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">competed successfully</td></tr>
-          <tr><td>17</td><td class="dim">NS</td><td>4HN+1</td><td class="r t-green">450</td><td class="r">78.6%</td><td>=4H</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">defense slip (DD 10)</td></tr>
-          <tr><td>18</td><td class="dim">NS</td><td>4HE-1</td><td class="r t-green">50</td><td class="r">14.3%</td><td>4S</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">failed to compete to 4S</td></tr>
-          <tr><td>19</td><td class="dim">NS</td><td>2HN-1</td><td class="r t-red">-50</td><td class="r">78.6%</td><td>=2H</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (7)</td></tr>
-          <tr><td>20</td><td class="dim">NS</td><td>1NTS-1</td><td class="r t-red">-100</td><td class="r">0.0%</td><td>=1NT</td><td>-0.2</td><td class="t-yellow">Lucky</td><td class="dim">defense slip (DD 5)</td></tr>
-          <tr><td>21</td><td class="dim">NS</td><td>4SE+2</td><td class="r t-red">-480</td><td class="r">35.7%</td><td>=4S</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (12)</td></tr>
-          <tr><td>22</td><td class="dim">NS</td><td>4HW-3</td><td class="r t-green">300</td><td class="r">85.7%</td><td>4S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">opps stopped low</td></tr>
-          <tr><td>23</td><td class="dim">NS</td><td>2DS+1</td><td class="r t-green">110</td><td class="r">14.3%</td><td>3NT</td><td>*</td><td class="t-purple">Auction</td><td class="dim">D vs NT</td></tr>
-          <tr><td>24</td><td class="dim">NS</td><td>2HE+3</td><td class="r t-red">-200</td><td class="r">78.6%</td><td>=2H</td><td class="dim">-</td><td class="t-white">Defense</td><td class="dim">DD slip (gave 1 extra)</td></tr>
-          <tr><td>25</td><td class="dim">NS</td><td>3SW-2</td><td class="r t-green">200</td><td class="r">64.3%</td><td>=3S</td><td class="dim">-</td><td class="t-yellow">Lucky</td><td class="dim">held below DD (8)</td></tr>
-          <tr><td>26</td><td class="dim">NS</td><td>3SN-1</td><td class="r t-red">-100</td><td class="r">21.4%</td><td>=3S</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim">DD par (8)</td></tr>
-          <tr><td>27</td><td class="dim">NS</td><td>Pass</td><td class="r t-white">0</td><td class="r">50.0%</td><td>2S</td><td class="dim">-</td><td class="t-green">Good</td><td class="dim"></td></tr>
-          <tr><td>28</td><td class="dim">NS</td><td>3SN+1</td><td class="r t-green">170</td><td class="r">35.7%</td><td>4S</td><td class="dim">-</td><td class="t-purple">Auction</td><td class="dim">underbid (4S)</td></tr>
-        </tbody>
-      </table>
-
-      <div class="t-legend">
-        Legend: Dir=Direction, MP%=Matchpoint%, Field=Field contract (= if matched)<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Decl=Declarer tricks vs field avg (* = only declarer in strain)<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Cause: <span class="t-green">Good</span>=skill, <span class="t-yellow">Lucky</span>=opp error, <span class="t-red">Play</span>=declarer, <span class="t-white">Defense</span>=defense, <span class="t-purple">Auction</span>=bidding, <span class="t-yellow">Unlucky</span>=bad luck<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Click board numbers to view hand in BBO Hand Viewer
-      </div>
-    </div>
+<div class="screenshot-section">
+  <div class="screenshot">
+    <img src="screenshots/club-game-analysis.png" alt="Club game analysis terminal output showing board-by-board results with cause categorization">
   </div>
 </div>
 
