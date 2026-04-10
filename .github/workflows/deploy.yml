@@ -36,9 +36,9 @@ jobs:
 
       - name: Restructure for new site layout
         run: |
-          # Move SPA index.html to /solo-practice/, keep assets at root
-          mkdir -p dist/solo-practice
-          mv dist/index.html dist/solo-practice/index.html
+          # Move SPA index.html to /solo-practice-app/, keep assets at root
+          mkdir -p dist/solo-practice-app
+          mv dist/index.html dist/solo-practice-app/index.html
 
           # Copy static hub and detail pages
           cp docs/index.html dist/index.html
