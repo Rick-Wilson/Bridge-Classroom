@@ -8,7 +8,7 @@
   <!-- Main App (shown when user is authenticated) -->
   <div v-else class="app">
     <header class="app-header">
-      <h1>{{ deals.length ? dealTitle : appTitle }}</h1>
+      <h1><a href="/" style="color:inherit;text-decoration:none">{{ deals.length ? dealTitle : appTitle }}</a></h1>
       <div class="header-right">
         <SyncStatus />
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
