@@ -55,6 +55,8 @@ jobs:
           cp docs/deal-library.html dist/deal-library.html
           cp -r docs/curator dist/curator
           cp -r docs/screenshots dist/screenshots
+          cp docs/sitemap.xml dist/sitemap.xml
+          cp docs/robots.txt dist/robots.txt
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
