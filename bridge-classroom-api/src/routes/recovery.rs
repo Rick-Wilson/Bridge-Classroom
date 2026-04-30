@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use axum::{
     extract::State,
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     Json,
 };
 use ring::aead::{self, LessSafeKey, UnboundKey, AES_256_GCM, Nonce, NONCE_LEN};
@@ -258,6 +258,7 @@ async fn send_recovery_email(
 /// Request account recovery - creates token and logs recovery link (no email yet)
 pub async fn request_recovery(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<RecoveryRequest>,
 ) -> Result<Json<RecoveryRequestResponse>, (StatusCode, String)> {
     // Validate email
@@ -333,9 +334,16 @@ pub async fn request_recovery(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    // Build recovery URL
-    let base_url = std::env::var("FRONTEND_URL")
-        .unwrap_or_else(|_| "https://bridge-classroom.com".to_string());
+    // Build recovery URL — use the Origin header if it's a known allowed origin,
+    // so users on .org get .org links and users on .com get .com links.
+    let frontend_url = std::env::var("FRONTEND_URL")
+        .unwrap_or_else(|_| "https://bridge-classroom.com/solo-practice-app".to_string());
+    let base_url = headers
+        .get("origin")
+        .and_then(|v| v.to_str().ok())
+        .filter(|origin| state.config.allowed_origins.iter().any(|o| o == origin))
+        .map(|origin| format!("{}/solo-practice-app", origin))
+        .unwrap_or(frontend_url);
     let recovery_url = format!("{}?recover={}&user_id={}", base_url, token, user_id);
     tracing::info!("Recovery URL token (first 20 chars): {}...", &token.chars().take(20).collect::<String>());
     tracing::info!("Full recovery URL: {}", recovery_url);
