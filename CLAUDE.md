@@ -51,8 +51,8 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Backend API**: Rust server running locally on Mac at port 3000
 - **Tunnel**: Cloudflare Tunnel routes https://api.bridge-classroom.com → localhost:3000
 - **LiveKit**: `wss://livekit.bridge-classroom.com` on DigitalOcean droplet (Caddy + Docker at `/opt/livekit/`)
-- **Recovery emails**: Sent from `noreply@bridge-classroom.com` via Resend
-- **DNS security**: SPF (`-all`), DKIM (via Resend), DMARC (`p=reject`) configured in Cloudflare
+- **Recovery emails**: Sent from `noreply@mail.bridge-craftwork.com` via Resend (migrated from .com 2026-04-30 due to deliverability issues)
+- **DNS security**: bridge-craftwork.com has SPF, DKIM (via Resend), DMARC (`p=none`) configured in Cloudflare. bridge-classroom.com SPF/DKIM/DMARC retained but no longer used for sending.
 - **Database**: SQLite at `bridge-classroom-api/data/bridge_classroom.db`
 - **Database backups**: Nightly at 2AM Pacific via `com.bridgeclassroom.backup` launchd job
   - Script: `bridge-classroom-api/scripts/backup-db.sh`
