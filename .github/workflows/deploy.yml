@@ -57,6 +57,7 @@ jobs:
           cp -r docs/screenshots dist/screenshots
           cp docs/sitemap.xml dist/sitemap.xml
           cp docs/robots.txt dist/robots.txt
+          cp docs/site.js dist/site.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
