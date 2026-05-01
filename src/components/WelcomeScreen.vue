@@ -372,686 +372,525 @@ function toggleClassroom(classroomId) {
 
 <template>
   <div class="welcome-screen">
-    <div class="welcome-card">
-      <!-- Header -->
-      <div class="welcome-header">
-        <h1>{{ teacherDisplay }}</h1>
+
+    <!-- Nav matching landing pages -->
+    <nav class="welcome-nav">
+      <a class="nav-logo" href="/">
+        <span class="suit">&#9824;</span> Bridge Classroom
+      </a>
+    </nav>
+
+    <div class="welcome-main">
+
+      <!-- Left: form panel -->
+      <div class="form-panel">
+        <div class="form-inner">
+
+          <!-- First-time user form -->
+          <template v-if="viewState === 'form'">
+            <h1>{{ teacherDisplay }}</h1>
+            <p class="subtitle">Enter your details to get started. Free — no partner needed.</p>
+
+            <form @submit.prevent="handleSubmit" class="user-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="firstName">First Name</label>
+                  <input id="firstName" v-model="firstName" type="text" placeholder="e.g. Terry"
+                    :class="{ 'has-error': errors.firstName }" autocomplete="given-name" />
+                  <span v-if="errors.firstName" class="error-message">{{ errors.firstName }}</span>
+                </div>
+                <div class="form-group">
+                  <label for="lastName">Last Name</label>
+                  <input id="lastName" v-model="lastName" type="text" placeholder="e.g. Lee"
+                    :class="{ 'has-error': errors.lastName }" autocomplete="family-name" />
+                  <span v-if="errors.lastName" class="error-message">{{ errors.lastName }}</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="email">Email Address</label>
+                <input id="email" v-model="email" type="email" placeholder="you@example.com"
+                  :class="{ 'has-error': errors.email }" autocomplete="email" />
+                <span v-if="errors.email" class="error-message">{{ errors.email }}</span>
+                <span class="field-hint">Used for account recovery and sharing with your teacher</span>
+              </div>
+
+              <div v-if="appConfig.hasMultipleClassrooms.value" class="form-group">
+                <label>Select Your Class(es)</label>
+                <div class="checkbox-group">
+                  <label v-for="classroom in appConfig.availableClassrooms.value" :key="classroom.id" class="checkbox-label">
+                    <input type="checkbox" :value="classroom.id"
+                      :checked="selectedClassrooms.includes(classroom.id)"
+                      @change="toggleClassroom(classroom.id)" />
+                    <span>{{ classroom.name }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div v-else-if="appConfig.hasSingleClassroom.value" class="form-group">
+                <label>Class</label>
+                <div class="single-classroom">{{ appConfig.singleClassroom.value.name }}</div>
+              </div>
+
+              <div class="form-group consent-group">
+                <label class="checkbox-label consent-label">
+                  <input type="checkbox" v-model="dataConsent" />
+                  <span>Preserve my practice history</span>
+                </label>
+                <button type="button" class="details-toggle" @click="showConsentDetails = !showConsentDetails">
+                  {{ showConsentDetails ? 'Hide details' : 'What data is preserved?' }}
+                </button>
+                <div v-if="showConsentDetails" class="consent-details">
+                  <p>Your practice history is saved online so you can track your progress over time.</p>
+                  <p><strong>What's preserved:</strong> which hands you practiced, your bidding choices, and when you practiced. Data is encrypted with your personal key.</p>
+                  <p class="consent-note">You can change this setting anytime in Settings.</p>
+                </div>
+              </div>
+
+              <button type="submit" class="submit-btn" :disabled="!isFormValid || isLoading">
+                <span v-if="isLoading">{{ loadingMessage }}</span>
+                <span v-else>Start Practicing &#8212; it's free</span>
+              </button>
+            </form>
+
+            <button v-if="userStore.hasUsers.value" class="back-link" @click="handleBackToReturning">
+              Back to user selection
+            </button>
+          </template>
+
+          <!-- Returning user -->
+          <template v-else-if="viewState === 'returning'">
+            <h1>Welcome back, {{ displayName }}!</h1>
+            <p class="subtitle">Ready to continue practicing?</p>
+            <button class="submit-btn full-width" @click="handleContinue">Continue</button>
+            <button class="switch-link" @click="handleSwitchUser">Not {{ displayName }}? Switch user</button>
+          </template>
+
+          <!-- User switcher -->
+          <template v-else-if="viewState === 'switcher'">
+            <h1>Select User</h1>
+            <p class="subtitle">Choose who's practicing today:</p>
+            <div class="user-list">
+              <button v-for="user in userStore.allUsers.value" :key="user.id" class="user-item"
+                :class="{ 'is-current': user.id === userStore.currentUserId.value }"
+                @click="handleSelectUser(user.id)">
+                <span class="user-name">{{ user.firstName }} {{ user.lastName }}</span>
+                <span v-if="user.email" class="user-email">{{ user.email }}</span>
+              </button>
+            </div>
+            <button class="add-user-btn" @click="handleAddNewUser">+ Add New User</button>
+            <button v-if="userStore.currentUser.value" class="back-link" @click="handleBackToReturning">Cancel</button>
+          </template>
+
+          <!-- Recovery link sent -->
+          <template v-else-if="viewState === 'recovery-sent'">
+            <h1>Check Your Email</h1>
+            <p class="subtitle">We found an existing account for <strong>{{ recoveryEmail }}</strong>.</p>
+            <div class="recovery-info">
+              <p>{{ recoveryMessage }}</p>
+              <p class="recovery-note">Click the link in the email, or enter the 6-digit code below.</p>
+            </div>
+            <div class="code-entry">
+              <label for="recoveryCode">Recovery Code</label>
+              <input id="recoveryCode" v-model="recoveryCode" type="text" inputmode="numeric"
+                pattern="[0-9]*" maxlength="6" placeholder="000000" class="code-input"
+                autocomplete="one-time-code" @keyup.enter="handleClaimByCode" />
+              <button class="submit-btn" :disabled="recoveryCode.trim().length !== 6 || isLoading" @click="handleClaimByCode">
+                <span v-if="isLoading">{{ loadingMessage }}</span>
+                <span v-else>Restore Account</span>
+              </button>
+              <span v-if="recoveryError" class="error-message">{{ recoveryError }}</span>
+            </div>
+            <button class="back-link" @click="viewState = 'form'">Use a different email</button>
+          </template>
+
+          <!-- Recovery claiming -->
+          <template v-else-if="viewState === 'recovery-claiming'">
+            <h1>Restoring Your Account</h1>
+            <p class="subtitle">{{ loadingMessage }}</p>
+            <div v-if="recoveryError" class="recovery-error-panel">
+              <p class="error-message">{{ recoveryError }}</p>
+              <button class="back-link" @click="viewState = 'form'">Try again</button>
+            </div>
+            <div v-else class="loading-spinner">
+              <div class="spinner"></div>
+            </div>
+          </template>
+
+        </div>
       </div>
 
-      <!-- First-time user form -->
-      <template v-if="viewState === 'form'">
-        <div class="welcome-body">
-          <h2>Welcome!</h2>
-          <p class="subtitle">Please enter your name to get started.</p>
-
-          <form @submit.prevent="handleSubmit" class="user-form">
-            <!-- First name -->
-            <div class="form-group">
-              <label for="firstName">First Name</label>
-              <input
-                id="firstName"
-                v-model="firstName"
-                type="text"
-                placeholder="Enter your first name"
-                :class="{ 'has-error': errors.firstName }"
-                autocomplete="given-name"
-              />
-              <span v-if="errors.firstName" class="error-message">
-                {{ errors.firstName }}
-              </span>
-            </div>
-
-            <!-- Last name -->
-            <div class="form-group">
-              <label for="lastName">Last Name</label>
-              <input
-                id="lastName"
-                v-model="lastName"
-                type="text"
-                placeholder="Enter your last name"
-                :class="{ 'has-error': errors.lastName }"
-                autocomplete="family-name"
-              />
-              <span v-if="errors.lastName" class="error-message">
-                {{ errors.lastName }}
-              </span>
-            </div>
-
-            <!-- Email -->
-            <div class="form-group">
-              <label for="email">Email Address</label>
-              <input
-                id="email"
-                v-model="email"
-                type="email"
-                placeholder="Enter your email address"
-                :class="{ 'has-error': errors.email }"
-                autocomplete="email"
-              />
-              <span v-if="errors.email" class="error-message">
-                {{ errors.email }}
-              </span>
-              <span class="field-hint">Used for account recovery and sharing with your teacher</span>
-            </div>
-
-            <!-- Classroom selection (only if multiple available) -->
-            <div v-if="appConfig.hasMultipleClassrooms.value" class="form-group">
-              <label>Select Your Class(es)</label>
-              <div class="checkbox-group">
-                <label
-                  v-for="classroom in appConfig.availableClassrooms.value"
-                  :key="classroom.id"
-                  class="checkbox-label"
-                >
-                  <input
-                    type="checkbox"
-                    :value="classroom.id"
-                    :checked="selectedClassrooms.includes(classroom.id)"
-                    @change="toggleClassroom(classroom.id)"
-                  />
-                  <span>{{ classroom.name }}</span>
-                </label>
-              </div>
-            </div>
-
-            <!-- Single classroom info (if only one) -->
-            <div v-else-if="appConfig.hasSingleClassroom.value" class="form-group">
-              <label>Class</label>
-              <div class="single-classroom">
-                {{ appConfig.singleClassroom.value.name }}
-              </div>
-            </div>
-
-            <!-- Data preservation -->
-            <div class="form-group consent-group">
-              <label class="checkbox-label consent-label">
-                <input
-                  type="checkbox"
-                  v-model="dataConsent"
-                />
-                <span>
-                  Preserve my practice history
-                </span>
-              </label>
-
-              <button
-                type="button"
-                class="details-toggle"
-                @click="showConsentDetails = !showConsentDetails"
-              >
-                {{ showConsentDetails ? 'Hide details' : 'What data is preserved?' }}
-              </button>
-
-              <div v-if="showConsentDetails" class="consent-details">
-                <p>Your practice history is saved online so you can track your progress over time.</p>
-                <p><strong>How it works:</strong></p>
-                <ul>
-                  <li>Your data is encrypted with your personal key</li>
-                  <li>Only you and people you authorize can view it</li>
-                  <li>The site administrator can also access your data</li>
-                </ul>
-                <p><strong>What's preserved:</strong></p>
-                <ul>
-                  <li>Which hands you practiced</li>
-                  <li>Your bidding choices (correct and incorrect)</li>
-                  <li>When you practiced</li>
-                </ul>
-                <p class="consent-note">You can change this setting anytime in Settings.</p>
-              </div>
-            </div>
-
-            <!-- Submit button -->
-            <button
-              type="submit"
-              class="submit-btn"
-              :disabled="!isFormValid || isLoading"
-            >
-              <span v-if="isLoading">{{ loadingMessage }}</span>
-              <span v-else>Start Practicing</span>
-            </button>
-          </form>
-
-          <!-- Back to returning user (if switching from switcher) -->
-          <button
-            v-if="userStore.hasUsers.value"
-            class="back-link"
-            @click="handleBackToReturning"
-          >
-            Back to user selection
-          </button>
-        </div>
-      </template>
-
-      <!-- Returning user -->
-      <template v-else-if="viewState === 'returning'">
-        <div class="welcome-body returning">
-          <h2>Welcome back, {{ displayName }}!</h2>
-          <p class="subtitle">Ready to continue practicing?</p>
-
-          <button class="submit-btn" @click="handleContinue">
-            Continue
-          </button>
-
-          <button class="switch-link" @click="handleSwitchUser">
-            Not {{ displayName }}? Switch user
-          </button>
-        </div>
-      </template>
-
-      <!-- User switcher -->
-      <template v-else-if="viewState === 'switcher'">
-        <div class="welcome-body switcher">
-          <h2>Select User</h2>
-          <p class="subtitle">Choose who's practicing today:</p>
-
-          <div class="user-list">
-            <button
-              v-for="user in userStore.allUsers.value"
-              :key="user.id"
-              class="user-item"
-              :class="{ 'is-current': user.id === userStore.currentUserId.value }"
-              @click="handleSelectUser(user.id)"
-            >
-              <span class="user-name">{{ user.firstName }} {{ user.lastName }}</span>
-              <span v-if="user.email" class="user-email">{{ user.email }}</span>
-            </button>
+      <!-- Right: screenshot panel -->
+      <div class="preview-panel">
+        <div class="preview-inner">
+          <div class="preview-screenshot">
+            <img :src="'/screenshots/solo-practice-detail.png'" alt="Bridge bidding practice" />
           </div>
-
-          <button class="add-user-btn" @click="handleAddNewUser">
-            + Add New User
-          </button>
-
-          <button
-            v-if="userStore.currentUser.value"
-            class="back-link"
-            @click="handleBackToReturning"
-          >
-            Cancel
-          </button>
+          <p class="preview-caption">Practice bidding deals, track your mastery, and pick up where you left off on any device.</p>
         </div>
-      </template>
+      </div>
 
-      <!-- Recovery link sent -->
-      <template v-else-if="viewState === 'recovery-sent'">
-        <div class="welcome-body recovery-sent">
-          <h2>Check Your Email</h2>
-          <p class="subtitle">
-            We found an existing account for <strong>{{ recoveryEmail }}</strong>.
-          </p>
-
-          <div class="recovery-info">
-            <p>{{ recoveryMessage }}</p>
-            <p class="recovery-note">
-              Click the link in the email, or enter the 6-digit code below.
-            </p>
-          </div>
-
-          <!-- Code entry -->
-          <div class="code-entry">
-            <label for="recoveryCode">Recovery Code</label>
-            <input
-              id="recoveryCode"
-              v-model="recoveryCode"
-              type="text"
-              inputmode="numeric"
-              pattern="[0-9]*"
-              maxlength="6"
-              placeholder="000000"
-              class="code-input"
-              autocomplete="one-time-code"
-              @keyup.enter="handleClaimByCode"
-            />
-            <button
-              class="submit-btn"
-              :disabled="recoveryCode.trim().length !== 6 || isLoading"
-              @click="handleClaimByCode"
-            >
-              <span v-if="isLoading">{{ loadingMessage }}</span>
-              <span v-else>Restore Account</span>
-            </button>
-            <span v-if="recoveryError" class="error-message">{{ recoveryError }}</span>
-          </div>
-
-          <button class="back-link" @click="viewState = 'form'">
-            Use a different email
-          </button>
-        </div>
-      </template>
-
-      <!-- Recovery claiming (loading state) -->
-      <template v-else-if="viewState === 'recovery-claiming'">
-        <div class="welcome-body recovery-claiming">
-          <h2>Restoring Your Account</h2>
-          <p class="subtitle">{{ loadingMessage }}</p>
-
-          <div v-if="recoveryError" class="recovery-error-panel">
-            <p class="error-message">{{ recoveryError }}</p>
-            <button class="back-link" @click="viewState = 'form'">
-              Try again
-            </button>
-          </div>
-
-          <div v-else class="loading-spinner">
-            <div class="spinner"></div>
-          </div>
-        </div>
-      </template>
     </div>
+
+    <!-- Footer -->
+    <div class="welcome-footer">
+      Bridge Classroom &middot; free &amp; open source &middot; bridge-classroom.com
+    </div>
+
   </div>
 </template>
 
 <style scoped>
+* { box-sizing: border-box; }
+
 .welcome-screen {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
+  background: #f5f5f2;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Nav */
+.welcome-nav {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.welcome-card {
+  padding: 11px 32px;
+  border-bottom: 0.5px solid #e0e0e0;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-  max-width: 450px;
+  flex-shrink: 0;
+}
+.nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1a1a1a;
+  text-decoration: none;
+}
+.suit { color: #1D9E75; }
+
+/* Main two-column layout */
+.welcome-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  flex: 1;
+  align-items: stretch;
+}
+
+/* Form panel */
+.form-panel {
+  background: white;
+  border-right: 0.5px solid #e0e0e0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 40px;
+  overflow-y: auto;
+}
+.form-inner {
   width: 100%;
-  overflow: hidden;
+  max-width: 400px;
 }
-
-.welcome-header {
-  background: #1a237e;
-  color: white;
-  padding: 24px;
-  text-align: center;
-}
-
-.welcome-header h1 {
+.form-inner h1 {
   font-size: 22px;
-  font-weight: 600;
-  margin: 0;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 6px 0;
+  line-height: 1.3;
 }
-
-.welcome-body {
-  padding: 32px;
-}
-
-.welcome-body h2 {
-  font-size: 24px;
-  color: #333;
-  margin: 0 0 8px 0;
-}
-
 .subtitle {
   color: #666;
-  margin: 0 0 24px 0;
-  font-size: 15px;
+  font-size: 13px;
+  margin: 0 0 28px 0;
+  line-height: 1.6;
 }
 
+/* Form elements */
 .user-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
-
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
-
 .form-group label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  color: #444;
+  color: #555;
 }
-
-.form-group input[type="text"] {
-  padding: 12px 14px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 0.2s;
-}
-
-.form-group input[type="text"]:focus,
-.form-group input[type="email"]:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
+.form-group input[type="text"],
 .form-group input[type="email"] {
-  padding: 12px 14px;
-  border: 2px solid #e0e0e0;
+  padding: 9px 12px;
+  border: 0.5px solid #d0d0d0;
   border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 0.2s;
+  font-size: 14px;
+  font-family: inherit;
+  background: white;
+  color: #1a1a1a;
+  transition: border-color 0.15s;
 }
+.form-group input:focus {
+  outline: none;
+  border-color: #1D9E75;
+  box-shadow: 0 0 0 2px rgba(29, 158, 117, 0.1);
+}
+.form-group input.has-error { border-color: #d32f2f; }
 
 .field-hint {
-  font-size: 12px;
-  color: #888;
-  font-style: italic;
+  font-size: 11px;
+  color: #999;
 }
-
-.form-group input.has-error {
-  border-color: #d32f2f;
-}
-
 .error-message {
   color: #d32f2f;
-  font-size: 13px;
+  font-size: 12px;
+}
+
+.single-classroom {
+  padding: 9px 12px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #333;
 }
 
 .checkbox-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 8px 0;
+  gap: 8px;
 }
-
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
+  color: #444;
 }
-
 .checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   cursor: pointer;
-}
-
-.single-classroom {
-  padding: 12px 14px;
-  background: #f5f5f5;
-  border-radius: 8px;
-  font-size: 15px;
-  color: #333;
+  accent-color: #1D9E75;
 }
 
 .consent-group {
   padding-top: 8px;
-  border-top: 1px solid #eee;
+  border-top: 0.5px solid #eee;
 }
-
-.consent-label {
-  font-weight: normal;
-}
-
-.consent-label span {
-  font-size: 14px;
-  color: #555;
-}
+.consent-label { font-weight: normal; }
+.consent-label span { font-size: 13px; color: #555; }
 
 .details-toggle {
   background: none;
   border: none;
-  color: #667eea;
-  font-size: 13px;
+  color: #1D9E75;
+  font-size: 12px;
   cursor: pointer;
-  padding: 4px 0;
+  padding: 3px 0;
   text-align: left;
+  font-family: inherit;
 }
-
-.details-toggle:hover {
-  text-decoration: underline;
-}
+.details-toggle:hover { text-decoration: underline; }
 
 .consent-details {
-  margin-top: 12px;
-  padding: 16px;
-  background: #f8f9fa;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: #f0f7f4;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 12px;
   color: #555;
-  line-height: 1.5;
+  line-height: 1.6;
 }
-
-.consent-details p {
-  margin: 0 0 8px 0;
-}
-
-.consent-details ul {
-  margin: 0 0 12px 0;
-  padding-left: 20px;
-}
-
-.consent-details li {
-  margin-bottom: 4px;
-}
-
-.consent-note {
-  font-style: italic;
-  color: #777;
-}
+.consent-details p { margin: 0 0 6px 0; }
+.consent-details p:last-child { margin-bottom: 0; }
+.consent-note { font-style: italic; color: #888; }
 
 .submit-btn {
-  padding: 14px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 11px 20px;
+  background: #1D9E75;
   color: white;
   border: none;
   border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: background 0.15s;
+  width: 100%;
 }
-
-.submit-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+.submit-btn:hover:not(:disabled) { background: #0F6E56; }
+.submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.submit-btn.full-width { width: 100%; }
 
 .switch-link,
 .back-link {
   display: block;
   width: 100%;
-  margin-top: 16px;
-  padding: 10px;
+  margin-top: 12px;
+  padding: 8px;
   background: none;
   border: none;
-  color: #667eea;
-  font-size: 14px;
+  color: #1D9E75;
+  font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
   text-align: center;
 }
-
 .switch-link:hover,
-.back-link:hover {
-  text-decoration: underline;
-}
+.back-link:hover { text-decoration: underline; }
 
-/* Returning user styles */
-.returning {
-  text-align: center;
-}
-
-.returning .submit-btn {
-  width: 100%;
-}
-
-/* Switcher styles */
-.switcher {
-  text-align: center;
-}
-
+/* User switcher */
 .user-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
-
 .user-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding: 14px 16px;
-  background: #f8f9fa;
-  border: 2px solid #e0e0e0;
+  padding: 12px 14px;
+  background: #f8f8f8;
+  border: 0.5px solid #e0e0e0;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
 }
-
-.user-item:hover {
-  border-color: #667eea;
-  background: #f0f4ff;
-}
-
-.user-item.is-current {
-  border-color: #667eea;
-  background: #e8efff;
-}
-
-.user-name {
-  font-weight: 500;
-  color: #333;
-}
-
-.user-email {
-  font-size: 13px;
-  color: #777;
-}
-
-.user-class {
-  font-size: 13px;
-  color: #777;
-}
+.user-item:hover { border-color: #1D9E75; background: #f0f7f4; }
+.user-item.is-current { border-color: #1D9E75; background: #e8f5f0; }
+.user-name { font-weight: 500; color: #1a1a1a; font-size: 14px; }
+.user-email { font-size: 12px; color: #888; }
 
 .add-user-btn {
   width: 100%;
-  padding: 14px;
+  padding: 11px;
   background: white;
-  border: 2px dashed #ccc;
+  border: 1px dashed #ccc;
   border-radius: 8px;
-  color: #666;
-  font-size: 15px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.add-user-btn:hover {
-  border-color: #667eea;
-  color: #667eea;
-}
-
-/* Recovery sent styles */
-.recovery-sent,
-.recovery-claiming {
-  text-align: center;
-}
-
-.recovery-info {
-  margin: 24px 0;
-  padding: 20px;
-  background: #e8f5e9;
-  border-radius: 8px;
-  color: #2e7d32;
-}
-
-.recovery-info p {
-  margin: 0 0 12px 0;
-  font-size: 15px;
-}
-
-.recovery-info p:last-child {
-  margin-bottom: 0;
-}
-
-.recovery-note {
+  color: #888;
   font-size: 14px;
-  color: #558b2f;
-  font-style: italic;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
 }
+.add-user-btn:hover { border-color: #1D9E75; color: #1D9E75; }
 
-/* Code entry styles */
+/* Recovery */
+.recovery-info {
+  margin: 20px 0;
+  padding: 16px;
+  background: #e8f5f0;
+  border-radius: 8px;
+  color: #0F6E56;
+  border-left: 3px solid #1D9E75;
+}
+.recovery-info p { margin: 0 0 8px 0; font-size: 14px; }
+.recovery-info p:last-child { margin-bottom: 0; }
+.recovery-note { font-size: 13px; font-style: italic; }
+
 .code-entry {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin: 20px 0;
+  gap: 10px;
+  margin: 16px 0;
 }
-
-.code-entry label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #444;
-}
-
+.code-entry label { font-size: 12px; font-weight: 500; color: #555; }
 .code-input {
-  padding: 14px;
-  border: 2px solid #e0e0e0;
+  padding: 12px;
+  border: 0.5px solid #d0d0d0;
   border-radius: 8px;
   font-size: 28px;
   font-family: 'Courier New', Courier, monospace;
   text-align: center;
   letter-spacing: 8px;
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
-
-.code-input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.code-input::placeholder {
-  color: #ccc;
-  letter-spacing: 8px;
-}
+.code-input:focus { outline: none; border-color: #1D9E75; }
+.code-input::placeholder { color: #ccc; letter-spacing: 8px; }
 
 .recovery-error-panel {
-  margin: 24px 0;
-  padding: 20px;
+  margin: 20px 0;
+  padding: 16px;
   background: #ffebee;
   border-radius: 8px;
+  border-left: 3px solid #d32f2f;
 }
+.recovery-error-panel .error-message { margin-bottom: 12px; display: block; }
 
-.recovery-error-panel .error-message {
+.loading-spinner { display: flex; justify-content: center; padding: 40px; }
+.spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #1D9E75;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Preview panel */
+.preview-panel {
+  background: #f0f7f4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+}
+.preview-inner {
+  max-width: 480px;
+  width: 100%;
+}
+.preview-screenshot {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border: 0.5px solid #d0e8df;
   margin-bottom: 16px;
 }
-
-.loading-spinner {
-  display: flex;
-  justify-content: center;
-  padding: 32px;
+.preview-screenshot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.preview-caption {
+  font-size: 13px;
+  color: #555;
+  text-align: center;
+  line-height: 1.6;
+  margin: 0;
 }
 
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #e0e0e0;
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+/* Footer */
+.welcome-footer {
+  padding: 10px 32px;
+  border-top: 0.5px solid #e0e0e0;
+  background: white;
+  font-size: 11px;
+  color: #aaa;
+  text-align: center;
+  flex-shrink: 0;
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (max-width: 480px) {
-  .welcome-body {
-    padding: 24px;
-  }
-
-  .welcome-header h1 {
-    font-size: 18px;
-  }
-
-  .welcome-body h2 {
-    font-size: 20px;
-  }
+/* Mobile */
+@media (max-width: 768px) {
+  .welcome-main { grid-template-columns: 1fr; }
+  .preview-panel { display: none; }
+  .form-panel { border-right: none; padding: 32px 24px; }
+  .form-row { grid-template-columns: 1fr; }
 }
 </style>
