@@ -46,7 +46,7 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Patreon**: https://patreon.com/BridgeCraftwork
 - **Email support**: bridge-craftwork@gmail.com
 - **GitHub**: https://github.com/Rick-Wilson/Bridge-Classroom
-- **Club Game Analysis webapp**: https://club-game-analysis.bridge-classroom.com
+- **Game Analysis webapp**: https://game-analysis.bridge-classroom.com
 - **Frontend**: GitHub Pages (served from `docs/` directory)
 - **Backend API**: Rust server running locally on Mac at port 3000
 - **Tunnel**: Cloudflare Tunnel routes https://api.bridge-classroom.com → localhost:3000
@@ -79,7 +79,7 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 The `docs/` directory contains static HTML landing pages alongside the Vue SPA build output. These pages use `docs/styles.css` for shared design tokens and `docs/favicon.svg` (green spade) for the tab icon.
 
 - **`index-preview.html`** — Hub page with tile grid organized by audience: "For students", "Teacher resources", "Author tools". Each tile links to a detail page.
-- **Detail pages**: `solo-practice.html`, `bbo-scenarios.html`, `club-game-analysis.html`, `classrooms.html`, `hand-curator.html`, `deal-library.html`, `lesson-materials.html`, `teacher-utilities.html`, `about.html`
+- **Detail pages**: `solo-practice.html`, `bbo-scenarios.html`, `game-analysis.html`, `classrooms.html`, `hand-curator.html`, `deal-library.html`, `lesson-materials.html`, `teacher-utilities.html`, `about.html`
 - **`docs/screenshots/`** — Real app screenshots used on detail pages (no fake browser chrome — displayed as clean panels with captions)
 - **Design notes**: Tiles are 260px wide with 14-16px body text for senior/super-senior readability. All detail pages use a consistent two-column layout (description left, screenshots right) with a shared `.screenshot` style.
 - **Footer links**: GitHub, Discord, Email support, Patreon, About

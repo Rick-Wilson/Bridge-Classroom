@@ -14,7 +14,7 @@
   }
 
   // Update hrefs that point to bridge-classroom.com subdomains or paths
-  // (e.g. club-game-analysis.bridge-classroom.com → club-game-analysis.bridge-classroom.org)
+  // (e.g. game-analysis.bridge-classroom.com → game-analysis.bridge-classroom.org)
   // Skips external domains like github.com that merely mention bridge-classroom in the path.
   document.querySelectorAll('a[href]').forEach(function (el) {
     var href = el.getAttribute('href');
