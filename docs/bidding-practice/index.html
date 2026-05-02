@@ -17,6 +17,8 @@
     overflow: hidden;
     zoom: 1.75;
   }
+  @media (max-width: 1100px) { body { zoom: 1.2; overflow: auto; } }
+  @media (max-width: 700px)  { body { zoom: 1.0; overflow: auto; } }
   #app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
 
   /* Header */
@@ -28,11 +30,22 @@
   .nav-logo .suit { color: #1D9E75; }
   .nav-back { font-size: 12px; color: #666; text-decoration: none; }
   .nav-back:hover { color: #222; }
+  .nav-toggle { display: none; font-size: 13px; color: #1D9E75; cursor: pointer;
+    background: none; border: 1px solid #1D9E75; border-radius: 6px; padding: 4px 10px;
+    font-weight: 500; }
+  @media (max-width: 1100px) { .nav-toggle { display: inline-block; } }
 
   /* Layout */
-  .main { display: grid; grid-template-columns: 320px minmax(0,1fr); min-height: 0; }
+  .main { display: grid; grid-template-columns: 320px minmax(0,1fr); min-height: 0; position: relative; }
   .sidebar { background: #fff; border-right: 0.5px solid #ddd; overflow-y: auto; padding: 14px 0; }
   .stage { padding: 24px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  @media (max-width: 1100px) {
+    .main { grid-template-columns: minmax(0, 1fr); }
+    .sidebar { display: none; }
+    .sidebar.open { display: block; }
+    .stage.dimmed { display: none; }
+    .stage { padding: 14px; gap: 12px; }
+  }
 
   /* Sidebar / scenario menu */
   .menu-loading { padding: 14px 16px; font-size: 12px; color: #888; }
@@ -86,6 +99,9 @@
   /* Bridge table (compass layout) */
   .table-wrap { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start;
     width: 100%; max-width: 940px; }
+  @media (max-width: 1100px) {
+    .table-wrap { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  }
   .bridge-table {
     background: #fff; border: 0.5px solid #ddd; border-radius: 10px;
     padding: 18px; display: grid;
@@ -166,11 +182,17 @@
   .bb-special .rdbl { background: #2196f3; }
   .bb-special button:disabled { opacity: 0.35; cursor: not-allowed; }
 
+  .last-meaning { margin-top: 8px; padding: 6px 8px; background: #fafafa;
+    border-left: 2px solid #1D9E75; font-size: 12px; line-height: 1.4; color: #444; }
+  .last-meaning strong { color: #222; }
+  .last-meaning .diverged-note { color: #b00; font-size: 11px; margin-left: 4px; }
+
   .dd-table { border-collapse: collapse; margin-top: 6px; font-size: 12px; }
   .dd-table th, .dd-table td { border: 0.5px solid #ddd; padding: 3px 8px; text-align: center; }
   .dd-table th { background: #f3f3f0; color: #666; font-weight: 600; }
   .dd-table td.seat { background: #f3f3f0; font-weight: 600; }
-  .dd-table td.contract { background: #fbd6e5; color: #88224a; font-weight: 700; }
+  .dd-table td.contract.match { background: #d4edda; color: #155724; font-weight: 700; }
+  .dd-table td.contract.diverged { background: #fbd6e5; color: #88224a; font-weight: 700; }
   .dd-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em;
     margin-top: 10px; }
 
@@ -196,11 +218,14 @@
 <div id="app">
   <nav class="nav">
     <a class="nav-logo" href="/"><span class="suit">&spades;</span> Bridge Classroom &middot; Bidding Practice</a>
+    <button class="nav-toggle" @click="sidebarOpen = !sidebarOpen">
+      {{ sidebarOpen ? 'Close' : '☰ Scenarios' }}
+    </button>
     <a class="nav-back" href="/">&larr; All tools</a>
   </nav>
 
   <div class="main">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div v-if="menuLoading" class="menu-loading">Loading scenarios&hellip;</div>
       <div v-else-if="menuError" class="menu-loading" style="color:#b00">{{ menuError }}</div>
       <div v-else>
@@ -232,7 +257,7 @@
       </div>
     </aside>
 
-    <main class="stage">
+    <main class="stage" :class="{ dimmed: sidebarOpen }">
 
       <div v-if="!currentScenario && !menuLoading" class="stage-empty">
         Pick a scenario from the menu to start bidding.<br>
@@ -305,6 +330,13 @@
                             :current-index="bids.length"
                             :user-bids="userBids" :show-turn="!auctionComplete"
                             :meanings="meanings"></auction-grid>
+              <div v-if="lastBidMeaning" class="last-meaning">
+                <strong>{{ lastBidMeaning.seat }}: {{ lastBidMeaning.bid }}</strong>
+                <span v-if="lastBidMeaning.userBid" class="diverged-note">
+                  (you bid <s>{{ lastBidMeaning.userBid }}</s>)
+                </span>
+                &mdash; {{ lastBidMeaning.text }}
+              </div>
             </div>
 
             <div v-if="!auctionComplete && currentSeat === 'S' && !auctionLoading" class="auction-card">
@@ -341,7 +373,8 @@
                 <tbody>
                   <tr v-for="row in ddRows" :key="row.seat">
                     <td class="seat">{{ row.seat }}</td>
-                    <td v-for="(c, i) in row.cells" :key="i" :class="{ contract: c.isContract }">{{ c.tricks }}</td>
+                    <td v-for="(c, i) in row.cells" :key="i"
+                        :class="{ contract: c.isContract, match: c.isContract && !hadDivergence, diverged: c.isContract && hadDivergence }">{{ c.tricks }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -621,7 +654,7 @@ const HandDisplay = {
     <div class="hand">
       <div class="seat-label" :class="{ active: active }">
         {{ seatName }}
-        <span class="hand-pts">{{ hcp }} HCP / {{ tp }} TP</span>
+        <span class="hand-pts">{{ hcp }}+{{ lengthPts }} TP</span>
       </div>
       <div class="hand-line"><span class="suit black">&spades;</span><span class="black">{{ hand.S || '—' }}</span></div>
       <div class="hand-line"><span class="suit red">&hearts;</span><span class="red">{{ hand.H || '—' }}</span></div>
@@ -639,14 +672,14 @@ const HandDisplay = {
       }
       return total;
     },
-    tp() {
-      // HCP + length points (1 per card over 4 in any suit)
+    lengthPts() {
+      // 1 per card over 4 in any suit
       let lp = 0;
       for (const suit of ['S', 'H', 'D', 'C']) {
         const len = (this.hand[suit] || '').length;
         if (len > 4) lp += len - 4;
       }
-      return this.hcp + lp;
+      return lp;
     },
   },
 };
@@ -833,6 +866,10 @@ const App = {
     const menuLoading = ref(true);
     const menuError = ref('');
     const openSections = reactive({});
+    // Sidebar visibility: open by default on wide screens, closed on iPad/phone.
+    const isNarrow = () => typeof window !== 'undefined'
+      && window.matchMedia('(max-width: 1100px)').matches;
+    const sidebarOpen = ref(!isNarrow());
 
     const currentScenario = ref('');
     const currentScenarioLabel = ref('');
@@ -891,6 +928,26 @@ const App = {
       if (!currentDeal.value) return { contract: '', declarer: null };
       return determineContract(bids.value, currentDeal.value.dealer) || { contract: '', declarer: null };
     });
+    const hadDivergence = computed(() => Object.keys(userBids.value).length > 0);
+
+    // Most recent placed bid + its meaning (replacement for tooltips on touch).
+    const lastBidMeaning = computed(() => {
+      if (!bids.value.length || !currentDeal.value) return null;
+      const idx = bids.value.length - 1;
+      const bid = bids.value[idx];
+      const userBid = userBids.value[idx];
+      const seat = seatAtIndex(currentDeal.value.dealer, idx);
+      const m = (meanings.value || []).find(x => x.position === idx);
+      let text = m && m.meaning ? m.meaning : '';
+      if (!text) {
+        if (bid === 'Pass') text = 'pass';
+        else if (bid === 'X') text = 'double';
+        else if (bid === 'XX') text = 'redouble';
+        else text = 'natural';
+      }
+      return { seat, bid, userBid, text };
+    });
+
     const summary = computed(() => {
       if (!auctionComplete.value) return '';
       const divergeCount = Object.keys(userBids.value).length;
@@ -949,6 +1006,8 @@ const App = {
       if (currentScenario.value === file) return;
       currentScenario.value = file;
       currentScenarioLabel.value = prettifyLabel(file);
+      // Auto-close the sidebar on narrow viewports so the table is visible.
+      if (isNarrow()) sidebarOpen.value = false;
       dealError.value = '';
       dealErrorHint.value = '';
       dealsForScenario.value = [];
@@ -1062,13 +1121,13 @@ const App = {
     }
 
     return {
-      menuTree, menuLoading, menuError, openSections, toggleSection,
+      menuTree, menuLoading, menuError, openSections, toggleSection, sidebarOpen,
       currentScenario, currentScenarioLabel, dealsForScenario, dealIndex, totalDeals, currentDeal,
       dealError, dealErrorHint,
       bids, userBids, expectedAuction, conventionsUsed, meanings, doubleDummy,
       auctionLoading, showConfigHint,
       auctionComplete, currentSeat, lastNonPassNonDouble, canDouble, canRedouble,
-      finalContract, summary, ddRows,
+      finalContract, summary, ddRows, hadDivergence, lastBidMeaning,
       selectScenario, newDeal, resetAuction, onUserBid, vulForSide, formatContract,
     };
   },
