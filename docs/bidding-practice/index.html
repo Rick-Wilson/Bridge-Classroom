@@ -828,11 +828,8 @@ const AuctionGrid = {
     },
     cellTitle(c) {
       if (!c || !c.bid) return '';
-      const expectedMeaning = this.meaningFor(c.idx);
-      if (c.userBid) {
-        return `Your bid: ${this.plainBid(c.userBid)}\nBBA expected: ${this.bidLine(c.bid, expectedMeaning)}`;
-      }
-      return this.bidLine(c.bid, expectedMeaning);
+      const m = this.meaningFor(c.idx);
+      return m || this.naturalLabel(c.bid);
     },
   },
   template: `
