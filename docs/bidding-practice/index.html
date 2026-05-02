@@ -654,7 +654,10 @@ const HandDisplay = {
     <div class="hand">
       <div class="seat-label" :class="{ active: active }">
         {{ seatName }}
-        <span class="hand-pts">{{ hcp }}+{{ lengthPts }} TP</span>
+        <span class="hand-pts">
+          <template v-if="lengthPts > 0">{{ hcp }}+{{ lengthPts }} TP</template>
+          <template v-else>{{ hcp }} HCP</template>
+        </span>
       </div>
       <div class="hand-line"><span class="suit black">&spades;</span><span class="black">{{ hand.S || '—' }}</span></div>
       <div class="hand-line"><span class="suit red">&hearts;</span><span class="red">{{ hand.H || '—' }}</span></div>
