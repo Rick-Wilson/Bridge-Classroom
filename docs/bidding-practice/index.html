@@ -243,6 +243,9 @@
               Deal {{ dealIndex + 1 }} of {{ totalDeals }} &middot;
               Dealer {{ currentDeal.dealer }} &middot; Vul {{ currentDeal.vulnerable }}
             </div>
+            <div v-if="conventionsUsed" class="scenario-meta" style="margin-top:2px">
+              CC &middot; NS: {{ conventionsUsed.ns }} &middot; EW: {{ conventionsUsed.ew }}
+            </div>
           </div>
           <div class="scenario-actions">
             <button class="btn" @click="newDeal" :disabled="auctionLoading">New deal</button>
@@ -487,7 +490,11 @@ async function generateAuction(deal, scenarioName) {
   }
   const j = await resp.json();
   if (!j.success) throw new Error(j.error || 'BBA returned success=false');
-  return { auction: j.auction, meanings: j.meanings || [] };
+  return {
+    auction: j.auction,
+    meanings: j.meanings || [],
+    conventionsUsed: j.conventionsUsed || null,
+  };
 }
 
 function handsToPbn(hands) {
@@ -725,6 +732,7 @@ const App = {
     const dealErrorHint = ref('');
 
     const expectedAuction = ref([]);    // BBA's full auction
+    const conventionsUsed = ref(null);   // {ns, ew} BBA reports back
     const bids = ref([]);                // bids placed so far (mix of bot + human)
     const wrongIndices = ref([]);
     const auctionLoading = ref(false);
@@ -833,6 +841,7 @@ const App = {
       try {
         const result = await generateAuction(currentDeal.value, currentScenario.value);
         expectedAuction.value = result.auction;
+        conventionsUsed.value = result.conventionsUsed || null;
         await playToHumanTurn();
       } catch (err) {
         dealError.value = 'BBA error: ' + err.message;
@@ -918,7 +927,7 @@ const App = {
       menuTree, menuLoading, menuError, openSections, toggleSection,
       currentScenario, currentScenarioLabel, dealsForScenario, dealIndex, totalDeals, currentDeal,
       dealError, dealErrorHint,
-      bids, wrongIndices, expectedAuction, auctionLoading, feedback, showConfigHint,
+      bids, wrongIndices, expectedAuction, conventionsUsed, auctionLoading, feedback, showConfigHint,
       auctionComplete, currentSeat, lastNonPassNonDouble, canDouble, canRedouble,
       finalContract, summary,
       selectScenario, newDeal, resetAuction, onUserBid, vulForSide, formatContract,
