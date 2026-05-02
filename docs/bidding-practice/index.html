@@ -189,10 +189,10 @@
     <aside class="sidebar">
       <div v-if="menuLoading" class="menu-loading">Loading scenarios&hellip;</div>
       <div v-else-if="menuError" class="menu-loading" style="color:#b00">{{ menuError }}</div>
-      <template v-else>
-        <template v-for="(node, idx) in menuTree" :key="idx">
+      <div v-else>
+        <div v-for="(node, idx) in menuTree" :key="idx">
           <div v-if="node.type === 'major'" class="menu-major">{{ node.label }}</div>
-          <template v-else-if="node.type === 'section'">
+          <div v-else-if="node.type === 'section'">
             <div class="menu-section" :class="{ open: openSections[node.label] }"
                  @click="toggleSection(node.label)">
               <span>{{ node.label }}</span>
@@ -206,9 +206,9 @@
                 {{ item.label }}
               </div>
             </div>
-          </template>
-        </template>
-      </template>
+          </div>
+        </div>
+      </div>
     </aside>
 
     <main class="stage">
