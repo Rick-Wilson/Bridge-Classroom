@@ -10,6 +10,12 @@
 
     <div class="bp-main">
       <aside class="bp-sidebar" :class="{ open: sidebarOpen }">
+        <div v-if="selectedScenarios.size > 0" class="bp-selection-summary">
+          <div class="bp-selection-count">
+            {{ selectedScenarios.size }} scenario{{ selectedScenarios.size === 1 ? '' : 's' }} selected
+          </div>
+          <button class="bp-selection-clear" @click="clearSelection">Clear</button>
+        </div>
         <div v-if="menuLoading" class="bp-menu-loading">Loading scenarios&hellip;</div>
         <div v-else-if="menuError" class="bp-menu-loading bp-error">{{ menuError }}</div>
         <div v-else>
@@ -38,9 +44,10 @@
                     :class="{
                       clickable: !!cell,
                       empty: !cell,
+                      selected: cell && selectedScenarios.has(cell.file),
                       active: cell && cell.file === currentScenario,
                     }"
-                    @click="cell && selectScenario(cell.file)"
+                    @click="cell && toggleScenario(cell.file)"
                   >
                     <span v-if="cell">{{ cell.label }}</span>
                   </div>
@@ -75,6 +82,10 @@
               </div>
             </div>
             <div class="bp-scenario-actions">
+              <label class="bp-rotate-toggle">
+                <input type="checkbox" v-model="rotateDeals">
+                Rotate randomly
+              </label>
               <button class="bp-btn" @click="resetAuction" :disabled="auctionLoading">Restart this deal</button>
             </div>
           </div>
@@ -197,6 +208,10 @@ const isNarrow = () => typeof window !== 'undefined'
   && window.matchMedia('(max-width: 1100px)').matches
 const sidebarOpen = ref(!isNarrow())
 
+// Selected scenario set (multi-select). currentScenario tracks which scenario
+// the LOADED deal came from (for display + "next from same set" logic).
+const selectedScenarios = ref(new Set())
+const dealsByScenario = ref({})  // file -> parsed deals[]
 const currentScenario = ref('')
 const currentScenarioLabel = ref('')
 const dealsForScenario = ref([])
@@ -204,6 +219,8 @@ const dealIndex = ref(0)
 const currentDeal = ref(null)
 const dealError = ref('')
 const dealErrorHint = ref('')
+
+const rotateDeals = ref(false)
 
 const expectedAuction = ref([])
 const conventionsUsed = ref(null)
@@ -541,46 +558,96 @@ function toggleSection(label) {
   openSections[label] = !openSections[label]
 }
 
-async function selectScenario(file) {
-  if (currentScenario.value === file) return
+// Toggle a scenario in the multi-select set.
+// Adding when set was empty (or nothing loaded) auto-loads a deal from it.
+// Removing the currently-loaded scenario advances to a different one in the set.
+async function toggleScenario(file) {
+  const newSet = new Set(selectedScenarios.value)
+  if (newSet.has(file)) {
+    newSet.delete(file)
+    selectedScenarios.value = newSet
+    if (currentScenario.value === file) {
+      if (newSet.size > 0) {
+        const next = pickRandomFromSet(newSet)
+        await loadFromScenario(next)
+      } else {
+        currentScenario.value = ''
+        currentScenarioLabel.value = ''
+        currentDeal.value = null
+        dealsForScenario.value = []
+      }
+    }
+  } else {
+    newSet.add(file)
+    selectedScenarios.value = newSet
+    if (!currentScenario.value || !currentDeal.value) {
+      await loadFromScenario(file)
+    }
+  }
+  if (isNarrow() && currentDeal.value) sidebarOpen.value = false
+}
+
+function pickRandomFromSet(set) {
+  const arr = [...set]
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+async function clearSelection() {
+  selectedScenarios.value = new Set()
+  currentScenario.value = ''
+  currentScenarioLabel.value = ''
+  currentDeal.value = null
+  dealsForScenario.value = []
+}
+
+// Fetch + cache the PBN for a scenario, then load a random deal from it.
+async function loadFromScenario(file) {
   currentScenario.value = file
   currentScenarioLabel.value = prettifyLabel(file)
-  if (isNarrow()) sidebarOpen.value = false
   dealError.value = ''
   dealErrorHint.value = ''
-  dealsForScenario.value = []
-  currentDeal.value = null
-  try {
-    const resp = await fetch(`${CONFIG.PBS_RAW_BASE}${CONFIG.PBN_DIR}/${file}.pbn`)
-    if (!resp.ok) throw new Error(`PBN HTTP ${resp.status}`)
-    const text = await resp.text()
-    const deals = parsePBN(text)
-    if (deals.length === 0) throw new Error('No deals in PBN file')
-    dealsForScenario.value = deals
-    await loadDealAt(Math.floor(Math.random() * deals.length))
-  } catch (err) {
-    dealError.value = 'Could not load scenario PBN: ' + err.message
-    dealErrorHint.value = 'Some scenarios in the menu may not have BBA-compatible PBN files.'
+  let deals = dealsByScenario.value[file]
+  if (!deals) {
+    try {
+      const resp = await fetch(`${CONFIG.PBS_RAW_BASE}${CONFIG.PBN_DIR}/${file}.pbn`)
+      if (!resp.ok) throw new Error(`PBN HTTP ${resp.status}`)
+      const text = await resp.text()
+      deals = parsePBN(text)
+      if (deals.length === 0) throw new Error('No deals in PBN file')
+      dealsByScenario.value = { ...dealsByScenario.value, [file]: deals }
+    } catch (err) {
+      dealError.value = 'Could not load scenario PBN: ' + err.message
+      dealErrorHint.value = 'Some scenarios in the menu may not have BBA-compatible PBN files.'
+      return
+    }
   }
+  dealsForScenario.value = deals
+  await loadDealAt(Math.floor(Math.random() * deals.length))
 }
 
 async function loadDealAt(idx) {
   dealError.value = ''
   dealErrorHint.value = ''
   dealIndex.value = idx
-  currentDeal.value = dealsForScenario.value[idx]
+  let deal = dealsForScenario.value[idx]
+  // 50% chance of 180° rotation when the toggle is on.
+  if (rotateDeals.value && Math.random() < 0.5) {
+    deal = rotateDeal(deal)
+  }
+  currentDeal.value = deal
   bids.value = []
   userBids.value = {}
   expectedAuction.value = []
   auctionLoading.value = true
   doubleDummy.value = null
 
-  fetchDoubleDummy(currentDeal.value).then(dd => {
-    if (currentDeal.value === dealsForScenario.value[idx]) doubleDummy.value = dd
+  const dealRef = currentDeal.value
+  fetchDoubleDummy(dealRef).then(dd => {
+    if (currentDeal.value === dealRef) doubleDummy.value = dd
   }).catch(() => {})
 
   try {
-    const result = await generateAuction(currentDeal.value, currentScenario.value)
+    const result = await generateAuction(dealRef, currentScenario.value)
     expectedAuction.value = result.auction
     conventionsUsed.value = result.conventionsUsed || null
     meanings.value = result.meanings || []
@@ -595,9 +662,29 @@ async function loadDealAt(idx) {
   }
 }
 
+// "Next deal" — pick a random scenario from the selected set, then a random
+// deal from that scenario's PBN. Falls back to the current scenario if only one.
 async function newDeal() {
-  if (dealsForScenario.value.length === 0) return
-  await loadDealAt(Math.floor(Math.random() * dealsForScenario.value.length))
+  if (selectedScenarios.value.size === 0) return
+  const file = pickRandomFromSet(selectedScenarios.value)
+  await loadFromScenario(file)
+}
+
+// Rotate a deal 180°: N↔S, E↔W. Dealer and vulnerability flip with the seats.
+function rotateDeal(deal) {
+  return {
+    ...deal,
+    dealer: { N: 'S', S: 'N', E: 'W', W: 'E' }[deal.dealer] || deal.dealer,
+    vulnerable: deal.vulnerable === 'NS' ? 'EW'
+              : deal.vulnerable === 'EW' ? 'NS'
+              : deal.vulnerable,
+    hands: {
+      N: deal.hands.S,
+      S: deal.hands.N,
+      E: deal.hands.W,
+      W: deal.hands.E,
+    },
+  }
 }
 
 async function resetAuction() {
@@ -743,8 +830,42 @@ async function onUserBid(bid) {
 }
 .bp-menu-cell.clickable { cursor: pointer; }
 .bp-menu-cell.clickable:hover { background: #f5fafd; color: #1D9E75; }
-.bp-menu-cell.active { background: #e1f5ee; color: #0f6e56; font-weight: 500; }
+.bp-menu-cell.selected { background: #e1f5ee; color: #0f6e56; font-weight: 500; }
+.bp-menu-cell.active { background: #c1ead7; color: #0f6e56; font-weight: 600; outline: 1.5px solid #1D9E75; outline-offset: -1.5px; }
 .bp-menu-cell.empty { background: #f7f7f5; }
+
+.bp-selection-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background: #f0fdf6;
+  border-bottom: 0.5px solid #c8e8d6;
+  font-size: 12px;
+}
+.bp-selection-count { color: #0f6e56; font-weight: 500; }
+.bp-selection-clear {
+  background: none;
+  border: 1px solid #1D9E75;
+  color: #1D9E75;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.bp-selection-clear:hover { background: #1D9E75; color: #fff; }
+
+.bp-rotate-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+  user-select: none;
+  margin-right: 4px;
+}
+.bp-rotate-toggle input { cursor: pointer; }
 
 /* Stage states */
 .bp-empty { color: #888; font-size: 14px; padding: 60px 20px; text-align: center; }
