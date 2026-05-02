@@ -47,14 +47,18 @@
   .menu-section:hover { background: #c8e2f0; }
   .menu-section .chevron { font-size: 10px; color: #666; transition: transform 0.15s; }
   .menu-section.open .chevron { transform: rotate(90deg); }
-  .menu-items { display: flex; flex-direction: column; }
-  .menu-item {
-    padding: 6px 16px 6px 26px; font-size: 13px; color: #333; cursor: pointer;
-    border-top: 0.5px solid #f0f0f0; line-height: 1.3;
+  .menu-rows { background: #fff; }
+  .menu-row { display: grid; }
+  .menu-cell {
+    padding: 6px 6px; font-size: 12px; color: #333; text-align: center; line-height: 1.2;
+    background: #fff; border: 0.5px solid #ccc; min-height: 30px;
+    display: flex; align-items: center; justify-content: center;
+    margin: -0.5px 0 0 -0.5px;
   }
-  .menu-item:hover { background: #f5fafd; color: #1D9E75; }
-  .menu-item.active { background: #e1f5ee; color: #0f6e56; font-weight: 500; }
-  .menu-item.disabled { color: #bbb; cursor: not-allowed; }
+  .menu-cell.clickable { cursor: pointer; }
+  .menu-cell.clickable:hover { background: #f5fafd; color: #1D9E75; }
+  .menu-cell.active { background: #e1f5ee; color: #0f6e56; font-weight: 500; }
+  .menu-cell.empty { background: #f7f7f5; }
 
   /* Stage states */
   .stage-empty { color: #888; font-size: 14px; padding: 60px 20px; text-align: center; }
@@ -199,12 +203,19 @@
               <span>{{ node.label }}</span>
               <span class="chevron">&#9656;</span>
             </div>
-            <div v-if="openSections[node.label]" class="menu-items">
-              <div v-for="item in node.items" :key="item.file"
-                   class="menu-item"
-                   :class="{ active: item.file === currentScenario }"
-                   @click="selectScenario(item.file)">
-                {{ item.label }}
+            <div v-if="openSections[node.label]" class="menu-rows">
+              <div v-for="(row, ri) in node.rows" :key="ri" class="menu-row"
+                   :style="{ gridTemplateColumns: 'repeat(' + row.length + ', 1fr)' }">
+                <div v-for="(cell, ci) in row" :key="ci"
+                     class="menu-cell"
+                     :class="{
+                       clickable: !!cell,
+                       empty: !cell,
+                       active: cell && cell.file === currentScenario,
+                     }"
+                     @click="cell && selectScenario(cell.file)">
+                  <span v-if="cell">{{ cell.label }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -383,7 +394,10 @@ function parseDeal(deal) {
 }
 
 // ── Button-layout parsing ───────────────────────────────────────────
-// Parse the BBOalert-style layout file into a tree of {majors, sections{items[]}}.
+// Parse the BBOalert-style layout file into a tree:
+//   tree = [ {type:'major', label} | {type:'section', label, rows: [[cell|null, ...], ...]} ]
+// Each row is a list of cells. Each cell is either null (empty/--- placeholder)
+// or {file, label}. Rows preserve original column structure for 2-up rendering.
 function parseLayout(text) {
   const tree = [];
   const lines = text.split('\n');
@@ -393,39 +407,50 @@ function parseLayout(text) {
     if (!line) continue;
     if (line.startsWith('#')) continue;
     if (line.startsWith('[Major]')) {
-      const label = line.substring('[Major]'.length).trim();
-      tree.push({ type: 'major', label });
+      tree.push({ type: 'major', label: line.substring('[Major]'.length).trim() });
       currentSection = null;
       continue;
     }
     if (line.startsWith('[Section]')) {
-      const label = line.substring('[Section]'.length).trim();
-      currentSection = { type: 'section', label, items: [] };
+      currentSection = { type: 'section', label: line.substring('[Section]'.length).trim(), rows: [] };
       tree.push(currentSection);
       continue;
     }
-    if (line.startsWith('[Action]')) continue;       // skip action buttons
-    if (!currentSection) continue;                    // ignore items outside a section
-    // Item row: "file1, file2" or "file1, ---" or "(grouped:blue, …):width%"
-    // For prototype, extract bare file tokens.
-    const tokens = extractFileTokens(line);
-    for (const tok of tokens) {
-      if (tok === '---' || !tok) continue;
-      currentSection.items.push({ file: tok, label: prettifyLabel(tok) });
+    if (line.startsWith('[Action]')) continue;
+    if (!currentSection) continue;
+    const row = parseRow(line);
+    if (row.length > 0) {
+      while (row.length < 2) row.push(null);
+      currentSection.rows.push(row);
     }
   }
   return tree;
 }
 
-function extractFileTokens(line) {
-  // Strip color/width modifiers like ":blue", ":12%", parens. Then split on commas.
-  // Tokens are simple file basenames like "Smolen", "1m-1N", "Jacoby_2N_4x_void".
-  const cleaned = line
-    .replace(/\(/g, '')
-    .replace(/\)/g, '')
-    .replace(/:[a-zA-Z]+/g, '')   // :blue, :red, etc.
-    .replace(/:\d+%/g, '');        // :38%
-  return cleaned.split(',').map(s => s.trim()).filter(Boolean);
+// Split a row on top-level commas (commas outside parens), then resolve each cell.
+function parseRow(line) {
+  const cells = [];
+  let depth = 0, buf = '';
+  for (const ch of line) {
+    if (ch === '(') { depth++; buf += ch; }
+    else if (ch === ')') { depth--; buf += ch; }
+    else if (ch === ',' && depth === 0) { cells.push(buf.trim()); buf = ''; }
+    else { buf += ch; }
+  }
+  if (buf.trim()) cells.push(buf.trim());
+  return cells.map(parseCell);
+}
+
+// Resolve a single cell to {file,label} or null.
+// Grouped cells like "(A:blue, B:blue)" are collapsed to their first item for the prototype.
+function parseCell(cell) {
+  if (cell.startsWith('(') && cell.endsWith(')')) {
+    cell = cell.slice(1, -1).split(',')[0].trim();
+  }
+  if (cell === '---' || !cell) return null;
+  const file = cell.replace(/:[a-zA-Z]+/g, '').replace(/:\d+%/g, '').trim();
+  if (!file) return null;
+  return { file, label: prettifyLabel(file) };
 }
 
 function prettifyLabel(file) {
