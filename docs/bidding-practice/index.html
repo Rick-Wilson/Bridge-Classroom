@@ -775,16 +775,29 @@ const AuctionGrid = {
       if (bid === 'NT' || /NT$/.test(bid)) return bid.replace(/N$/, 'NT');
       return bid;
     },
+    seatAt(idx) {
+      const order = ['N', 'E', 'S', 'W'];
+      const dealerIdx = order.indexOf(this.dealer);
+      return order[(dealerIdx + idx) % 4];
+    },
+    naturalLabel(bid) {
+      if (bid === 'Pass') return 'pass';
+      if (bid === 'X') return 'double';
+      if (bid === 'XX') return 'redouble';
+      return 'natural';
+    },
+    bidLine(bid, meaning) {
+      const text = meaning && meaning.trim() ? meaning : this.naturalLabel(bid);
+      return `${this.plainBid(bid)} — ${text}`;
+    },
     cellTitle(c) {
       if (!c || !c.bid) return '';
+      const seat = this.seatAt(c.idx);
       const expectedMeaning = this.meaningFor(c.idx);
       if (c.userBid) {
-        const expectedLine = expectedMeaning
-          ? `BBA expected: ${this.plainBid(c.bid)} — ${expectedMeaning}`
-          : `BBA expected: ${this.plainBid(c.bid)}`;
-        return `Your bid: ${this.plainBid(c.userBid)}\n${expectedLine}`;
+        return `${seat}\nYour bid: ${this.plainBid(c.userBid)}\nBBA expected: ${this.bidLine(c.bid, expectedMeaning)}`;
       }
-      return expectedMeaning;
+      return `${seat}: ${this.bidLine(c.bid, expectedMeaning)}`;
     },
   },
   template: `
