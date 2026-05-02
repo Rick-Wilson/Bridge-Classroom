@@ -25,9 +25,8 @@
           <div
             v-if="bid && hoveredIdx === getBidIndexFromPosition(roundIdx, bidIdx) && tooltipFor(getBidIndexFromPosition(roundIdx, bidIdx))"
             class="bid-tooltip"
-          >
-            {{ tooltipFor(getBidIndexFromPosition(roundIdx, bidIdx)) }}
-          </div>
+            v-html="tooltipFor(getBidIndexFromPosition(roundIdx, bidIdx))"
+          ></div>
         </div>
       </div>
     </div>
@@ -41,11 +40,27 @@ import { getSeatOrder } from '../utils/pbnParser.js'
 
 const hoveredIdx = ref(null)
 
-function naturalLabel(bid) {
-  if (bid === 'Pass') return 'pass'
-  if (bid === 'X') return 'double'
-  if (bid === 'XX') return 'redouble'
-  return 'natural'
+// Render BBOalert suit codes (!C !D !H !S) as colored unicode symbols.
+function formatMeaningHtml(text) {
+  const escaped = text.replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+  return escaped
+    .replace(/!C/gi, '<span class="t-suit-c">&clubs;</span>')
+    .replace(/!D/gi, '<span class="t-suit-d">&diams;</span>')
+    .replace(/!H/gi, '<span class="t-suit-h">&hearts;</span>')
+    .replace(/!S/gi, '<span class="t-suit-s">&spades;</span>')
+}
+
+// Useless meanings to skip: empty, natural/pass/double/redouble, or repeating the bid.
+function isMeaningfulText(text, bid) {
+  if (!text) return false
+  const t = text.trim()
+  if (!t) return false
+  const lower = t.toLowerCase()
+  if (lower === 'natural' || lower === 'pass' || lower === 'double' || lower === 'redouble') return false
+  if (t === bid) return false
+  return true
 }
 
 const props = defineProps({
@@ -171,13 +186,14 @@ function formatBidHtml(bid) {
   return formatBid(bid).html
 }
 
+// Returns HTML-ready tooltip content, or '' to suppress the tooltip entirely.
 function tooltipFor(bidIdx) {
   if (!props.meanings || !props.meanings.length) return ''
   const m = props.meanings.find(x => x.position === bidIdx)
-  if (m && m.meaning) return m.meaning
-  // Fall back to natural label only if meanings array was passed at all.
+  if (!m || !m.meaning) return ''
   const bid = props.bids[bidIdx]
-  return bid ? naturalLabel(bid) : ''
+  if (!isMeaningfulText(m.meaning, bid)) return ''
+  return formatMeaningHtml(m.meaning)
 }
 </script>
 
@@ -236,18 +252,19 @@ function tooltipFor(bidIdx) {
   bottom: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
-  background: #2a2a2a;
-  color: #fff;
-  padding: 5px 10px;
+  background: #fffbe6;
+  color: #222;
+  padding: 6px 10px;
+  border: 1px solid #d4c97a;
   border-radius: 4px;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.45;
   white-space: pre-line;
   pointer-events: none;
   z-index: 20;
-  min-width: 80px;
-  max-width: 220px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  min-width: 90px;
+  max-width: 240px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
 }
 
 .bid-tooltip::after {
@@ -256,9 +273,14 @@ function tooltipFor(bidIdx) {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border: 4px solid transparent;
-  border-top-color: #2a2a2a;
+  border: 5px solid transparent;
+  border-top-color: #d4c97a;
 }
+
+.bid-tooltip :deep(.t-suit-c),
+.bid-tooltip :deep(.t-suit-s) { color: #1a1a1a; }
+.bid-tooltip :deep(.t-suit-d),
+.bid-tooltip :deep(.t-suit-h) { color: #d32f2f; }
 
 .bid-cell:last-child {
   border-right: none;
