@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Bidding Practice - Bridge Classroom</title>
 <link rel="icon" type="image/svg+xml" href="../favicon.svg">
-<script src="https://unpkg.com/vue@3.4.21/dist/vue.global.js"></script>
+<script src="https://unpkg.com/vue@3.4.21/dist/vue.global.prod.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
@@ -241,17 +241,15 @@
         <div class="table-wrap">
           <div class="bridge-table">
             <div class="seat-N">
-              <component :is="auctionComplete ? 'div' : 'div'">
-                <hand-display v-if="auctionComplete" :hand="currentDeal.hands.N" seat="N"
-                              :active="!auctionComplete && currentSeat === 'N'" />
-                <div v-else class="hand">
-                  <div class="seat-label" :class="{ active: currentSeat === 'N' }">North</div>
-                  <div class="hand-hidden">(hidden)</div>
-                </div>
-              </component>
+              <hand-display v-if="auctionComplete" :hand="currentDeal.hands.N" seat="N"
+                            :active="!auctionComplete && currentSeat === 'N'"></hand-display>
+              <div v-else class="hand">
+                <div class="seat-label" :class="{ active: currentSeat === 'N' }">North</div>
+                <div class="hand-hidden">(hidden)</div>
+              </div>
             </div>
             <div class="seat-W">
-              <hand-display v-if="auctionComplete" :hand="currentDeal.hands.W" seat="W" />
+              <hand-display v-if="auctionComplete" :hand="currentDeal.hands.W" seat="W"></hand-display>
               <div v-else class="hand">
                 <div class="seat-label" :class="{ active: currentSeat === 'W' }">West</div>
                 <div class="hand-hidden">(hidden)</div>
@@ -265,7 +263,7 @@
               <div v-if="auctionLoading" style="font-size:11px;color:#1D9E75">Computing&hellip;</div>
             </div>
             <div class="seat-E">
-              <hand-display v-if="auctionComplete" :hand="currentDeal.hands.E" seat="E" />
+              <hand-display v-if="auctionComplete" :hand="currentDeal.hands.E" seat="E"></hand-display>
               <div v-else class="hand">
                 <div class="seat-label" :class="{ active: currentSeat === 'E' }">East</div>
                 <div class="hand-hidden">(hidden)</div>
@@ -273,7 +271,7 @@
             </div>
             <div class="seat-S">
               <hand-display :hand="currentDeal.hands.S" seat="S"
-                            :active="!auctionComplete && currentSeat === 'S'" />
+                            :active="!auctionComplete && currentSeat === 'S'"></hand-display>
             </div>
           </div>
 
@@ -282,7 +280,7 @@
               <h3>Auction</h3>
               <auction-grid :bids="bids" :dealer="currentDeal.dealer"
                             :current-index="bids.length"
-                            :wrong-indices="wrongIndices" :show-turn="!auctionComplete" />
+                            :wrong-indices="wrongIndices" :show-turn="!auctionComplete"></auction-grid>
             </div>
 
             <div v-if="!auctionComplete && currentSeat === 'S' && !auctionLoading" class="auction-card">
@@ -290,7 +288,7 @@
               <bidding-box :last-bid="lastNonPassNonDouble"
                            :can-double="canDouble"
                            :can-redouble="canRedouble"
-                           @bid="onUserBid" />
+                           @bid="onUserBid"></bidding-box>
               <div v-if="feedback" class="feedback" :class="feedback.kind" style="margin-top:10px">
                 {{ feedback.msg }}
               </div>
