@@ -84,6 +84,15 @@
 .pbs-hand{font-size:11px;color:var(--color-text-secondary);line-height:1.7}
 .pbs-red{color:#D85A30}
 
+.thumb-bid{background:#F0F7F4;display:flex;flex-direction:column;padding:10px 12px;gap:4px}
+.bd-row{display:flex;align-items:center;gap:4px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px}
+.bd-seat{width:14px;color:#888;font-weight:600}
+.bd-bid{padding:2px 8px;border-radius:3px;background:#fff;color:#333;border:0.5px solid #ddd;min-width:34px;text-align:center}
+.bd-bid.you{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.bd-bid.pass{color:#888}
+.bd-red{color:#D85A30}
+.bd-current{outline:1px dashed #d6b400;background:#fff8d4}
+
 .thumb-class{background:#F0F7F4;display:flex;flex-direction:column;padding:12px;gap:5px}
 .cls-label{font-size:11px;font-weight:500;color:var(--color-text-secondary)}
 .cls-row{display:flex;align-items:center;justify-content:space-between}
@@ -187,6 +196,22 @@
           <div class="tile-name">Solo Practice</div>
           <div class="tile-desc">Practice bidding deals, track mastery, and join your teacher's class.</div>
           <div class="tile-tags"><span class="tag tag-green">Live</span></div>
+        </div>
+        </a>
+      </div>
+
+      <div class="tile">
+        <a class="tile-link" href="bidding-practice.html">
+        <div class="thumb thumb-bid">
+          <div class="bd-row"><span class="bd-seat">N</span><span class="bd-bid pass">Pass</span><span class="bd-bid">1<span class="bd-red">&#9830;</span></span><span class="bd-bid pass">Pass</span><span class="bd-bid">1<span class="bd-red">&#9829;</span></span></div>
+          <div class="bd-row"><span class="bd-seat">E</span><span class="bd-bid pass">Pass</span><span class="bd-bid">2<span class="bd-red">&#9829;</span></span><span class="bd-bid pass">Pass</span><span class="bd-bid">4<span class="bd-red">&#9829;</span></span></div>
+          <div class="bd-row"><span class="bd-seat">S</span><span class="bd-bid you">1NT</span><span class="bd-bid you">3<span class="bd-red">&#9829;</span></span><span class="bd-bid you pass" style="background:#fff;color:#888">Pass</span><span class="bd-bid bd-current">?</span></div>
+          <div class="bd-row"><span class="bd-seat">W</span><span class="bd-bid pass">Pass</span><span class="bd-bid pass">Pass</span><span class="bd-bid pass">Pass</span></div>
+        </div>
+        <div class="tile-body">
+          <div class="tile-name">Bidding Practice</div>
+          <div class="tile-desc">You sit South against three BBA bots. Pick a topic, bid the deals, get instant feedback.</div>
+          <div class="tile-tags"><span class="tag tag-amber">Prototype</span><span class="tag tag-purple">BBA-powered</span></div>
         </div>
         </a>
       </div>

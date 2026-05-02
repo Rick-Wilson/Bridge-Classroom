@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bidding Practice - Bridge Classroom</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="styles.css">
+<style>
+body{background:var(--color-background-primary)}
+
+.nav{display:flex;align-items:center;justify-content:space-between;padding:11px 32px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.nav-logo{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;color:var(--color-text-primary);cursor:pointer;text-decoration:none}
+.suit{color:#1D9E75}
+.nav-back{font-size:12px;color:var(--color-text-secondary);cursor:pointer;text-decoration:none}
+.nav-back:hover{color:var(--color-text-primary)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+
+.left{padding:28px 36px;display:flex;flex-direction:column;gap:14px;border-right:0.5px solid var(--color-border-tertiary)}
+
+.badge{display:inline-block;font-size:10px;font-weight:500;padding:3px 10px;border-radius:20px;background:#E1F5EE;color:#0F6E56;letter-spacing:0.04em;text-transform:uppercase;width:fit-content}
+.badge.proto{background:#FEF3D4;color:#856404}
+h1{font-size:24px;font-weight:500;color:var(--color-text-primary);line-height:1.3}
+.sub{font-size:13px;color:var(--color-text-secondary);line-height:1.7}
+
+.features{display:flex;flex-direction:column;gap:10px}
+.feat{display:flex;align-items:flex-start;gap:10px}
+.fi{width:28px;height:28px;border-radius:6px;background:#E1F5EE;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.fi svg{width:14px;height:14px;stroke:#1D9E75;fill:none;stroke-width:2}
+.feat h3{font-size:12px;font-weight:500;color:var(--color-text-primary);margin-bottom:2px}
+.feat p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+
+.workflow{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px}
+.workflow-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:10px}
+.workflow-steps{display:flex;flex-direction:column;gap:6px}
+.wstep{display:flex;align-items:flex-start;gap:10px}
+.wnum{width:20px;height:20px;border-radius:50%;background:#1D9E75;color:white;font-size:10px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.wstep p{font-size:11px;color:var(--color-text-secondary);line-height:1.5}
+
+.btn-primary{font-size:14px;font-weight:500;padding:10px 26px;border-radius:var(--border-radius-md);border:none;background:#1D9E75;color:white;cursor:pointer;width:fit-content;text-decoration:none;display:inline-block}
+.btn-primary:hover{background:#0F6E56}
+
+.right{padding:28px 24px;background:var(--color-background-secondary);display:flex;flex-direction:column;gap:14px}
+.depends{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:14px 16px}
+.depends-label{font-size:11px;font-weight:500;color:var(--color-text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:8px}
+.depends-list{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--color-text-secondary);line-height:1.5}
+.depends-list code{background:rgba(0,0,0,0.05);padding:1px 5px;border-radius:3px;font-size:11px}
+
+.footer{padding:9px 32px;border-top:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between}
+.footer-copy{font-size:11px;color:var(--color-text-tertiary)}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="/"><span class="suit">&#9824;</span> Bridge Classroom</a>
+  <a class="nav-back" href="/">&larr; All tools</a>
+</nav>
+
+<div class="main">
+  <div class="left">
+    <div style="display:flex;gap:8px">
+      <div class="badge">Student tool &middot; web app</div>
+      <div class="badge proto">Prototype</div>
+    </div>
+    <h1>Practice bidding against three BBA bots</h1>
+    <p class="sub">Sit South at a table with three EPBot/BBA partners. Pick a topic from David Bailey's practice scenario library &mdash; Stayman, Jacoby transfers, splinters, weak twos, Smolen, and a hundred more. Bid through real deals; the bots respond with whatever the convention card says they should bid, and you get instant feedback when your bid differs.</p>
+
+    <div class="features">
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg></div>
+        <div>
+          <h3>One human, three BBA bots</h3>
+          <p>You sit South. North, East, and West are driven by EPBot using a 21GF convention card. The auction runs the way real-life partners and opponents would bid it.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div>
+          <h3>Live convention checking</h3>
+          <p>Every time it's your turn to bid, your call is compared against what the BBA expected. Match it and the auction continues; differ and you see what was expected.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+        <div>
+          <h3>Hundreds of curated scenarios</h3>
+          <p>The same scenario tree the BBO browser extension uses &mdash; Notrump Sequences, Major Suit Sequences, Preempts, Competitive Bidding &mdash; with 500 pre-generated deals per topic.</p>
+        </div>
+      </div>
+      <div class="feat">
+        <div class="fi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg></div>
+        <div>
+          <h3>Stateless &amp; offline-friendly</h3>
+          <p>State lives in your browser. Each deal makes one stateless call to the BBA service for the auction; nothing is stored server-side. Designed to extend to two-person play later.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="workflow">
+      <div class="workflow-label">Typical session</div>
+      <div class="workflow-steps">
+        <div class="wstep"><div class="wnum">1</div><p>Pick a topic from the menu (e.g. "Stayman" under Notrump Sequences).</p></div>
+        <div class="wstep"><div class="wnum">2</div><p>A random deal is drawn. The bots open and respond at their seats; you see the auction unfold.</p></div>
+        <div class="wstep"><div class="wnum">3</div><p>When it's your turn, the bidding box appears. Bid; get feedback against what the BBA expected.</p></div>
+        <div class="wstep"><div class="wnum">4</div><p>Auction completes &mdash; see contract, declarer, and which of your bids differed. Hit "Next deal" for another.</p></div>
+      </div>
+    </div>
+
+    <a class="btn-primary" href="/bidding-practice/">Open Bidding Practice</a>
+  </div>
+
+  <div class="right">
+    <div class="depends">
+      <div class="depends-label">Sister services it talks to</div>
+      <div class="depends-list">
+        <div>&bull; <strong>BBA bidding service</strong> (<code>bba.harmonicsystems.com</code>) &mdash; runs EPBot to compute the auction. Sister repo: <code>BBA-CLI/bba-server</code>.</div>
+        <div>&bull; <strong>Practice Bidding Scenarios</strong> (raw GitHub) &mdash; David Bailey's button layout file and 500-deal-per-scenario PBN files. Sister repo: <code>Practice-Bidding-Scenarios</code>.</div>
+        <div>&bull; <em>Future:</em> <strong>Bridge Dealer Service</strong> for fresh per-session deals instead of pre-generated. Sister repo: <code>Bridge-Dealer-Service</code>.</div>
+      </div>
+    </div>
+    <div class="depends">
+      <div class="depends-label">Prototype caveats</div>
+      <div class="depends-list">
+        <div>&bull; The BBA service must include this site's origin in its CORS allow-list. Add <code>https://bridge-classroom.com</code> to the <code>AllowBBO</code> policy in <code>BBA-CLI/bba-server/Program.cs</code>.</div>
+        <div>&bull; Some scenarios in the menu rely on conventions that BBA doesn't model. Those will surface as a BBA error on the first deal &mdash; pick a different scenario.</div>
+        <div>&bull; The full auction is generated up front per deal; if you bid differently than expected, the auction continues using BBA's choice (so you can still see the rest).</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  <span class="footer-copy">Bridge Classroom &middot; free &amp; open source &middot; bridge-classroom.com</span>
+  <a class="nav-back" href="/" style="font-size:11px">&larr; Back to all tools</a>
+</div>
+
+<script src="/site.js"></script>
+</body>
+</html>
