@@ -771,8 +771,6 @@ const AuctionGrid = {
       const red = strain === 'D' || strain === 'H';
       return `${level}<span class="${red ? 'red' : ''}">${sym}</span>`;
     },
-  },
-  methods: {
     meaningFor(idx) {
       if (!this.meanings || idx == null) return '';
       const m = this.meanings.find(x => x.position === idx);
