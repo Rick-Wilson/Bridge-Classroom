@@ -193,11 +193,6 @@
   .bb-special .rdbl { background: #2196f3; }
   .bb-special button:disabled { opacity: 0.35; cursor: not-allowed; }
 
-  .last-meaning { margin-top: 8px; padding: 6px 8px; background: #fafafa;
-    border-left: 2px solid #1D9E75; font-size: 12px; line-height: 1.4; color: #444; }
-  .last-meaning strong { color: #222; }
-  .last-meaning .diverged-note { color: #b00; font-size: 11px; margin-left: 4px; }
-
   .dd-table { border-collapse: collapse; margin-top: 6px; font-size: 12px; }
   .dd-table th, .dd-table td { border: 0.5px solid #ddd; padding: 3px 8px; text-align: center; }
   .dd-table th { background: #f3f3f0; color: #666; font-weight: 600; }
@@ -341,13 +336,6 @@
                             :current-index="bids.length"
                             :user-bids="userBids" :show-turn="!auctionComplete"
                             :meanings="meanings"></auction-grid>
-              <div v-if="lastBidMeaning" class="last-meaning">
-                <strong>{{ lastBidMeaning.seat }}: {{ lastBidMeaning.bid }}</strong>
-                <span v-if="lastBidMeaning.userBid" class="diverged-note">
-                  (you bid <s>{{ lastBidMeaning.userBid }}</s>)
-                </span>
-                &mdash; {{ lastBidMeaning.text }}
-              </div>
             </div>
 
             <div v-if="!auctionComplete && currentSeat === 'S' && !auctionLoading" class="auction-card">
@@ -840,12 +828,11 @@ const AuctionGrid = {
     },
     cellTitle(c) {
       if (!c || !c.bid) return '';
-      const seat = this.seatAt(c.idx);
       const expectedMeaning = this.meaningFor(c.idx);
       if (c.userBid) {
-        return `${seat}\nYour bid: ${this.plainBid(c.userBid)}\nBBA expected: ${this.bidLine(c.bid, expectedMeaning)}`;
+        return `Your bid: ${this.plainBid(c.userBid)}\nBBA expected: ${this.bidLine(c.bid, expectedMeaning)}`;
       }
-      return `${seat}: ${this.bidLine(c.bid, expectedMeaning)}`;
+      return this.bidLine(c.bid, expectedMeaning);
     },
   },
   template: `
@@ -861,7 +848,6 @@ const AuctionGrid = {
                current: c && c.turn,
                diverged: c && c.userBid,
              }"
-             :title="cellTitle(c)"
              @mouseenter="c && c.bid ? hoveredIdx = c.idx : null"
              @mouseleave="hoveredIdx = null">
           <template v-if="c && c.bid">
@@ -947,24 +933,6 @@ const App = {
       return determineContract(bids.value, currentDeal.value.dealer) || { contract: '', declarer: null };
     });
     const hadDivergence = computed(() => Object.keys(userBids.value).length > 0);
-
-    // Most recent placed bid + its meaning (replacement for tooltips on touch).
-    const lastBidMeaning = computed(() => {
-      if (!bids.value.length || !currentDeal.value) return null;
-      const idx = bids.value.length - 1;
-      const bid = bids.value[idx];
-      const userBid = userBids.value[idx];
-      const seat = seatAtIndex(currentDeal.value.dealer, idx);
-      const m = (meanings.value || []).find(x => x.position === idx);
-      let text = m && m.meaning ? m.meaning : '';
-      if (!text) {
-        if (bid === 'Pass') text = 'pass';
-        else if (bid === 'X') text = 'double';
-        else if (bid === 'XX') text = 'redouble';
-        else text = 'natural';
-      }
-      return { seat, bid, userBid, text };
-    });
 
     const summary = computed(() => {
       if (!auctionComplete.value) return '';
@@ -1145,7 +1113,7 @@ const App = {
       bids, userBids, expectedAuction, conventionsUsed, meanings, doubleDummy,
       auctionLoading, showConfigHint,
       auctionComplete, currentSeat, lastNonPassNonDouble, canDouble, canRedouble,
-      finalContract, summary, ddRows, hadDivergence, lastBidMeaning,
+      finalContract, summary, ddRows, hadDivergence,
       selectScenario, newDeal, resetAuction, onUserBid, vulForSide, formatContract,
     };
   },
