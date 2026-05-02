@@ -113,8 +113,10 @@
     padding: 8px 10px; min-width: 130px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 13px;
   }
-  .hand .seat-label { font-size: 10px; color: #888; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+  .hand .seat-label { font-size: 10px; color: #888; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
   .hand .seat-label.active { color: #1D9E75; }
+  .hand-pts { font-size: 9px; font-weight: 500; color: #666; letter-spacing: 0; text-transform: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .hand-line { display: flex; gap: 4px; line-height: 1.5; white-space: nowrap; }
   .hand-line .suit { width: 14px; display: inline-block; }
   .hand-line .red { color: #d32f2f; }
@@ -135,8 +137,8 @@
   }
   .auction-grid .cell.empty { background: transparent; }
   .auction-grid .cell.current { background: #fff8d4; outline: 1px dashed #d6b400; }
-  .auction-grid .cell.wrong { background: #fee; color: #b00; text-decoration: line-through; }
-  .auction-grid .cell.ok { background: #e8f7e8; color: #1a4f1a; }
+  .auction-grid .cell.wrong { background: #fee; text-decoration: line-through; text-decoration-color: #b00; text-decoration-thickness: 2px; }
+  .auction-grid .cell.ok { background: #e8f7e8; }
   .red { color: #d32f2f; }
 
   /* Bidding box */
@@ -164,6 +166,17 @@
   }
   .feedback.ok { background: #e8f7e8; color: #1a4f1a; }
   .feedback.warn { background: #fef3d4; color: #855a00; }
+
+  .last-meaning { margin-top: 8px; padding: 6px 8px; background: #fafafa;
+    border-left: 2px solid #1D9E75; font-size: 12px; line-height: 1.4; color: #444; }
+  .last-meaning strong { color: #222; }
+
+  .dd-table { border-collapse: collapse; margin-top: 6px; font-size: 12px; }
+  .dd-table th, .dd-table td { border: 0.5px solid #ddd; padding: 3px 8px; text-align: center; }
+  .dd-table th { background: #f3f3f0; color: #666; font-weight: 600; }
+  .dd-table td.seat { background: #f3f3f0; font-weight: 600; }
+  .dd-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em;
+    margin-top: 10px; }
 
   .contract-box {
     background: #fff; border: 0.5px solid #ddd; border-radius: 10px; padding: 14px 18px;
@@ -248,8 +261,7 @@
             </div>
           </div>
           <div class="scenario-actions">
-            <button class="btn" @click="newDeal" :disabled="auctionLoading">New deal</button>
-            <button class="btn" @click="resetAuction" :disabled="auctionLoading">Restart</button>
+            <button class="btn" @click="resetAuction" :disabled="auctionLoading">Restart this deal</button>
           </div>
         </div>
 
@@ -295,7 +307,11 @@
               <h3>Auction</h3>
               <auction-grid :bids="bids" :dealer="currentDeal.dealer"
                             :current-index="bids.length"
-                            :wrong-indices="wrongIndices" :show-turn="!auctionComplete"></auction-grid>
+                            :wrong-indices="wrongIndices" :show-turn="!auctionComplete"
+                            :meanings="meanings"></auction-grid>
+              <div v-if="lastBidMeaning" class="last-meaning">
+                <strong>{{ lastBidMeaning.label }}</strong> &mdash; {{ lastBidMeaning.text }}
+              </div>
             </div>
 
             <div v-if="!auctionComplete && currentSeat === 'S' && !auctionLoading" class="auction-card">
@@ -319,7 +335,28 @@
                 </span>
               </div>
               <div class="contract-meta">{{ summary }}</div>
-              <div style="display:flex;gap:8px;margin-top:6px">
+
+              <div v-if="ddRows" class="dd-label">Double-dummy tricks</div>
+              <table v-if="ddRows" class="dd-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>&clubs;</th>
+                    <th style="color:#d32f2f">&diams;</th>
+                    <th style="color:#d32f2f">&hearts;</th>
+                    <th>&spades;</th>
+                    <th>NT</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in ddRows" :key="row.seat">
+                    <td class="seat">{{ row.seat }}</td>
+                    <td v-for="(t, i) in row.cells" :key="i">{{ t }}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div style="display:flex;gap:8px;margin-top:10px">
                 <button class="btn btn-primary" @click="newDeal">Next deal &rarr;</button>
                 <button class="btn" @click="resetAuction">Replay this deal</button>
               </div>
@@ -505,6 +542,28 @@ function handsToPbn(hands) {
   }).join(' ');
 }
 
+// ── Double-dummy lookup (Bridgewebs BSOL, same service used by game-analysis) ──
+async function fetchDoubleDummy(deal) {
+  const pbn = ('N:' + handsToPbn(deal.hands)).replace(/ /g, 'x');
+  const vul = deal.vulnerable === 'Both' ? 'All' : deal.vulnerable;
+  const url = `https://dds.bridgewebs.com/cgi-bin/bsol2/ddummy?request=m&dealstr=${encodeURIComponent(pbn)}&vul=${vul}&club=bridgeclassroom`;
+  const resp = await fetch(url);
+  if (!resp.ok) return null;
+  const text = await resp.text();
+  const json = JSON.parse(text.trim());
+  if (!json.sess || !json.sess.ddtricks || json.sess.ddtricks.length < 20) return null;
+  return json.sess.ddtricks;
+}
+
+function ddTrickAt(ddtricks, seatIdx, suitIdx) {
+  // ddtricks: 20-char string. Seat order: N, S, E, W. Suit order: NT, S, H, D, C (within each seat).
+  const ch = ddtricks[seatIdx * 5 + suitIdx];
+  if (ch >= '0' && ch <= '9') return parseInt(ch, 10);
+  if (ch >= 'a' && ch <= 'd') return 10 + ch.charCodeAt(0) - 'a'.charCodeAt(0);
+  if (ch >= 'A' && ch <= 'D') return 10 + ch.charCodeAt(0) - 'A'.charCodeAt(0);
+  return 0;
+}
+
 // ── Auction utilities ───────────────────────────────────────────────
 const SEAT_ORDER = ['N', 'E', 'S', 'W'];
 
@@ -570,7 +629,10 @@ const HandDisplay = {
   props: ['hand', 'seat', 'active'],
   template: `
     <div class="hand">
-      <div class="seat-label" :class="{ active: active }">{{ seatName }}</div>
+      <div class="seat-label" :class="{ active: active }">
+        {{ seatName }}
+        <span class="hand-pts">{{ hcp }} HCP / {{ tp }} TP</span>
+      </div>
       <div class="hand-line"><span class="suit black">&spades;</span><span class="black">{{ hand.S || '—' }}</span></div>
       <div class="hand-line"><span class="suit red">&hearts;</span><span class="red">{{ hand.H || '—' }}</span></div>
       <div class="hand-line"><span class="suit red">&diams;</span><span class="red">{{ hand.D || '—' }}</span></div>
@@ -579,6 +641,23 @@ const HandDisplay = {
   `,
   computed: {
     seatName() { return { N: 'North', E: 'East', S: 'South', W: 'West' }[this.seat]; },
+    hcp() {
+      const pts = { A: 4, K: 3, Q: 2, J: 1 };
+      let total = 0;
+      for (const suit of ['S', 'H', 'D', 'C']) {
+        for (const ch of (this.hand[suit] || '')) total += pts[ch] || 0;
+      }
+      return total;
+    },
+    tp() {
+      // HCP + length points (1 per card over 4 in any suit)
+      let lp = 0;
+      for (const suit of ['S', 'H', 'D', 'C']) {
+        const len = (this.hand[suit] || '').length;
+        if (len > 4) lp += len - 4;
+      }
+      return this.hcp + lp;
+    },
   },
 };
 
@@ -640,7 +719,7 @@ const BiddingBox = {
 };
 
 const AuctionGrid = {
-  props: ['bids', 'dealer', 'currentIndex', 'wrongIndices', 'showTurn'],
+  props: ['bids', 'dealer', 'currentIndex', 'wrongIndices', 'showTurn', 'meanings'],
   computed: {
     rounds() {
       // Display order is W N E S — but auction starts at dealer
@@ -693,6 +772,13 @@ const AuctionGrid = {
       return `${level}<span class="${red ? 'red' : ''}">${sym}</span>`;
     },
   },
+  methods: {
+    meaningFor(idx) {
+      if (!this.meanings || idx == null) return '';
+      const m = this.meanings.find(x => x.position === idx);
+      return m && m.meaning ? m.meaning : '';
+    },
+  },
   template: `
     <div>
       <div class="auction-grid">
@@ -705,7 +791,8 @@ const AuctionGrid = {
                empty: !c,
                current: c && c.turn,
                wrong: c && c.idx !== undefined && wrongIndices.includes(c.idx),
-             }">
+             }"
+             :title="c && c.bid ? meaningFor(c.idx) : ''">
           <span v-if="c && c.bid" v-html="formatBid(c.bid)"></span>
           <span v-else-if="c && c.turn" style="color:#d6b400">?</span>
         </div>
@@ -733,6 +820,8 @@ const App = {
 
     const expectedAuction = ref([]);    // BBA's full auction
     const conventionsUsed = ref(null);   // {ns, ew} BBA reports back
+    const meanings = ref([]);            // [{position, bid, meaning, isAlert}, ...] from BBA
+    const doubleDummy = ref(null);       // 20-char ddtricks string from bridgewebs
     const bids = ref([]);                // bids placed so far (mix of bot + human)
     const wrongIndices = ref([]);
     const auctionLoading = ref(false);
@@ -783,6 +872,35 @@ const App = {
       if (!auctionComplete.value) return '';
       if (wrongIndices.value.length === 0) return 'You matched the BBA all the way through.';
       return `${wrongIndices.value.length} of your bids differed from the BBA — see red cells above.`;
+    });
+
+    // Most recent placed bid + its meaning (for "what did partner just say?")
+    const lastBidMeaning = computed(() => {
+      if (!bids.value.length || !currentDeal.value) return null;
+      const idx = bids.value.length - 1;
+      const bid = bids.value[idx];
+      const seat = seatAtIndex(currentDeal.value.dealer, idx);
+      const m = (meanings.value || []).find(x => x.position === idx);
+      let text = m && m.meaning ? m.meaning : '';
+      if (!text) {
+        if (bid === 'Pass') text = 'pass';
+        else if (bid === 'X') text = 'takeout / penalty';
+        else if (bid === 'XX') text = 'redouble';
+        else text = 'natural';
+      }
+      return { label: `${seat}: ${bid}`, text };
+    });
+
+    // Double-dummy table data: rows are seats N S E W, cols are ♣ ♦ ♥ ♠ NT
+    const ddRows = computed(() => {
+      if (!doubleDummy.value) return null;
+      const seats = ['N', 'S', 'E', 'W'];
+      // Bridgewebs ddtricks suit order within each seat: NT, S, H, D, C (indices 0..4)
+      const colSuitIdx = [4, 3, 2, 1, 0]; // display order ♣ ♦ ♥ ♠ NT
+      return seats.map((seat, si) => ({
+        seat,
+        cells: colSuitIdx.map(j => ddTrickAt(doubleDummy.value, si, j)),
+      }));
     });
 
     // ── Init ───────────────────────────────────────────────────────
@@ -838,10 +956,16 @@ const App = {
       expectedAuction.value = [];
       feedback.value = null;
       auctionLoading.value = true;
+      // Fire DD lookup in parallel — don't block on it.
+      doubleDummy.value = null;
+      fetchDoubleDummy(currentDeal.value).then(dd => {
+        if (currentDeal.value === dealsForScenario.value[idx]) doubleDummy.value = dd;
+      }).catch(() => {});
       try {
         const result = await generateAuction(currentDeal.value, currentScenario.value);
         expectedAuction.value = result.auction;
         conventionsUsed.value = result.conventionsUsed || null;
+        meanings.value = result.meanings || [];
         await playToHumanTurn();
       } catch (err) {
         dealError.value = 'BBA error: ' + err.message;
@@ -927,9 +1051,10 @@ const App = {
       menuTree, menuLoading, menuError, openSections, toggleSection,
       currentScenario, currentScenarioLabel, dealsForScenario, dealIndex, totalDeals, currentDeal,
       dealError, dealErrorHint,
-      bids, wrongIndices, expectedAuction, conventionsUsed, auctionLoading, feedback, showConfigHint,
+      bids, wrongIndices, expectedAuction, conventionsUsed, meanings, doubleDummy,
+      auctionLoading, feedback, showConfigHint,
       auctionComplete, currentSeat, lastNonPassNonDouble, canDouble, canRedouble,
-      finalContract, summary,
+      finalContract, summary, lastBidMeaning, ddRows,
       selectScenario, newDeal, resetAuction, onUserBid, vulForSide, formatContract,
     };
   },
