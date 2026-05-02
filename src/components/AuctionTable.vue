@@ -15,12 +15,29 @@
           :class="{
             'current-turn': isCurrentTurn(roundIdx, bidIdx),
             'wrong-bid': isWrongBid(roundIdx, bidIdx),
-            'correct-bid': isCorrectBid(roundIdx, bidIdx)
+            'correct-bid': isCorrectBid(roundIdx, bidIdx),
+            'stacked': bid && divergedBids[getBidIndexFromPosition(roundIdx, bidIdx)],
           }"
           @mouseenter="bid ? hoveredIdx = getBidIndexFromPosition(roundIdx, bidIdx) : null"
           @mouseleave="hoveredIdx = null"
         >
-          <span v-if="bid" v-html="formatBidHtml(bid)"></span>
+          <template v-if="bid && divergedBids[getBidIndexFromPosition(roundIdx, bidIdx)]">
+            <div
+              v-for="kind in ['user', 'bba']"
+              :key="kind"
+              class="stacked-row"
+              :class="{
+                rejected: divergedBids[getBidIndexFromPosition(roundIdx, bidIdx)][kind] !== bid,
+                clickable: allowDivergenceToggle,
+              }"
+              @click.stop="allowDivergenceToggle && $emit('toggle-bid', getBidIndexFromPosition(roundIdx, bidIdx))"
+            >
+              <span class="stacked-marker">{{ divergedBids[getBidIndexFromPosition(roundIdx, bidIdx)][kind] === bid ? '●' : '○' }}</span>
+              <span class="stacked-label">{{ kind === 'user' ? 'You' : 'BBA' }}:</span>
+              <span class="stacked-bid" v-html="formatBidHtml(divergedBids[getBidIndexFromPosition(roundIdx, bidIdx)][kind])"></span>
+            </div>
+          </template>
+          <span v-else-if="bid" v-html="formatBidHtml(bid)"></span>
           <span v-else-if="showTurnIndicator && isCurrentTurn(roundIdx, bidIdx)" class="turn-indicator">?</span>
           <div
             v-if="bid && hoveredIdx === getBidIndexFromPosition(roundIdx, bidIdx) && tooltipFor(getBidIndexFromPosition(roundIdx, bidIdx))"
@@ -97,8 +114,22 @@ const props = defineProps({
     // Optional [{position, bid, meaning, isAlert}, ...]; enables per-cell hover tooltip.
     type: Array,
     default: () => []
+  },
+  divergedBids: {
+    // Optional map: { idx: { user: 'X', bba: 'Y' } } — when present, renders both
+    // bids stacked in the cell with the rejected one struck-through.
+    type: Object,
+    default: () => ({})
+  },
+  allowDivergenceToggle: {
+    // When true, clicking a stacked bid emits `toggle-bid` so the parent can
+    // swap which is live. Off by default — toggling is only safe in review.
+    type: Boolean,
+    default: false
   }
 })
+
+defineEmits(['toggle-bid'])
 
 const seatOrder = computed(() => getSeatOrder(props.dealer))
 
@@ -314,6 +345,58 @@ function tooltipFor(bidIdx) {
 
 .current-turn {
   background: #e3f2fd;
+}
+
+/* Stacked-bid display when both user's and BBA's bids are shown together */
+.bid-cell.stacked {
+  flex-direction: column;
+  padding: 4px 6px;
+  font-size: 13px;
+  gap: 1px;
+}
+
+.stacked-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  justify-content: center;
+}
+
+.stacked-row.clickable {
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.stacked-row.clickable:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.stacked-row.rejected .stacked-bid {
+  text-decoration: line-through;
+  text-decoration-color: #b00;
+  text-decoration-thickness: 2px;
+  opacity: 0.6;
+}
+
+.stacked-marker {
+  font-size: 10px;
+  color: #1D9E75;
+  width: 10px;
+  display: inline-block;
+}
+
+.stacked-row.rejected .stacked-marker {
+  color: #888;
+}
+
+.stacked-label {
+  font-size: 10px;
+  color: #666;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .wrong-bid {

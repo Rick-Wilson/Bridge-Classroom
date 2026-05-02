@@ -80,12 +80,16 @@
               <div v-if="conventionsUsed" class="bp-scenario-meta">
                 CC &middot; NS: {{ conventionsUsed.ns }} &middot; EW: {{ conventionsUsed.ew }}
               </div>
+              <div v-if="selectedScenarios.size > 1" class="bp-scenario-meta">
+                Drawing from: {{ poolLabels }}
+              </div>
             </div>
             <div class="bp-scenario-actions">
               <label class="bp-rotate-toggle">
                 <input type="checkbox" v-model="rotateDeals">
                 Rotate randomly
               </label>
+              <button class="bp-btn" @click="newDeal" :disabled="auctionLoading || selectedScenarios.size === 0">Next deal &rarr;</button>
               <button class="bp-btn" @click="resetAuction" :disabled="auctionLoading">Restart this deal</button>
             </div>
           </div>
@@ -118,6 +122,9 @@
                   :wrong-bid-indices="wrongIndicesArray"
                   :show-turn-indicator="!auctionComplete"
                   :meanings="meanings"
+                  :diverged-bids="divergedBids"
+                  :allow-divergence-toggle="auctionComplete"
+                  @toggle-bid="toggleDivergedBid"
                 />
               </div>
 
@@ -246,6 +253,19 @@ const currentSeat = computed(() => {
 const lastNonPassNonDouble = computed(() => lastSuitBid(bids.value))
 const wrongIndicesArray = computed(() => Object.keys(userBids.value).map(Number))
 const hadDivergence = computed(() => Object.keys(userBids.value).length > 0)
+const poolLabels = computed(() => [...selectedScenarios.value].map(prettifyLabel).join(', '))
+
+// AuctionTable receives a per-index map of {user, bba} pairs for diverged cells.
+// Renders the live bid on top and the rejected bid struck-through, with a small
+// chooser to swap which is live (only meaningful after the auction completes).
+const divergedBids = computed(() => {
+  const out = {}
+  for (const [k, userBid] of Object.entries(userBids.value)) {
+    const idx = Number(k)
+    out[idx] = { user: userBid, bba: expectedAuction.value[idx] }
+  }
+  return out
+})
 
 const visibleHands = computed(() => {
   if (!currentDeal.value) return { N: null, E: null, S: null, W: null }
@@ -685,6 +705,19 @@ function rotateDeal(deal) {
       W: deal.hands.E,
     },
   }
+}
+
+// Swap which bid is "live" at a diverged index. Only re-runnable after the
+// auction completes; mid-auction we'd need BBA to re-run with a forced
+// auction prefix to know how the bots would respond.
+function toggleDivergedBid(idx) {
+  if (!auctionComplete.value) return
+  const userBid = userBids.value[idx]
+  if (userBid == null) return
+  const bbaBid = expectedAuction.value[idx]
+  const newBids = bids.value.slice()
+  newBids[idx] = newBids[idx] === userBid ? bbaBid : userBid
+  bids.value = newBids
 }
 
 async function resetAuction() {
