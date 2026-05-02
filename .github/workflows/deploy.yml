@@ -53,7 +53,9 @@ jobs:
           cp docs/teacher-utilities.html dist/teacher-utilities.html
           cp docs/hand-curator.html dist/hand-curator.html
           cp docs/deal-library.html dist/deal-library.html
+          cp docs/bidding-practice.html dist/bidding-practice.html
           cp -r docs/curator dist/curator
+          cp -r docs/bidding-practice dist/bidding-practice
           cp -r docs/screenshots dist/screenshots
           cp docs/sitemap.xml dist/sitemap.xml
           cp docs/robots.txt dist/robots.txt
