@@ -132,13 +132,18 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
   .auction-grid .header { font-size: 10px; color: #888; text-align: center; padding: 2px 0; font-weight: 600; }
   .auction-grid .cell {
-    padding: 6px 4px; text-align: center; border-radius: 3px; font-size: 13px;
-    background: #f8f8f6; min-height: 28px; display: flex; align-items: center; justify-content: center;
+    padding: 4px 4px; text-align: center; border-radius: 3px; font-size: 13px;
+    background: #f8f8f6; min-height: 28px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   }
   .auction-grid .cell.empty { background: transparent; }
   .auction-grid .cell.current { background: #fff8d4; outline: 1px dashed #d6b400; }
-  .auction-grid .cell.wrong { background: #fee; text-decoration: line-through; text-decoration-color: #b00; text-decoration-thickness: 2px; }
-  .auction-grid .cell.ok { background: #e8f7e8; }
+  .auction-grid .cell.diverged { background: #fff3f3; }
+  .auction-grid .cell .user-bid {
+    font-size: 11px; color: #b00; opacity: 0.9;
+    text-decoration: line-through; text-decoration-color: #b00; text-decoration-thickness: 2px;
+  }
+  .auction-grid .cell .expected-bid { font-size: 13px; }
   .red { color: #d32f2f; }
 
   /* Bidding box */
@@ -160,16 +165,6 @@
   .bb-special .dbl { background: #ff5722; }
   .bb-special .rdbl { background: #2196f3; }
   .bb-special button:disabled { opacity: 0.35; cursor: not-allowed; }
-
-  .feedback {
-    padding: 8px 12px; border-radius: 6px; font-size: 13px; line-height: 1.4;
-  }
-  .feedback.ok { background: #e8f7e8; color: #1a4f1a; }
-  .feedback.warn { background: #fef3d4; color: #855a00; }
-
-  .last-meaning { margin-top: 8px; padding: 6px 8px; background: #fafafa;
-    border-left: 2px solid #1D9E75; font-size: 12px; line-height: 1.4; color: #444; }
-  .last-meaning strong { color: #222; }
 
   .dd-table { border-collapse: collapse; margin-top: 6px; font-size: 12px; }
   .dd-table th, .dd-table td { border: 0.5px solid #ddd; padding: 3px 8px; text-align: center; }
@@ -308,11 +303,8 @@
               <h3>Auction</h3>
               <auction-grid :bids="bids" :dealer="currentDeal.dealer"
                             :current-index="bids.length"
-                            :wrong-indices="wrongIndices" :show-turn="!auctionComplete"
+                            :user-bids="userBids" :show-turn="!auctionComplete"
                             :meanings="meanings"></auction-grid>
-              <div v-if="lastBidMeaning" class="last-meaning">
-                <strong>{{ lastBidMeaning.label }}</strong> &mdash; {{ lastBidMeaning.text }}
-              </div>
             </div>
 
             <div v-if="!auctionComplete && currentSeat === 'S' && !auctionLoading" class="auction-card">
@@ -321,9 +313,6 @@
                            :can-double="canDouble"
                            :can-redouble="canRedouble"
                            @bid="onUserBid"></bidding-box>
-              <div v-if="feedback" class="feedback" :class="feedback.kind" style="margin-top:10px">
-                {{ feedback.msg }}
-              </div>
             </div>
 
             <div v-if="auctionComplete" class="contract-box">
@@ -720,7 +709,7 @@ const BiddingBox = {
 };
 
 const AuctionGrid = {
-  props: ['bids', 'dealer', 'currentIndex', 'wrongIndices', 'showTurn', 'meanings'],
+  props: ['bids', 'dealer', 'currentIndex', 'userBids', 'showTurn', 'meanings'],
   computed: {
     rounds() {
       // Display order is W N E S — but auction starts at dealer
@@ -729,11 +718,16 @@ const AuctionGrid = {
       const result = [];
       let bidIdx = 0;
       let roundNum = 0;
+      const userBids = this.userBids || {};
       while (bidIdx < this.bids.length || (roundNum === 0 && bidIdx === 0 && this.bids.length === 0)) {
         const round = [null, null, null, null];
         const start = roundNum === 0 ? dealerCol : 0;
         for (let col = start; col < 4 && bidIdx < this.bids.length; col++) {
-          round[col] = { bid: this.bids[bidIdx], idx: bidIdx };
+          round[col] = {
+            bid: this.bids[bidIdx],
+            idx: bidIdx,
+            userBid: userBids[bidIdx] || null,
+          };
           bidIdx++;
         }
         if (round.some(c => c !== null) || roundNum === 0) result.push(round);
@@ -777,6 +771,21 @@ const AuctionGrid = {
       const m = this.meanings.find(x => x.position === idx);
       return m && m.meaning ? m.meaning : '';
     },
+    plainBid(bid) {
+      if (bid === 'NT' || /NT$/.test(bid)) return bid.replace(/N$/, 'NT');
+      return bid;
+    },
+    cellTitle(c) {
+      if (!c || !c.bid) return '';
+      const expectedMeaning = this.meaningFor(c.idx);
+      if (c.userBid) {
+        const expectedLine = expectedMeaning
+          ? `BBA expected: ${this.plainBid(c.bid)} — ${expectedMeaning}`
+          : `BBA expected: ${this.plainBid(c.bid)}`;
+        return `Your bid: ${this.plainBid(c.userBid)}\n${expectedLine}`;
+      }
+      return expectedMeaning;
+    },
   },
   template: `
     <div>
@@ -789,10 +798,13 @@ const AuctionGrid = {
              :class="{
                empty: !c,
                current: c && c.turn,
-               wrong: c && c.idx !== undefined && wrongIndices.includes(c.idx),
+               diverged: c && c.userBid,
              }"
-             :title="c && c.bid ? meaningFor(c.idx) : ''">
-          <span v-if="c && c.bid" v-html="formatBid(c.bid)"></span>
+             :title="cellTitle(c)">
+          <template v-if="c && c.bid">
+            <span v-if="c.userBid" class="user-bid" v-html="formatBid(c.userBid)"></span>
+            <span :class="{ 'expected-bid': c.userBid }" v-html="formatBid(c.bid)"></span>
+          </template>
           <span v-else-if="c && c.turn" style="color:#d6b400">?</span>
         </div>
       </div>
@@ -821,10 +833,9 @@ const App = {
     const conventionsUsed = ref(null);   // {ns, ew} BBA reports back
     const meanings = ref([]);            // [{position, bid, meaning, isAlert}, ...] from BBA
     const doubleDummy = ref(null);       // 20-char ddtricks string from bridgewebs
-    const bids = ref([]);                // bids placed so far (mix of bot + human)
-    const wrongIndices = ref([]);
+    const bids = ref([]);                // bids placed so far (BBA's expected sequence; user diverges are normalized to BBA's choice so the auction still completes)
+    const userBids = ref({});            // map idx → user's actual bid when it differed from BBA's
     const auctionLoading = ref(false);
-    const feedback = ref(null);
     const showConfigHint = ref(false);
 
     const totalDeals = computed(() => dealsForScenario.value.length);
@@ -869,25 +880,9 @@ const App = {
     });
     const summary = computed(() => {
       if (!auctionComplete.value) return '';
-      if (wrongIndices.value.length === 0) return 'You matched the BBA all the way through.';
-      return `${wrongIndices.value.length} of your bids differed from the BBA — see red cells above.`;
-    });
-
-    // Most recent placed bid + its meaning (for "what did partner just say?")
-    const lastBidMeaning = computed(() => {
-      if (!bids.value.length || !currentDeal.value) return null;
-      const idx = bids.value.length - 1;
-      const bid = bids.value[idx];
-      const seat = seatAtIndex(currentDeal.value.dealer, idx);
-      const m = (meanings.value || []).find(x => x.position === idx);
-      let text = m && m.meaning ? m.meaning : '';
-      if (!text) {
-        if (bid === 'Pass') text = 'pass';
-        else if (bid === 'X') text = 'takeout / penalty';
-        else if (bid === 'XX') text = 'redouble';
-        else text = 'natural';
-      }
-      return { label: `${seat}: ${bid}`, text };
+      const divergeCount = Object.keys(userBids.value).length;
+      if (divergeCount === 0) return 'You matched the BBA all the way through.';
+      return `${divergeCount} of your bids differed from the BBA — see the divergent cells above.`;
     });
 
     // Double-dummy table data: rows are seats N S E W, cols are ♣ ♦ ♥ ♠ NT
@@ -965,9 +960,8 @@ const App = {
       dealIndex.value = idx;
       currentDeal.value = dealsForScenario.value[idx];
       bids.value = [];
-      wrongIndices.value = [];
+      userBids.value = {};
       expectedAuction.value = [];
-      feedback.value = null;
       auctionLoading.value = true;
       // Fire DD lookup in parallel — don't block on it.
       doubleDummy.value = null;
@@ -1001,8 +995,7 @@ const App = {
     async function resetAuction() {
       if (!currentDeal.value) return;
       bids.value = [];
-      wrongIndices.value = [];
-      feedback.value = null;
+      userBids.value = {};
       // Re-use already-fetched expected auction (no re-fetch needed)
       await playToHumanTurn();
     }
@@ -1023,23 +1016,18 @@ const App = {
 
     async function onUserBid(bid) {
       if (!currentDeal.value) return;
-      const expected = expectedAuction.value[bids.value.length];
       const idx = bids.value.length;
-      bids.value.push(bid);
+      const expected = expectedAuction.value[idx];
+      // Always advance the auction with BBA's expected bid so the rest of the
+      // auction stays coherent. If the user diverged, record their actual bid
+      // so the cell can show both.
       if (expected && bid !== expected) {
-        wrongIndices.value.push(idx);
-        feedback.value = {
-          kind: 'warn',
-          msg: `BBA expected ${expected}. Continuing the auction with BBA's choice so you can see the rest.`
-        };
-        // Replace the user's bid with BBA's expected so the rest of the auction stays consistent
-        bids.value.splice(idx, 1, expected);
+        userBids.value = { ...userBids.value, [idx]: bid };
+        bids.value.push(expected);
       } else {
-        feedback.value = { kind: 'ok', msg: 'Match!' };
+        bids.value.push(bid);
       }
-      // Continue to next human turn or auction end
       await playToHumanTurn();
-      if (isAuctionOver(bids.value)) feedback.value = null;
     }
 
     function vulForSide(side) {
@@ -1064,10 +1052,10 @@ const App = {
       menuTree, menuLoading, menuError, openSections, toggleSection,
       currentScenario, currentScenarioLabel, dealsForScenario, dealIndex, totalDeals, currentDeal,
       dealError, dealErrorHint,
-      bids, wrongIndices, expectedAuction, conventionsUsed, meanings, doubleDummy,
-      auctionLoading, feedback, showConfigHint,
+      bids, userBids, expectedAuction, conventionsUsed, meanings, doubleDummy,
+      auctionLoading, showConfigHint,
       auctionComplete, currentSeat, lastNonPassNonDouble, canDouble, canRedouble,
-      finalContract, summary, lastBidMeaning, ddRows,
+      finalContract, summary, ddRows,
       selectScenario, newDeal, resetAuction, onUserBid, vulForSide, formatContract,
     };
   },
