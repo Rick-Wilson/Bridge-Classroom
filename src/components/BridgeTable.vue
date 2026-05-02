@@ -7,6 +7,7 @@
           :hand="hands.N"
           seat="N"
           :showHcp="showHcp"
+          :showTotalPoints="showTotalPoints"
           :clickable="clickableSeat === 'N'"
           :playedCards="playedCards?.N"
           @card-click="(payload) => $emit('card-click', { seat: 'N', ...payload })"
@@ -20,6 +21,7 @@
         :hand="hands.W"
         seat="W"
         :showHcp="showHcp"
+        :showTotalPoints="showTotalPoints"
         :clickable="clickableSeat === 'W'"
         :playedCards="playedCards?.W"
         @card-click="(payload) => $emit('card-click', { seat: 'W', ...payload })"
@@ -37,6 +39,7 @@
         :hand="hands.E"
         seat="E"
         :showHcp="showHcp"
+        :showTotalPoints="showTotalPoints"
         :clickable="clickableSeat === 'E'"
         :playedCards="playedCards?.E"
         @card-click="(payload) => $emit('card-click', { seat: 'E', ...payload })"
@@ -50,6 +53,7 @@
           :hand="hands.S"
           seat="S"
           :showHcp="showHcp"
+          :showTotalPoints="showTotalPoints"
           :clickable="clickableSeat === 'S'"
           :playedCards="playedCards?.S"
           @card-click="(payload) => $emit('card-click', { seat: 'S', ...payload })"
@@ -73,6 +77,10 @@ defineProps({
     default: () => []
   },
   showHcp: {
+    type: Boolean,
+    default: false
+  },
+  showTotalPoints: {
     type: Boolean,
     default: false
   },

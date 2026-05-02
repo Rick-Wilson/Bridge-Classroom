@@ -1,0 +1,883 @@
+<template>
+  <div class="bp-app">
+    <nav class="bp-nav">
+      <a class="bp-logo" href="/"><span class="suit">&spades;</span> Bridge Classroom &middot; Bidding Practice</a>
+      <button class="bp-nav-toggle" @click="sidebarOpen = !sidebarOpen">
+        {{ sidebarOpen ? 'Close' : '☰ Scenarios' }}
+      </button>
+      <a class="bp-nav-back" href="/">&larr; All tools</a>
+    </nav>
+
+    <div class="bp-main">
+      <aside class="bp-sidebar" :class="{ open: sidebarOpen }">
+        <div v-if="menuLoading" class="bp-menu-loading">Loading scenarios&hellip;</div>
+        <div v-else-if="menuError" class="bp-menu-loading bp-error">{{ menuError }}</div>
+        <div v-else>
+          <div v-for="(node, idx) in menuTree" :key="idx">
+            <div v-if="node.type === 'major'" class="bp-menu-major">{{ node.label }}</div>
+            <div v-else-if="node.type === 'section'">
+              <div
+                class="bp-menu-section"
+                :class="{ open: openSections[node.label] }"
+                @click="toggleSection(node.label)"
+              >
+                <span>{{ node.label }}</span>
+                <span class="bp-chevron">&#9656;</span>
+              </div>
+              <div v-if="openSections[node.label]" class="bp-menu-rows">
+                <div
+                  v-for="(row, ri) in node.rows"
+                  :key="ri"
+                  class="bp-menu-row"
+                  :style="{ gridTemplateColumns: 'repeat(' + row.length + ', 1fr)' }"
+                >
+                  <div
+                    v-for="(cell, ci) in row"
+                    :key="ci"
+                    class="bp-menu-cell"
+                    :class="{
+                      clickable: !!cell,
+                      empty: !cell,
+                      active: cell && cell.file === currentScenario,
+                    }"
+                    @click="cell && selectScenario(cell.file)"
+                  >
+                    <span v-if="cell">{{ cell.label }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <main class="bp-stage" :class="{ dimmed: sidebarOpen }">
+        <div v-if="!currentScenario && !menuLoading" class="bp-empty">
+          Pick a scenario from the menu to start bidding.<br>
+          <small>(You sit South. Three BBA bots fill the other seats.)</small>
+        </div>
+
+        <div v-if="dealError" class="bp-error-box">
+          <strong>Error:</strong> {{ dealError }}
+          <div v-if="dealErrorHint" class="bp-error-hint">{{ dealErrorHint }}</div>
+        </div>
+
+        <template v-if="currentScenario && currentDeal">
+          <div class="bp-scenario-bar">
+            <div>
+              <div class="bp-scenario-name">{{ currentScenarioLabel }}</div>
+              <div class="bp-scenario-meta">
+                Deal {{ dealIndex + 1 }} of {{ totalDeals }} &middot;
+                Dealer {{ currentDeal.dealer }} &middot; Vul {{ currentDeal.vulnerable }}
+              </div>
+              <div v-if="conventionsUsed" class="bp-scenario-meta">
+                CC &middot; NS: {{ conventionsUsed.ns }} &middot; EW: {{ conventionsUsed.ew }}
+              </div>
+            </div>
+            <div class="bp-scenario-actions">
+              <button class="bp-btn" @click="resetAuction" :disabled="auctionLoading">Restart this deal</button>
+            </div>
+          </div>
+
+          <div class="bp-table-wrap">
+            <BridgeTable
+              :hands="visibleHands"
+              :hidden-seats="hiddenSeats"
+              :show-hcp="true"
+              :show-total-points="true"
+            >
+              <template #center>
+                <div class="bp-center">
+                  <div class="bp-vul-tag" :class="{ 'is-vul': vulForSide('NS') || vulForSide('EW') }">
+                    {{ currentDeal.vulnerable === 'None' ? 'None vul' : currentDeal.vulnerable + ' vul' }}
+                  </div>
+                  <div class="bp-dealer-tag">Dealer {{ currentDeal.dealer }}</div>
+                  <div v-if="auctionLoading" class="bp-loading">Computing&hellip;</div>
+                </div>
+              </template>
+            </BridgeTable>
+
+            <div class="bp-right-rail">
+              <div class="bp-card">
+                <h3>Auction</h3>
+                <AuctionTable
+                  :bids="bids"
+                  :dealer="currentDeal.dealer"
+                  :current-bid-index="bids.length"
+                  :wrong-bid-indices="wrongIndicesArray"
+                  :show-turn-indicator="!auctionComplete"
+                  :meanings="meanings"
+                />
+              </div>
+
+              <div v-if="!auctionComplete && currentSeat === 'S' && !auctionLoading" class="bp-card">
+                <h3>Your bid</h3>
+                <BiddingBox
+                  :last-bid="lastNonPassNonDouble"
+                  :can-double="canDouble"
+                  :can-redouble="canRedouble"
+                  @bid="onUserBid"
+                />
+              </div>
+
+              <div v-if="auctionComplete" class="bp-contract">
+                <div class="bp-contract-line">
+                  Final contract:
+                  <span v-if="finalContract.contract === 'Pass'">Passed out</span>
+                  <span v-else>
+                    <span v-html="formatContractHtml(finalContract.contract)"></span>
+                    by {{ finalContract.declarer }}
+                  </span>
+                </div>
+                <div class="bp-contract-meta">{{ summary }}</div>
+
+                <div v-if="ddRows" class="bp-dd-label">Double-dummy tricks</div>
+                <table v-if="ddRows" class="bp-dd-table">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>&clubs;</th>
+                      <th class="bp-red">&diams;</th>
+                      <th class="bp-red">&hearts;</th>
+                      <th>&spades;</th>
+                      <th>NT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in ddRows" :key="row.seat">
+                      <td class="bp-dd-seat">{{ row.seat }}</td>
+                      <td
+                        v-for="(c, i) in row.cells"
+                        :key="i"
+                        :class="{
+                          'bp-dd-contract': c.isContract,
+                          'bp-dd-match': c.isContract && !hadDivergence,
+                          'bp-dd-diverged': c.isContract && hadDivergence,
+                        }"
+                      >{{ c.tricks }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="bp-contract-actions">
+                  <button class="bp-btn bp-btn-primary" @click="newDeal">Next deal &rarr;</button>
+                  <button class="bp-btn" @click="resetAuction">Replay this deal</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </main>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, reactive, computed, onMounted } from 'vue'
+import BridgeTable from '../components/BridgeTable.vue'
+import BiddingBox from '../components/BiddingBox.vue'
+import AuctionTable from '../components/AuctionTable.vue'
+import { formatBid } from '../utils/cardFormatting.js'
+
+// ── Config ────────────────────────────────────────────────────────────
+const CONFIG = {
+  BBA_URL: 'https://bba.harmonicsystems.com',
+  PBS_RAW_BASE: 'https://raw.githubusercontent.com/ADavidBailey/Practice-Bidding-Scenarios/main',
+  BUTTON_LAYOUT: '/btn/-button-layout-release.txt',
+  PBN_DIR: '/pbn',
+}
+
+// ── State ─────────────────────────────────────────────────────────────
+const menuTree = ref([])
+const menuLoading = ref(true)
+const menuError = ref('')
+const openSections = reactive({})
+
+const isNarrow = () => typeof window !== 'undefined'
+  && window.matchMedia('(max-width: 1100px)').matches
+const sidebarOpen = ref(!isNarrow())
+
+const currentScenario = ref('')
+const currentScenarioLabel = ref('')
+const dealsForScenario = ref([])
+const dealIndex = ref(0)
+const currentDeal = ref(null)
+const dealError = ref('')
+const dealErrorHint = ref('')
+
+const expectedAuction = ref([])
+const conventionsUsed = ref(null)
+const meanings = ref([])
+const doubleDummy = ref(null)
+const bids = ref([])
+const userBids = ref({})
+const auctionLoading = ref(false)
+
+// ── Derived ───────────────────────────────────────────────────────────
+const SEAT_ORDER = ['N', 'E', 'S', 'W']
+
+function seatAtIndex(dealer, idx) {
+  return SEAT_ORDER[(SEAT_ORDER.indexOf(dealer) + idx) % 4]
+}
+
+const totalDeals = computed(() => dealsForScenario.value.length)
+const auctionComplete = computed(() => currentDeal.value && isAuctionOver(bids.value))
+const currentSeat = computed(() => {
+  if (!currentDeal.value) return null
+  return seatAtIndex(currentDeal.value.dealer, bids.value.length)
+})
+const lastNonPassNonDouble = computed(() => lastSuitBid(bids.value))
+const wrongIndicesArray = computed(() => Object.keys(userBids.value).map(Number))
+const hadDivergence = computed(() => Object.keys(userBids.value).length > 0)
+
+const visibleHands = computed(() => {
+  if (!currentDeal.value) return { N: null, E: null, S: null, W: null }
+  if (auctionComplete.value) return currentDeal.value.hands
+  // During bidding, only S is visible.
+  return { N: null, E: null, S: currentDeal.value.hands.S, W: null }
+})
+const hiddenSeats = computed(() => {
+  if (!currentDeal.value) return []
+  if (auctionComplete.value) return []
+  return ['N', 'E', 'W']
+})
+
+const canDouble = computed(() => {
+  const trailing = []
+  for (let i = bids.value.length - 1; i >= 0; i--) {
+    if (bids.value[i] === 'Pass') trailing.push('Pass')
+    else { trailing.push(bids.value[i]); break }
+  }
+  const lastNonPass = trailing[trailing.length - 1]
+  if (!lastNonPass || lastNonPass === 'Pass') return false
+  if (lastNonPass === 'X' || lastNonPass === 'XX') return false
+  return (trailing.length % 2) === 1
+})
+const canRedouble = computed(() => {
+  const trailing = []
+  for (let i = bids.value.length - 1; i >= 0; i--) {
+    if (bids.value[i] === 'Pass') trailing.push('Pass')
+    else { trailing.push(bids.value[i]); break }
+  }
+  const lastNonPass = trailing[trailing.length - 1]
+  if (lastNonPass !== 'X') return false
+  return (trailing.length % 2) === 1
+})
+
+const finalContract = computed(() => {
+  if (!currentDeal.value) return { contract: '', declarer: null }
+  return determineContract(bids.value, currentDeal.value.dealer) || { contract: '', declarer: null }
+})
+
+const summary = computed(() => {
+  if (!auctionComplete.value) return ''
+  const n = Object.keys(userBids.value).length
+  if (n === 0) return 'You matched the BBA all the way through.'
+  return `${n} of your bids differed from the BBA — see the divergent cells above.`
+})
+
+const ddRows = computed(() => {
+  if (!doubleDummy.value) return null
+  const seats = ['N', 'S', 'E', 'W']
+  const colSuitIdx = [4, 3, 2, 1, 0] // display order ♣ ♦ ♥ ♠ NT
+  const colStrain = ['C', 'D', 'H', 'S', 'NT']
+  const fc = finalContract.value
+  const declarerIdx = fc && fc.declarer ? seats.indexOf(fc.declarer) : -1
+  let contractStrainIdx = -1
+  if (fc && fc.contract && fc.contract !== 'Pass') {
+    const m = fc.contract.match(/^\d([CDHSN]T?)(X{0,2})$/)
+    if (m) {
+      const strain = m[1] === 'N' ? 'NT' : m[1]
+      contractStrainIdx = colStrain.indexOf(strain)
+    }
+  }
+  return seats.map((seat, si) => ({
+    seat,
+    cells: colSuitIdx.map((j, ci) => ({
+      tricks: ddTrickAt(doubleDummy.value, si, j),
+      isContract: si === declarerIdx && ci === contractStrainIdx,
+    })),
+  }))
+})
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function isAuctionOver(arr) {
+  if (arr.length < 4) return false
+  const last3 = arr.slice(-3)
+  if (last3.every(b => b === 'Pass')) {
+    const hasBid = arr.slice(0, -3).some(b => b !== 'Pass')
+    if (hasBid) return true
+    if (arr.length === 4 && arr.every(b => b === 'Pass')) return true
+  }
+  return false
+}
+
+function lastSuitBid(arr) {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i] !== 'Pass' && arr[i] !== 'X' && arr[i] !== 'XX') return arr[i]
+  }
+  return null
+}
+
+function determineContract(arr, dealer) {
+  if (!isAuctionOver(arr)) return null
+  if (arr.every(b => b === 'Pass')) return { contract: 'Pass', declarer: null }
+  const last = lastSuitBid(arr)
+  if (!last) return { contract: 'Pass', declarer: null }
+  let dbl = ''
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (arr[i] === 'XX') { dbl = 'XX'; break }
+    if (arr[i] === 'X') { dbl = 'X'; break }
+    if (arr[i] !== 'Pass') break
+  }
+  const strain = last.replace(/^\d/, '')
+  const lastIdx = arr.lastIndexOf(last)
+  const lastSeat = seatAtIndex(dealer, lastIdx)
+  const winningSide = (lastSeat === 'N' || lastSeat === 'S') ? ['N', 'S'] : ['E', 'W']
+  for (let i = 0; i < arr.length; i++) {
+    const b = arr[i]
+    if (b === 'Pass' || b === 'X' || b === 'XX') continue
+    const bStrain = b.replace(/^\d/, '')
+    const seat = seatAtIndex(dealer, i)
+    if (bStrain === strain && winningSide.includes(seat)) {
+      return { contract: last + dbl, declarer: seat }
+    }
+  }
+  return { contract: last + dbl, declarer: lastSeat }
+}
+
+function vulForSide(side) {
+  const v = currentDeal.value?.vulnerable || 'None'
+  if (v === 'Both' || v === 'All') return true
+  if (v === 'NS' && side === 'NS') return true
+  if (v === 'EW' && side === 'EW') return true
+  return false
+}
+
+function formatContractHtml(contract) {
+  return formatBid(contract).html || contract
+}
+
+// ── PBN parsing (multi-deal) ──────────────────────────────────────────
+function parsePBN(text) {
+  const deals = []
+  const tagRe = /\[(\w+)\s+"([^"]*)"\]/g
+  const blocks = text.split(/\n\s*\n/)
+  for (const block of blocks) {
+    const tags = {}
+    let m
+    tagRe.lastIndex = 0
+    while ((m = tagRe.exec(block)) !== null) tags[m[1]] = m[2]
+    if (!tags.Deal) continue
+    const hands = parseDealHandsForBridgeTable(tags.Deal)
+    if (!hands) continue
+    deals.push({
+      board: tags.Board || '?',
+      dealer: tags.Dealer || 'N',
+      vulnerable: tags.Vulnerable || 'None',
+      hands,
+      pbn: tags.Deal,
+    })
+  }
+  return deals
+}
+
+// HandDisplay expects { spades: [], hearts: [], diamonds: [], clubs: [] } per seat.
+function parseDealHandsForBridgeTable(deal) {
+  const m = deal.match(/^([NESW]):(.+)$/)
+  if (!m) return null
+  const start = m[1]
+  const startIdx = SEAT_ORDER.indexOf(start)
+  const hands = m[2].trim().split(/\s+/)
+  if (hands.length !== 4) return null
+  const result = {}
+  for (let i = 0; i < 4; i++) {
+    const seat = SEAT_ORDER[(startIdx + i) % 4]
+    const suits = hands[i].split('.')
+    if (suits.length !== 4) return null
+    result[seat] = {
+      spades: [...suits[0]],
+      hearts: [...suits[1]],
+      diamonds: [...suits[2]],
+      clubs: [...suits[3]],
+    }
+  }
+  return result
+}
+
+function handsToPbnString(hands) {
+  return SEAT_ORDER.map(seat => {
+    const h = hands[seat]
+    return [h.spades, h.hearts, h.diamonds, h.clubs].map(arr => arr.join('')).join('.')
+  }).join(' ')
+}
+
+// ── Layout (sidebar menu) parser ──────────────────────────────────────
+function parseLayout(text) {
+  const tree = []
+  const lines = text.split('\n')
+  let currentSection = null
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, '')
+    if (!line) continue
+    if (line.startsWith('#')) continue
+    if (line.startsWith('[Major]')) {
+      tree.push({ type: 'major', label: line.substring('[Major]'.length).trim() })
+      currentSection = null
+      continue
+    }
+    if (line.startsWith('[Section]')) {
+      currentSection = { type: 'section', label: line.substring('[Section]'.length).trim(), rows: [] }
+      tree.push(currentSection)
+      continue
+    }
+    if (line.startsWith('[Action]')) continue
+    if (!currentSection) continue
+    const row = parseRow(line)
+    if (row.length > 0) {
+      while (row.length < 2) row.push(null)
+      currentSection.rows.push(row)
+    }
+  }
+  return tree
+}
+
+function parseRow(line) {
+  const cells = []
+  let depth = 0
+  let buf = ''
+  for (const ch of line) {
+    if (ch === '(') { depth++; buf += ch }
+    else if (ch === ')') { depth--; buf += ch }
+    else if (ch === ',' && depth === 0) { cells.push(buf.trim()); buf = '' }
+    else { buf += ch }
+  }
+  if (buf.trim()) cells.push(buf.trim())
+  return cells.map(parseCell)
+}
+
+function parseCell(cell) {
+  if (cell.startsWith('(') && cell.endsWith(')')) {
+    cell = cell.slice(1, -1).split(',')[0].trim()
+  }
+  if (cell === '---' || !cell) return null
+  const file = cell.replace(/:[a-zA-Z]+/g, '').replace(/:\d+%/g, '').trim()
+  if (!file) return null
+  return { file, label: prettifyLabel(file) }
+}
+
+function prettifyLabel(file) {
+  return file.replace(/_/g, ' ').trim()
+}
+
+// ── External services ─────────────────────────────────────────────────
+async function generateAuction(deal, scenarioName) {
+  const vul = deal.vulnerable === 'All' ? 'Both' : deal.vulnerable
+  const body = {
+    deal: {
+      pbn: 'N:' + handsToPbnString(deal.hands),
+      dealer: deal.dealer,
+      vulnerability: vul,
+      scoring: 'MP',
+    },
+    scenario: scenarioName,
+  }
+  const resp = await fetch(CONFIG.BBA_URL + '/api/auction/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!resp.ok) {
+    let err = `HTTP ${resp.status}`
+    try { const j = await resp.json(); if (j.error) err = j.error } catch {}
+    throw new Error(err)
+  }
+  const j = await resp.json()
+  if (!j.success) throw new Error(j.error || 'BBA returned success=false')
+  return {
+    auction: j.auction,
+    meanings: j.meanings || [],
+    conventionsUsed: j.conventionsUsed || null,
+  }
+}
+
+async function fetchDoubleDummy(deal) {
+  const pbn = ('N:' + handsToPbnString(deal.hands)).replace(/ /g, 'x')
+  const vul = deal.vulnerable === 'Both' ? 'All' : deal.vulnerable
+  const url = `https://dds.bridgewebs.com/cgi-bin/bsol2/ddummy?request=m&dealstr=${encodeURIComponent(pbn)}&vul=${vul}&club=bridgeclassroom`
+  const resp = await fetch(url)
+  if (!resp.ok) return null
+  const text = await resp.text()
+  const json = JSON.parse(text.trim())
+  if (!json.sess || !json.sess.ddtricks || json.sess.ddtricks.length < 20) return null
+  return json.sess.ddtricks
+}
+
+function ddTrickAt(ddtricks, seatIdx, suitIdx) {
+  const ch = ddtricks[seatIdx * 5 + suitIdx]
+  if (ch >= '0' && ch <= '9') return parseInt(ch, 10)
+  if (ch >= 'a' && ch <= 'd') return 10 + ch.charCodeAt(0) - 'a'.charCodeAt(0)
+  if (ch >= 'A' && ch <= 'D') return 10 + ch.charCodeAt(0) - 'A'.charCodeAt(0)
+  return 0
+}
+
+// ── Lifecycle ─────────────────────────────────────────────────────────
+onMounted(async () => {
+  try {
+    const resp = await fetch(CONFIG.PBS_RAW_BASE + CONFIG.BUTTON_LAYOUT)
+    if (!resp.ok) throw new Error(`Layout HTTP ${resp.status}`)
+    const text = await resp.text()
+    menuTree.value = parseLayout(text)
+    const firstSection = menuTree.value.find(n => n.type === 'section')
+    if (firstSection) openSections[firstSection.label] = true
+  } catch (err) {
+    menuError.value = 'Could not load scenario menu: ' + err.message
+  } finally {
+    menuLoading.value = false
+  }
+})
+
+function toggleSection(label) {
+  openSections[label] = !openSections[label]
+}
+
+async function selectScenario(file) {
+  if (currentScenario.value === file) return
+  currentScenario.value = file
+  currentScenarioLabel.value = prettifyLabel(file)
+  if (isNarrow()) sidebarOpen.value = false
+  dealError.value = ''
+  dealErrorHint.value = ''
+  dealsForScenario.value = []
+  currentDeal.value = null
+  try {
+    const resp = await fetch(`${CONFIG.PBS_RAW_BASE}${CONFIG.PBN_DIR}/${file}.pbn`)
+    if (!resp.ok) throw new Error(`PBN HTTP ${resp.status}`)
+    const text = await resp.text()
+    const deals = parsePBN(text)
+    if (deals.length === 0) throw new Error('No deals in PBN file')
+    dealsForScenario.value = deals
+    await loadDealAt(Math.floor(Math.random() * deals.length))
+  } catch (err) {
+    dealError.value = 'Could not load scenario PBN: ' + err.message
+    dealErrorHint.value = 'Some scenarios in the menu may not have BBA-compatible PBN files.'
+  }
+}
+
+async function loadDealAt(idx) {
+  dealError.value = ''
+  dealErrorHint.value = ''
+  dealIndex.value = idx
+  currentDeal.value = dealsForScenario.value[idx]
+  bids.value = []
+  userBids.value = {}
+  expectedAuction.value = []
+  auctionLoading.value = true
+  doubleDummy.value = null
+
+  fetchDoubleDummy(currentDeal.value).then(dd => {
+    if (currentDeal.value === dealsForScenario.value[idx]) doubleDummy.value = dd
+  }).catch(() => {})
+
+  try {
+    const result = await generateAuction(currentDeal.value, currentScenario.value)
+    expectedAuction.value = result.auction
+    conventionsUsed.value = result.conventionsUsed || null
+    meanings.value = result.meanings || []
+    await playToHumanTurn()
+  } catch (err) {
+    dealError.value = 'BBA error: ' + err.message
+    if (err.message.includes('Failed to fetch') || err.message.includes('CORS')) {
+      dealErrorHint.value = 'Likely a CORS issue — the BBA server must allow this origin.'
+    }
+  } finally {
+    auctionLoading.value = false
+  }
+}
+
+async function newDeal() {
+  if (dealsForScenario.value.length === 0) return
+  await loadDealAt(Math.floor(Math.random() * dealsForScenario.value.length))
+}
+
+async function resetAuction() {
+  if (!currentDeal.value) return
+  bids.value = []
+  userBids.value = {}
+  await playToHumanTurn()
+}
+
+async function playToHumanTurn() {
+  while (!isAuctionOver(bids.value) && bids.value.length < expectedAuction.value.length) {
+    const seat = seatAtIndex(currentDeal.value.dealer, bids.value.length)
+    if (seat === 'S') break
+    const bid = expectedAuction.value[bids.value.length]
+    await sleep(300)
+    bids.value.push(bid)
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)) }
+
+async function onUserBid(bid) {
+  if (!currentDeal.value) return
+  const idx = bids.value.length
+  const expected = expectedAuction.value[idx]
+  if (expected && bid !== expected) {
+    userBids.value = { ...userBids.value, [idx]: bid }
+    bids.value.push(expected)
+  } else {
+    bids.value.push(bid)
+  }
+  await playToHumanTurn()
+}
+</script>
+
+<style scoped>
+.bp-app {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: #f7f7f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #222;
+}
+
+.bp-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 24px;
+  border-bottom: 0.5px solid #ddd;
+  background: #fff;
+  gap: 12px;
+}
+.bp-logo { font-size: 15px; font-weight: 500; color: #222; text-decoration: none; }
+.bp-logo .suit { color: #1D9E75; margin-right: 6px; }
+.bp-nav-back { font-size: 12px; color: #666; text-decoration: none; }
+.bp-nav-back:hover { color: #222; }
+.bp-nav-toggle {
+  display: none;
+  font-size: 13px;
+  color: #1D9E75;
+  background: none;
+  border: 1px solid #1D9E75;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-weight: 500;
+  cursor: pointer;
+}
+@media (max-width: 1100px) { .bp-nav-toggle { display: inline-block; } }
+
+.bp-main {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 0;
+  position: relative;
+}
+.bp-sidebar {
+  background: #fff;
+  border-right: 0.5px solid #ddd;
+  overflow-y: auto;
+  padding: 14px 0;
+}
+.bp-stage {
+  padding: 24px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+@media (max-width: 1100px) {
+  .bp-main { grid-template-columns: minmax(0, 1fr); }
+  .bp-sidebar { display: none; }
+  .bp-sidebar.open { display: block; }
+  .bp-stage.dimmed { display: none; }
+  .bp-stage { padding: 14px; gap: 12px; }
+}
+
+/* Sidebar / scenario menu */
+.bp-menu-loading { padding: 14px 16px; font-size: 12px; color: #888; }
+.bp-error { color: #b00; }
+.bp-menu-major {
+  padding: 8px 16px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #856404;
+  background: #FFF8DC;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.bp-menu-section {
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1f4d72;
+  background: #d9edf7;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 0.5px solid #b8dbe9;
+}
+.bp-menu-section:hover { background: #c8e2f0; }
+.bp-chevron { font-size: 10px; color: #666; transition: transform 0.15s; }
+.bp-menu-section.open .bp-chevron { transform: rotate(90deg); }
+.bp-menu-rows { background: #fff; }
+.bp-menu-row { display: grid; }
+.bp-menu-cell {
+  padding: 6px 6px;
+  font-size: 12px;
+  color: #333;
+  text-align: center;
+  line-height: 1.2;
+  background: #fff;
+  border: 0.5px solid #ccc;
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -0.5px 0 0 -0.5px;
+}
+.bp-menu-cell.clickable { cursor: pointer; }
+.bp-menu-cell.clickable:hover { background: #f5fafd; color: #1D9E75; }
+.bp-menu-cell.active { background: #e1f5ee; color: #0f6e56; font-weight: 500; }
+.bp-menu-cell.empty { background: #f7f7f5; }
+
+/* Stage states */
+.bp-empty { color: #888; font-size: 14px; padding: 60px 20px; text-align: center; }
+.bp-error-box {
+  color: #b00;
+  font-size: 13px;
+  padding: 14px 16px;
+  background: #fee;
+  border: 1px solid #fbb;
+  border-radius: 6px;
+  max-width: 560px;
+  line-height: 1.5;
+}
+.bp-error-hint { margin-top: 6px; font-size: 12px; }
+
+/* Scenario header */
+.bp-scenario-bar {
+  width: 100%;
+  max-width: 940px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #fff;
+  border: 0.5px solid #ddd;
+  border-radius: 8px;
+}
+.bp-scenario-name { font-size: 15px; font-weight: 500; }
+.bp-scenario-meta { font-size: 12px; color: #666; }
+.bp-scenario-actions { display: flex; gap: 8px; }
+.bp-btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.bp-btn:hover { border-color: #888; }
+.bp-btn-primary { background: #1D9E75; color: #fff; border-color: #1D9E75; }
+.bp-btn-primary:hover { background: #167a5a; border-color: #167a5a; }
+
+/* Main table layout */
+.bp-table-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  align-items: start;
+  width: 100%;
+  max-width: 940px;
+}
+@media (max-width: 1100px) {
+  .bp-table-wrap { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}
+
+.bp-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+}
+.bp-vul-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f3f3f0;
+  color: #555;
+}
+.bp-vul-tag.is-vul { background: #fde2e2; color: #b00; }
+.bp-dealer-tag { font-size: 12px; color: #555; }
+.bp-loading { color: #1D9E75; font-size: 11px; }
+
+.bp-right-rail { display: flex; flex-direction: column; gap: 14px; }
+.bp-card {
+  background: #fff;
+  border: 0.5px solid #ddd;
+  border-radius: 10px;
+  padding: 12px;
+}
+.bp-card h3 {
+  font-size: 11px;
+  color: #666;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* Contract / DD */
+.bp-contract {
+  background: #fff;
+  border: 0.5px solid #ddd;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+.bp-contract-line { font-size: 18px; font-weight: 500; }
+.bp-contract-meta { font-size: 13px; color: #666; }
+.bp-contract-actions { display: flex; gap: 8px; margin-top: 10px; }
+.bp-red { color: #d32f2f; }
+
+.bp-dd-label {
+  font-size: 11px;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 10px;
+}
+.bp-dd-table {
+  border-collapse: collapse;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.bp-dd-table th,
+.bp-dd-table td {
+  border: 0.5px solid #ddd;
+  padding: 4px 10px;
+  text-align: center;
+}
+.bp-dd-table th { background: #f3f3f0; color: #666; font-weight: 600; }
+.bp-dd-seat { background: #f3f3f0; font-weight: 600; }
+.bp-dd-contract.bp-dd-match {
+  background: #d4edda;
+  color: #155724;
+  font-weight: 700;
+}
+.bp-dd-contract.bp-dd-diverged {
+  background: #fbd6e5;
+  color: #88224a;
+  font-weight: 700;
+}
+</style>

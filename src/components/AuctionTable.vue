@@ -17,9 +17,17 @@
             'wrong-bid': isWrongBid(roundIdx, bidIdx),
             'correct-bid': isCorrectBid(roundIdx, bidIdx)
           }"
+          @mouseenter="bid ? hoveredIdx = getBidIndexFromPosition(roundIdx, bidIdx) : null"
+          @mouseleave="hoveredIdx = null"
         >
           <span v-if="bid" v-html="formatBidHtml(bid)"></span>
           <span v-else-if="showTurnIndicator && isCurrentTurn(roundIdx, bidIdx)" class="turn-indicator">?</span>
+          <div
+            v-if="bid && hoveredIdx === getBidIndexFromPosition(roundIdx, bidIdx) && tooltipFor(getBidIndexFromPosition(roundIdx, bidIdx))"
+            class="bid-tooltip"
+          >
+            {{ tooltipFor(getBidIndexFromPosition(roundIdx, bidIdx)) }}
+          </div>
         </div>
       </div>
     </div>
@@ -27,9 +35,18 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { formatBid } from '../utils/cardFormatting.js'
 import { getSeatOrder } from '../utils/pbnParser.js'
+
+const hoveredIdx = ref(null)
+
+function naturalLabel(bid) {
+  if (bid === 'Pass') return 'pass'
+  if (bid === 'X') return 'double'
+  if (bid === 'XX') return 'redouble'
+  return 'natural'
+}
 
 const props = defineProps({
   bids: {
@@ -48,6 +65,11 @@ const props = defineProps({
     type: Number,
     default: -1
   },
+  wrongBidIndices: {
+    // Optional alternative to wrongBidIndex that highlights multiple wrong bids.
+    type: Array,
+    default: () => []
+  },
   correctBidIndex: {
     type: Number,
     default: -1
@@ -55,6 +77,11 @@ const props = defineProps({
   showTurnIndicator: {
     type: Boolean,
     default: false
+  },
+  meanings: {
+    // Optional [{position, bid, meaning, isAlert}, ...]; enables per-cell hover tooltip.
+    type: Array,
+    default: () => []
   }
 })
 
@@ -128,8 +155,9 @@ function isCurrentTurn(roundIdx, colIdx) {
 }
 
 function isWrongBid(roundIdx, colIdx) {
-  if (props.wrongBidIndex < 0) return false
   const bidIdx = getBidIndexFromPosition(roundIdx, colIdx)
+  if (props.wrongBidIndices && props.wrongBidIndices.includes(bidIdx)) return true
+  if (props.wrongBidIndex < 0) return false
   return bidIdx === props.wrongBidIndex
 }
 
@@ -141,6 +169,15 @@ function isCorrectBid(roundIdx, colIdx) {
 
 function formatBidHtml(bid) {
   return formatBid(bid).html
+}
+
+function tooltipFor(bidIdx) {
+  if (!props.meanings || !props.meanings.length) return ''
+  const m = props.meanings.find(x => x.position === bidIdx)
+  if (m && m.meaning) return m.meaning
+  // Fall back to natural label only if meanings array was passed at all.
+  const bid = props.bids[bidIdx]
+  return bid ? naturalLabel(bid) : ''
 }
 </script>
 
@@ -191,6 +228,36 @@ function formatBidHtml(bid) {
   align-items: center;
   justify-content: center;
   border-right: 1px solid #eee;
+  position: relative;
+}
+
+.bid-tooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2a2a2a;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: pre-line;
+  pointer-events: none;
+  z-index: 20;
+  min-width: 80px;
+  max-width: 220px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.bid-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #2a2a2a;
 }
 
 .bid-cell:last-child {

@@ -42,7 +42,8 @@
         <div class="card-back"></div>
       </div>
       <div v-if="showHcp && hand && !hidden && !isPartialHand" class="hcp">
-        {{ hcp }} HCP
+        <template v-if="showTotalPoints && lengthPts > 0">{{ hcp }}+{{ lengthPts }} TP</template>
+        <template v-else>{{ hcp }} HCP</template>
       </div>
     </template>
   </div>
@@ -77,6 +78,11 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  showTotalPoints: {
+    // When true and lengthPts > 0, display "X+Y TP" instead of "X HCP".
+    type: Boolean,
+    default: false
+  },
   compact: {
     type: Boolean,
     default: false
@@ -102,6 +108,17 @@ const suits = SUIT_ORDER
 const seatName = computed(() => getSeatName(props.seat))
 
 const hcp = computed(() => countHCP(props.hand))
+
+// Length points: 1 per card over 4 in any suit.
+const lengthPts = computed(() => {
+  if (!props.hand) return 0
+  let lp = 0
+  for (const suit of suits) {
+    const len = (props.hand[suit] || []).length
+    if (len > 4) lp += len - 4
+  }
+  return lp
+})
 
 // Count total cards in hand - partial hands (showcards) have fewer than 5 cards
 const totalCards = computed(() => {
