@@ -175,6 +175,7 @@
   .dd-table th, .dd-table td { border: 0.5px solid #ddd; padding: 3px 8px; text-align: center; }
   .dd-table th { background: #f3f3f0; color: #666; font-weight: 600; }
   .dd-table td.seat { background: #f3f3f0; font-weight: 600; }
+  .dd-table td.contract { background: #fbd6e5; color: #88224a; font-weight: 700; }
   .dd-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.05em;
     margin-top: 10px; }
 
@@ -351,7 +352,7 @@
                 <tbody>
                   <tr v-for="row in ddRows" :key="row.seat">
                     <td class="seat">{{ row.seat }}</td>
-                    <td v-for="(t, i) in row.cells" :key="i">{{ t }}</td>
+                    <td v-for="(c, i) in row.cells" :key="i" :class="{ contract: c.isContract }">{{ c.tricks }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -895,9 +896,23 @@ const App = {
       const seats = ['N', 'S', 'E', 'W'];
       // Bridgewebs ddtricks suit order within each seat: NT, S, H, D, C (indices 0..4)
       const colSuitIdx = [4, 3, 2, 1, 0]; // display order ♣ ♦ ♥ ♠ NT
+      const colStrain = ['C', 'D', 'H', 'S', 'NT'];
+      const fc = finalContract.value;
+      const declarerIdx = fc && fc.declarer ? seats.indexOf(fc.declarer) : -1;
+      let contractStrainIdx = -1;
+      if (fc && fc.contract && fc.contract !== 'Pass') {
+        const m = fc.contract.match(/^\d([CDHSN]T?)(X{0,2})$/);
+        if (m) {
+          const strain = m[1] === 'N' ? 'NT' : m[1];
+          contractStrainIdx = colStrain.indexOf(strain);
+        }
+      }
       return seats.map((seat, si) => ({
         seat,
-        cells: colSuitIdx.map(j => ddTrickAt(doubleDummy.value, si, j)),
+        cells: colSuitIdx.map((j, ci) => ({
+          tricks: ddTrickAt(doubleDummy.value, si, j),
+          isContract: si === declarerIdx && ci === contractStrainIdx,
+        })),
       }));
     });
 
