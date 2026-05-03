@@ -46,7 +46,9 @@
                       empty: !cell,
                       selected: cell && selectedScenarios.has(cell.file),
                       active: cell && cell.file === currentScenario,
+                      unsupported: cell && btnMetadata[cell.file] && btnMetadata[cell.file].bbaWorks === false,
                     }"
+                    :title="cell && btnMetadata[cell.file] && btnMetadata[cell.file].bbaWorks === false ? 'BBA does not fully support this convention' : ''"
                     @click="cell && toggleScenario(cell.file)"
                   >
                     <span v-if="cell">{{ cell.label }}</span>
@@ -573,7 +575,10 @@ onMounted(async () => {
     const text = await resp.text()
     menuTree.value = parseLayout(text)
     const firstSection = menuTree.value.find(n => n.type === 'section')
-    if (firstSection) openSections[firstSection.label] = true
+    if (firstSection) {
+      openSections[firstSection.label] = true
+      ensureBtnMetadataForSection(firstSection)
+    }
   } catch (err) {
     menuError.value = 'Could not load scenario menu: ' + err.message
   } finally {
@@ -583,6 +588,50 @@ onMounted(async () => {
 
 function toggleSection(label) {
   openSections[label] = !openSections[label]
+  if (openSections[label]) {
+    const section = menuTree.value.find(n => n.type === 'section' && n.label === label)
+    if (section) ensureBtnMetadataForSection(section)
+  }
+}
+
+// Per-scenario .btn metadata (currently just the bba-works flag).
+// Lazy-fetched per section on expand and cached for the session.
+const btnMetadata = ref({})
+
+function ensureBtnMetadataForSection(section) {
+  const files = section.rows.flat().filter(c => c).map(c => c.file)
+  const toFetch = files.filter(f => !(f in btnMetadata.value))
+  if (toFetch.length === 0) return
+  // Optimistically mark in-flight so we don't re-fetch on rapid toggle.
+  const next = { ...btnMetadata.value }
+  for (const f of toFetch) next[f] = { bbaWorks: true, _loading: true }
+  btnMetadata.value = next
+  Promise.all(toFetch.map(fetchBtnMetadata)).then(results => {
+    const merged = { ...btnMetadata.value }
+    for (let i = 0; i < toFetch.length; i++) merged[toFetch[i]] = results[i]
+    btnMetadata.value = merged
+  })
+}
+
+async function fetchBtnMetadata(file) {
+  try {
+    const resp = await fetch(`${CONFIG.PBS_RAW_BASE}/btn/${file}.btn`)
+    if (!resp.ok) return { bbaWorks: true } // assume supported on fetch failure
+    const text = await resp.text()
+    const meta = { bbaWorks: true }
+    // Metadata lives in leading "# key: value" comment lines.
+    for (const raw of text.split('\n').slice(0, 40)) {
+      if (!raw.startsWith('#')) continue
+      const m = raw.match(/^#\s*bba-works:\s*(\w+)/i)
+      if (m) {
+        meta.bbaWorks = m[1].toLowerCase() === 'true'
+        break
+      }
+    }
+    return meta
+  } catch {
+    return { bbaWorks: true }
+  }
 }
 
 // Toggle a scenario in the multi-select set.
@@ -914,6 +963,8 @@ async function onUserBid(bid) {
 }
 .bp-menu-cell.clickable { cursor: pointer; }
 .bp-menu-cell.clickable:hover { background: #f5fafd; color: #1D9E75; }
+.bp-menu-cell.unsupported { background: #fde2cc; color: #7a3a1a; }
+.bp-menu-cell.unsupported.clickable:hover { background: #fbcdaa; color: #5a2810; }
 .bp-menu-cell.selected { background: #e1f5ee; color: #0f6e56; font-weight: 500; }
 .bp-menu-cell.active { background: #c1ead7; color: #0f6e56; font-weight: 600; outline: 1.5px solid #1D9E75; outline-offset: -1.5px; }
 .bp-menu-cell.empty { background: #f7f7f5; }
