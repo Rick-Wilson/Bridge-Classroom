@@ -224,8 +224,9 @@ function tooltipFor(bidIdx) {
   if (!props.meanings || !props.meanings.length) return ''
   const m = props.meanings.find(x => x.position === bidIdx)
   if (!m) return ''
-  const text = m.meaningExtended || m.meaning
-  if (!text) return ''
+  const raw = m.meaningExtended || m.meaning
+  if (!raw) return ''
+  const text = raw.trim()
   const bid = props.bids[bidIdx]
   if (!isMeaningfulText(text, bid)) return ''
   return formatMeaningHtml(text)
