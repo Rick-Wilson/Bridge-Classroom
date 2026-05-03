@@ -762,10 +762,23 @@ async function onUserBid(bid) {
   const idx = bids.value.length
   const expected = expectedAuction.value[idx]
   if (expected && bid !== expected) {
-    // Record both bids so the cell can show them stacked and the user can
-    // toggle which one is live (which re-requests the auction from BBA).
+    // User diverged. Record both bids, use the USER'S bid as the live one,
+    // and re-request from BBA with auctionPrefix so the bots actually
+    // respond to this sequence rather than BBA's predicted continuation.
+    // Toggling later flips back to BBA's bid (also via re-request).
     divergedBids.value = { ...divergedBids.value, [idx]: { user: bid, bba: expected } }
-    bids.value.push(expected)
+    bids.value.push(bid)
+    auctionLoading.value = true
+    try {
+      const result = await generateAuction(currentDeal.value, currentScenario.value, bids.value.slice())
+      expectedAuction.value = result.auction
+      meanings.value = result.meanings || []
+      if (result.conventionsUsed) conventionsUsed.value = result.conventionsUsed
+    } catch (err) {
+      dealError.value = 'BBA error on divergence: ' + err.message
+    } finally {
+      auctionLoading.value = false
+    }
   } else {
     bids.value.push(bid)
   }
