@@ -218,13 +218,17 @@ function formatBidHtml(bid) {
 }
 
 // Returns HTML-ready tooltip content, or '' to suppress the tooltip entirely.
+// Prefers the longer `meaningExtended` (richer context: point ranges, suit
+// lengths, etc.) when BBA returns it; falls back to the short `meaning`.
 function tooltipFor(bidIdx) {
   if (!props.meanings || !props.meanings.length) return ''
   const m = props.meanings.find(x => x.position === bidIdx)
-  if (!m || !m.meaning) return ''
+  if (!m) return ''
+  const text = m.meaningExtended || m.meaning
+  if (!text) return ''
   const bid = props.bids[bidIdx]
-  if (!isMeaningfulText(m.meaning, bid)) return ''
-  return formatMeaningHtml(m.meaning)
+  if (!isMeaningfulText(text, bid)) return ''
+  return formatMeaningHtml(text)
 }
 </script>
 

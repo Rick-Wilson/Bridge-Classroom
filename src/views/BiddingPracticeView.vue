@@ -123,7 +123,7 @@
                   :show-turn-indicator="!auctionComplete"
                   :meanings="meanings"
                   :diverged-bids="divergedBids"
-                  :allow-divergence-toggle="auctionComplete"
+                  :allow-divergence-toggle="!auctionLoading"
                   @toggle-bid="toggleDivergedBid"
                 />
               </div>
@@ -234,7 +234,11 @@ const conventionsUsed = ref(null)
 const meanings = ref([])
 const doubleDummy = ref(null)
 const bids = ref([])
-const userBids = ref({})
+// Map idx → { user, bba } for every position where the user diverged from
+// BBA's expected bid. Both bids are kept so the cell can show them stacked
+// and the user can toggle which is "live" — toggling re-requests the auction
+// from BBA with auctionPrefix so the bots actually respond to the new bid.
+const divergedBids = ref({})
 const auctionLoading = ref(false)
 
 // ── Derived ───────────────────────────────────────────────────────────
@@ -251,21 +255,9 @@ const currentSeat = computed(() => {
   return seatAtIndex(currentDeal.value.dealer, bids.value.length)
 })
 const lastNonPassNonDouble = computed(() => lastSuitBid(bids.value))
-const wrongIndicesArray = computed(() => Object.keys(userBids.value).map(Number))
-const hadDivergence = computed(() => Object.keys(userBids.value).length > 0)
+const wrongIndicesArray = computed(() => Object.keys(divergedBids.value).map(Number))
+const hadDivergence = computed(() => Object.keys(divergedBids.value).length > 0)
 const poolLabels = computed(() => [...selectedScenarios.value].map(prettifyLabel).join(', '))
-
-// AuctionTable receives a per-index map of {user, bba} pairs for diverged cells.
-// Renders the live bid on top and the rejected bid struck-through, with a small
-// chooser to swap which is live (only meaningful after the auction completes).
-const divergedBids = computed(() => {
-  const out = {}
-  for (const [k, userBid] of Object.entries(userBids.value)) {
-    const idx = Number(k)
-    out[idx] = { user: userBid, bba: expectedAuction.value[idx] }
-  }
-  return out
-})
 
 const visibleHands = computed(() => {
   if (!currentDeal.value) return { N: null, E: null, S: null, W: null }
@@ -308,7 +300,7 @@ const finalContract = computed(() => {
 
 const summary = computed(() => {
   if (!auctionComplete.value) return ''
-  const n = Object.keys(userBids.value).length
+  const n = Object.keys(divergedBids.value).length
   if (n === 0) return 'You matched the BBA all the way through.'
   return `${n} of your bids differed from the BBA — see the divergent cells above.`
 })
@@ -508,7 +500,7 @@ function prettifyLabel(file) {
 }
 
 // ── External services ─────────────────────────────────────────────────
-async function generateAuction(deal, scenarioName) {
+async function generateAuction(deal, scenarioName, auctionPrefix = null) {
   const vul = deal.vulnerable === 'All' ? 'Both' : deal.vulnerable
   const body = {
     deal: {
@@ -518,6 +510,9 @@ async function generateAuction(deal, scenarioName) {
       scoring: 'MP',
     },
     scenario: scenarioName,
+  }
+  if (auctionPrefix && auctionPrefix.length > 0) {
+    body.auctionPrefix = auctionPrefix
   }
   const resp = await fetch(CONFIG.BBA_URL + '/api/auction/generate', {
     method: 'POST',
@@ -656,7 +651,7 @@ async function loadDealAt(idx) {
   }
   currentDeal.value = deal
   bids.value = []
-  userBids.value = {}
+  divergedBids.value = {}
   expectedAuction.value = []
   auctionLoading.value = true
   doubleDummy.value = null
@@ -707,23 +702,46 @@ function rotateDeal(deal) {
   }
 }
 
-// Swap which bid is "live" at a diverged index. Only re-runnable after the
-// auction completes; mid-auction we'd need BBA to re-run with a forced
-// auction prefix to know how the bots would respond.
-function toggleDivergedBid(idx) {
-  if (!auctionComplete.value) return
-  const userBid = userBids.value[idx]
-  if (userBid == null) return
-  const bbaBid = expectedAuction.value[idx]
-  const newBids = bids.value.slice()
-  newBids[idx] = newBids[idx] === userBid ? bbaBid : userBid
-  bids.value = newBids
+// Swap which bid is "live" at a diverged index. Truncates the auction to
+// just past the toggle point and re-requests from BBA with auctionPrefix so
+// the bots actually respond to the new bid sequence. Any later divergences
+// in the prior context are dropped (their auction context no longer exists).
+async function toggleDivergedBid(idx) {
+  if (auctionLoading.value) return
+  const div = divergedBids.value[idx]
+  if (!div) return
+  const currentLive = bids.value[idx]
+  const otherBid = currentLive === div.user ? div.bba : div.user
+
+  // Truncate bids to the position right after the toggled cell.
+  bids.value = bids.value.slice(0, idx).concat([otherBid])
+
+  // Drop any divergences after this point — the auction beyond is being replaced.
+  const newDivs = {}
+  for (const [k, v] of Object.entries(divergedBids.value)) {
+    if (Number(k) <= idx) newDivs[k] = v
+  }
+  divergedBids.value = newDivs
+
+  // Ask BBA to continue the auction from the new prefix.
+  auctionLoading.value = true
+  try {
+    const result = await generateAuction(currentDeal.value, currentScenario.value, bids.value.slice())
+    expectedAuction.value = result.auction
+    meanings.value = result.meanings || []
+    if (result.conventionsUsed) conventionsUsed.value = result.conventionsUsed
+    await playToHumanTurn()
+  } catch (err) {
+    dealError.value = 'BBA error on toggle: ' + err.message
+  } finally {
+    auctionLoading.value = false
+  }
 }
 
 async function resetAuction() {
   if (!currentDeal.value) return
   bids.value = []
-  userBids.value = {}
+  divergedBids.value = {}
   await playToHumanTurn()
 }
 
@@ -744,7 +762,9 @@ async function onUserBid(bid) {
   const idx = bids.value.length
   const expected = expectedAuction.value[idx]
   if (expected && bid !== expected) {
-    userBids.value = { ...userBids.value, [idx]: bid }
+    // Record both bids so the cell can show them stacked and the user can
+    // toggle which one is live (which re-requests the auction from BBA).
+    divergedBids.value = { ...divergedBids.value, [idx]: { user: bid, bba: expected } }
     bids.value.push(expected)
   } else {
     bids.value.push(bid)
