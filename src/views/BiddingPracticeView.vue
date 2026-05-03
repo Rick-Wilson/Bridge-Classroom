@@ -191,7 +191,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import BridgeTable from '../components/BridgeTable.vue'
 import BiddingBox from '../components/BiddingBox.vue'
 import AuctionTable from '../components/AuctionTable.vue'
@@ -227,7 +227,14 @@ const currentDeal = ref(null)
 const dealError = ref('')
 const dealErrorHint = ref('')
 
-const rotateDeals = ref(false)
+// Persist the rotate-randomly preference across reloads.
+const ROTATE_KEY = 'bp.rotateDeals'
+const rotateDeals = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem(ROTATE_KEY) === '1'
+)
+watch(rotateDeals, (v) => {
+  try { localStorage.setItem(ROTATE_KEY, v ? '1' : '0') } catch {}
+})
 
 const expectedAuction = ref([])
 // Snapshot of BBA's original (no-prefix) auction & meanings at deal load time,
