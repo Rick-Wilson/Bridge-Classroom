@@ -230,6 +230,11 @@ const dealErrorHint = ref('')
 const rotateDeals = ref(false)
 
 const expectedAuction = ref([])
+// Snapshot of BBA's original (no-prefix) auction & meanings at deal load time,
+// used to restore the auction on Restart after the user has driven divergent
+// re-requests that overwrote expectedAuction.
+const originalExpectedAuction = ref([])
+const originalMeanings = ref([])
 const conventionsUsed = ref(null)
 const meanings = ref([])
 const doubleDummy = ref(null)
@@ -664,8 +669,10 @@ async function loadDealAt(idx) {
   try {
     const result = await generateAuction(dealRef, currentScenario.value)
     expectedAuction.value = result.auction
+    originalExpectedAuction.value = result.auction
     conventionsUsed.value = result.conventionsUsed || null
     meanings.value = result.meanings || []
+    originalMeanings.value = result.meanings || []
     await playToHumanTurn()
   } catch (err) {
     dealError.value = 'BBA error: ' + err.message
@@ -742,6 +749,10 @@ async function resetAuction() {
   if (!currentDeal.value) return
   bids.value = []
   divergedBids.value = {}
+  // Restore BBA's original (no-prefix) auction so the user starts from a
+  // clean slate even after divergent re-requests overwrote expectedAuction.
+  expectedAuction.value = originalExpectedAuction.value
+  meanings.value = originalMeanings.value
   await playToHumanTurn()
 }
 
