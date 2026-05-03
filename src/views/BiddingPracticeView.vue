@@ -205,6 +205,10 @@ const CONFIG = {
   PBS_RAW_BASE: 'https://raw.githubusercontent.com/ADavidBailey/Practice-Bidding-Scenarios/main',
   BUTTON_LAYOUT: '/btn/-button-layout-release.txt',
   PBN_DIR: '/pbn',
+  // For bba-works=true scenarios, prefer this auction-filtered set
+  // (deals that pass both the dealer-script filter and the .pbn-side
+  // auction filter that runs after BBA bids each hand).
+  BBA_FILTERED_DIR: '/bba-filtered',
 }
 
 // ── State ─────────────────────────────────────────────────────────────
@@ -685,10 +689,7 @@ async function loadFromScenario(file) {
   let deals = dealsByScenario.value[file]
   if (!deals) {
     try {
-      const resp = await fetch(`${CONFIG.PBS_RAW_BASE}${CONFIG.PBN_DIR}/${file}.pbn`)
-      if (!resp.ok) throw new Error(`PBN HTTP ${resp.status}`)
-      const text = await resp.text()
-      deals = parsePBN(text)
+      deals = await fetchScenarioDeals(file)
       if (deals.length === 0) throw new Error('No deals in PBN file')
       dealsByScenario.value = { ...dealsByScenario.value, [file]: deals }
     } catch (err) {
@@ -699,6 +700,31 @@ async function loadFromScenario(file) {
   }
   dealsForScenario.value = deals
   await loadDealAt(Math.floor(Math.random() * deals.length))
+}
+
+// For BBA-supported scenarios, prefer /bba-filtered/ — those PBNs apply
+// David's auction-side filter on top of the dealer-script filter, so the
+// remaining deals are ones BBA actually bids in the intended sequence.
+// Fall through to the unfiltered /pbn/ on miss or for non-BBA scenarios.
+async function fetchScenarioDeals(file) {
+  const meta = btnMetadata.value[file]
+  const bbaWorks = !meta || meta.bbaWorks !== false
+  if (bbaWorks) {
+    try {
+      const resp = await fetch(`${CONFIG.PBS_RAW_BASE}${CONFIG.BBA_FILTERED_DIR}/${file}.pbn`)
+      if (resp.ok) {
+        const text = await resp.text()
+        const deals = parsePBN(text)
+        if (deals.length > 0) return deals
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  const resp = await fetch(`${CONFIG.PBS_RAW_BASE}${CONFIG.PBN_DIR}/${file}.pbn`)
+  if (!resp.ok) throw new Error(`PBN HTTP ${resp.status}`)
+  const text = await resp.text()
+  return parsePBN(text)
 }
 
 async function loadDealAt(idx) {
