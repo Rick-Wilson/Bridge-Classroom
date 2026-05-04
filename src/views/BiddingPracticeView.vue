@@ -1,6 +1,6 @@
 <template>
-  <div class="bp-app">
-    <nav class="bp-nav">
+  <div class="bp-app" :class="{ embedded: EMBEDDED }">
+    <nav v-if="!EMBEDDED" class="bp-nav">
       <a class="bp-logo" href="/"><span class="suit">&spades;</span> Bridge Classroom &middot; Bidding Practice</a>
       <button class="bp-nav-toggle" @click="sidebarOpen = !sidebarOpen">
         {{ sidebarOpen ? 'Close' : '☰ Scenarios' }}
@@ -9,7 +9,7 @@
     </nav>
 
     <div class="bp-main">
-      <aside class="bp-sidebar" :class="{ open: sidebarOpen }">
+      <aside v-if="!EMBEDDED" class="bp-sidebar" :class="{ open: sidebarOpen }">
         <div v-if="selectedScenarios.size > 0" class="bp-selection-summary">
           <div class="bp-selection-count">
             {{ selectedScenarios.size }} scenario{{ selectedScenarios.size === 1 ? '' : 's' }} selected
@@ -87,11 +87,11 @@
               </div>
             </div>
             <div class="bp-scenario-actions">
-              <label class="bp-rotate-toggle">
+              <label v-if="!EMBEDDED" class="bp-rotate-toggle">
                 <input type="checkbox" v-model="rotateDeals">
                 Rotate randomly
               </label>
-              <button class="bp-btn" @click="newDeal" :disabled="auctionLoading || selectedScenarios.size === 0">Next deal &rarr;</button>
+              <button v-if="!EMBEDDED" class="bp-btn" @click="newDeal" :disabled="auctionLoading || selectedScenarios.size === 0">Next deal &rarr;</button>
               <button class="bp-btn" @click="resetAuction" :disabled="auctionLoading">Restart this deal</button>
             </div>
           </div>
@@ -180,7 +180,8 @@
                 </table>
 
                 <div class="bp-contract-actions">
-                  <button class="bp-btn bp-btn-primary" @click="newDeal">Next deal &rarr;</button>
+                  <button v-if="EMBEDDED" class="bp-btn bp-btn-primary" @click="done">Done</button>
+                  <button v-else class="bp-btn bp-btn-primary" @click="newDeal">Next deal &rarr;</button>
                   <button class="bp-btn" @click="resetAuction">Replay this deal</button>
                 </div>
               </div>
@@ -209,6 +210,43 @@ const CONFIG = {
   // (deals that pass both the dealer-script filter and the .pbn-side
   // auction filter that runs after BBA bids each hand).
   BBA_FILTERED_DIR: '/bba-filtered',
+  // Default convention card when an embedded host doesn't supply one.
+  DEFAULT_CARD: '21GF-DEFAULT',
+}
+
+// ── Embedded-mode params ──────────────────────────────────────────────
+// When the page is loaded with ?pbn=... we run as an iframe-friendly
+// single-deal player: scenario menu/nav are hidden, the BBA call uses
+// explicit conventions instead of a scenario name, and lifecycle events
+// (ready, auction-complete, done, error) are postMessage'd to window.parent.
+function readEmbeddedParams() {
+  if (typeof window === 'undefined') return null
+  // Hash router: query may live before the hash (?pbn=...#/route) or
+  // inside it (#/route?pbn=...). Merge both so the host can use either.
+  let qs = (window.location.search || '').replace(/^\?/, '')
+  const hash = window.location.hash || ''
+  const hashQ = hash.indexOf('?')
+  if (hashQ !== -1) qs = qs ? qs + '&' + hash.slice(hashQ + 1) : hash.slice(hashQ + 1)
+  const sp = new URLSearchParams(qs)
+  const pbn = sp.get('pbn')
+  if (!pbn) return null
+  const card = sp.get('card') || CONFIG.DEFAULT_CARD
+  return {
+    pbn,
+    dealer: sp.get('dealer'),
+    vul: sp.get('vul'),
+    cards: {
+      ns: sp.get('cardNS') || card,
+      ew: sp.get('cardEW') || card,
+    },
+  }
+}
+const embeddedParams = readEmbeddedParams()
+const EMBEDDED = !!embeddedParams
+
+function postEmbedded(msg) {
+  if (typeof window === 'undefined') return
+  try { window.parent.postMessage(msg, '*') } catch {}
 }
 
 // ── State ─────────────────────────────────────────────────────────────
@@ -527,7 +565,11 @@ async function generateAuction(deal, scenarioName, auctionPrefix = null) {
       vulnerability: vul,
       scoring: 'MP',
     },
-    scenario: scenarioName,
+  }
+  if (EMBEDDED) {
+    body.conventions = embeddedParams.cards
+  } else {
+    body.scenario = scenarioName
   }
   if (auctionPrefix && auctionPrefix.length > 0) {
     body.auctionPrefix = auctionPrefix
@@ -573,6 +615,12 @@ function ddTrickAt(ddtricks, seatIdx, suitIdx) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────
 onMounted(async () => {
+  if (EMBEDDED) {
+    menuLoading.value = false
+    postEmbedded({ type: 'bridge-classroom:ready' })
+    await loadEmbeddedDeal()
+    return
+  }
   try {
     const resp = await fetch(CONFIG.PBS_RAW_BASE + CONFIG.BUTTON_LAYOUT)
     if (!resp.ok) throw new Error(`Layout HTTP ${resp.status}`)
@@ -588,6 +636,45 @@ onMounted(async () => {
   } finally {
     menuLoading.value = false
   }
+})
+
+async function loadEmbeddedDeal() {
+  try {
+    const hands = parseDealHandsForBridgeTable(embeddedParams.pbn)
+    if (!hands) throw new Error('Invalid PBN deal string (expected "N:hand hand hand hand")')
+    const deal = {
+      board: '?',
+      dealer: embeddedParams.dealer || 'N',
+      vulnerable: embeddedParams.vul || 'None',
+      hands,
+      pbn: embeddedParams.pbn,
+    }
+    currentScenario.value = '__embedded__'
+    currentScenarioLabel.value = 'Replay'
+    dealsForScenario.value = [deal]
+    await loadDealAt(0)
+  } catch (err) {
+    dealError.value = 'Could not load embedded deal: ' + err.message
+  }
+}
+
+function done() {
+  postEmbedded({ type: 'bridge-classroom:done' })
+}
+
+watch(() => auctionComplete.value, (isComplete) => {
+  if (!EMBEDDED || !isComplete) return
+  postEmbedded({
+    type: 'bridge-classroom:auction-complete',
+    auction: bids.value.slice(),
+    contract: finalContract.value.contract,
+    declarer: finalContract.value.declarer,
+    meanings: meanings.value.slice(),
+  })
+})
+
+watch(dealError, (msg) => {
+  if (EMBEDDED && msg) postEmbedded({ type: 'bridge-classroom:error', message: msg })
 })
 
 function toggleSection(label) {
@@ -887,6 +974,15 @@ async function onUserBid(bid) {
   background: #f7f7f5;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   color: #222;
+}
+.bp-app.embedded {
+  grid-template-rows: 1fr;
+}
+.bp-app.embedded .bp-main {
+  grid-template-columns: minmax(0, 1fr);
+}
+.bp-app.embedded .bp-stage {
+  padding: 14px;
 }
 
 .bp-nav {
