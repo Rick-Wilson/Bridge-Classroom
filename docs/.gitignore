@@ -1,1 +1,8 @@
 *.DS_Store
+
+# Vite build output is produced into dist/ by the deploy workflow / CF Pages
+# build, NOT committed here. Anything below this line is "if it shows up in
+# docs/, it's a leftover from the legacy `cp -r dist/* docs/` flow — leave
+# it out of source control."
+assets/
+solo-practice-app/

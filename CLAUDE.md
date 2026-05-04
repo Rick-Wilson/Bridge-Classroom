@@ -65,12 +65,19 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Tunnel logs**: `~/Library/Logs/cloudflared-tunnel.log`
 - **Service management**: `launchctl list | grep -E "bridge|cloudflare"`
 - **Restart backend**: `launchctl kickstart -k gui/$(id -u)/com.bridgeclassroom.api`
-- **Build & deploy frontend**: `npx vite build && cp -r dist/* docs/` then commit and push
+- **Build & deploy frontend**: just `git push origin main`. Both domains
+  rebuild themselves from source automatically:
+    - `bridge-classroom.com` → `.github/workflows/deploy.yml` → GitHub Pages.
+    - `bridge-classroom.org` → Cloudflare Pages project `bridge-classroom`.
+  Both run `npm ci && npm run build && bash scripts/build-site.sh` and
+  publish `dist/`. Do **not** run `npx vite build && cp -r dist/* docs/` —
+  that legacy flow is what caused `.org` to drift behind `.com`.
+- To preview locally: `npm run build && bash scripts/build-site.sh && npx serve dist`.
 - See `documentation/cloudflare-setup.md` for full details
 
 ### Directory Conventions
 
-- **`docs/`** — GitHub Pages root. **Only web-served files** (build output, CNAME, assets). No documentation, no SQL files, no design docs. Everything here is publicly served at bridge-classroom.com.
+- **`docs/`** — Source for static landing pages (`index.html`, `bidding-practice.html`, etc.) and the redirect under `bidding-practice/`. **Not** served directly to either domain — `scripts/build-site.sh` copies the relevant files into `dist/` alongside the Vite-built SPA. Build output (`docs/assets/`, `docs/solo-practice-app/`) is gitignored; if it shows up here it's a stale relic.
 - **`documentation/`** — Project documentation, design specs, mockups, and reference material. Not served by GitHub Pages.
 - **`tools/`** — Local-only admin utilities (gitignored). May contain secrets — never commit.
 

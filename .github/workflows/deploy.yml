@@ -35,31 +35,7 @@ jobs:
         run: npm run build
 
       - name: Restructure for new site layout
-        run: |
-          # Move SPA index.html to /solo-practice-app/, keep assets at root
-          mkdir -p dist/solo-practice-app
-          mv dist/index.html dist/solo-practice-app/index.html
-
-          # Copy static hub and detail pages
-          cp docs/index.html dist/index.html
-          cp docs/favicon.svg dist/favicon.svg
-          cp docs/styles.css dist/styles.css
-          cp docs/about.html dist/about.html
-          cp docs/solo-practice.html dist/solo-practice.html
-          cp docs/classrooms.html dist/classrooms.html
-          cp docs/game-analysis.html dist/game-analysis.html
-          cp docs/bbo-scenarios.html dist/bbo-scenarios.html
-          cp docs/lesson-materials.html dist/lesson-materials.html
-          cp docs/teacher-utilities.html dist/teacher-utilities.html
-          cp docs/hand-curator.html dist/hand-curator.html
-          cp docs/deal-library.html dist/deal-library.html
-          cp docs/bidding-practice.html dist/bidding-practice.html
-          cp -r docs/curator dist/curator
-          cp -r docs/bidding-practice dist/bidding-practice
-          cp -r docs/screenshots dist/screenshots
-          cp docs/sitemap.xml dist/sitemap.xml
-          cp docs/robots.txt dist/robots.txt
-          cp docs/site.js dist/site.js
+        run: bash scripts/build-site.sh
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
