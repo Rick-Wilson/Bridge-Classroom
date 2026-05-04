@@ -1,0 +1,21 @@
+{
+  // Cloudflare Worker config for the bridge-classroom Worker that serves
+  // bridge-classroom.org. The matching .com deploy is GitHub Pages and uses
+  // the same dist/ output produced by `npm run build && bash scripts/build-site.sh`.
+  //
+  // Dashboard build configuration this expects:
+  //   Path:           (blank — repo root)
+  //   Build command:  npm ci && npm run build && bash scripts/build-site.sh
+  //   Deploy command: npx wrangler deploy
+  //   Production branch: main
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bridge-classroom",
+  "compatibility_date": "2026-05-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Pure static-asset worker — no main script. wrangler picks up everything
+  // under dist/ (the built SPA + landing pages + redirect stubs).
+  "assets": {
+    "directory": "./dist"
+  }
+}
