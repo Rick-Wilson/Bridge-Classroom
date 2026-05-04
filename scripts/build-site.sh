@@ -19,8 +19,11 @@
 
 set -euo pipefail
 
+echo "==== build-site.sh: START (cwd=$(pwd)) ===="
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+echo "build-site.sh: working from $ROOT"
 
 if [ ! -f dist/index.html ]; then
   echo "scripts/build-site.sh: dist/index.html not found — did you run 'npm run build' first?" >&2
@@ -56,4 +59,5 @@ cp -r docs/curator           dist/curator
 cp -r docs/bidding-practice  dist/bidding-practice
 cp -r docs/screenshots       dist/screenshots
 
-echo "scripts/build-site.sh: restructured dist/ for publishing."
+echo "==== build-site.sh: DONE — dist/ ready to publish ===="
+ls -1 dist/ | sed 's/^/  dist\//'
