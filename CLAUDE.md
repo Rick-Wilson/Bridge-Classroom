@@ -12,7 +12,7 @@ Bridge Classroom is a bridge (card game) teaching platform with role-based dashb
 **Tech Stack:**
 - **Frontend**: Vue 3 (Composition API, `<script setup>`), Vite, plain CSS
 - **Backend**: Rust (Axum 0.7), SQLite (sqlx), single-binary server
-- **Deployment**: GitHub Pages (frontend in `docs/`), Cloudflare Tunnel to localhost:3000
+- **Deployment**: dual frontend pipeline (GitHub Pages → `.com`, Cloudflare Worker static-assets → `.org`), Cloudflare Tunnel to localhost:3000 for the API
 - **DigitalOcean Droplet**: `146.190.135.172` (SSH as root with Mac's ed25519 key), runs LiveKit via Docker
 
 ---
@@ -47,7 +47,11 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Email support**: bridge-craftwork@gmail.com
 - **GitHub**: https://github.com/Rick-Wilson/Bridge-Classroom
 - **Game Analysis webapp**: https://game-analysis.bridge-classroom.com
-- **Frontend**: GitHub Pages (served from `docs/` directory)
+- **Frontend (dual deploy from same source)**: every push to `main` rebuilds both domains identically.
+  - `bridge-classroom.com` → `.github/workflows/deploy.yml` → GitHub Pages.
+  - `bridge-classroom.org` → Cloudflare Worker `bridge-classroom` (Workers Static Assets, dashboard-configured to track `main`).
+  - Both run `npm ci && npm run build && bash scripts/build-site.sh`, publish `dist/`.
+  - Worker config: `wrangler.jsonc` at repo root, `assets.directory: "./dist"`, `name: "bridge-classroom"`, `compatibility_flags: ["nodejs_compat"]`.
 - **Backend API**: Rust server running locally on Mac at port 3000
 - **Tunnel**: Cloudflare Tunnel routes https://api.bridge-classroom.com → localhost:3000
 - **LiveKit**: `wss://livekit.bridge-classroom.com` on DigitalOcean droplet (Caddy + Docker at `/opt/livekit/`)
@@ -66,30 +70,52 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Service management**: `launchctl list | grep -E "bridge|cloudflare"`
 - **Restart backend**: `launchctl kickstart -k gui/$(id -u)/com.bridgeclassroom.api`
 - **Build & deploy frontend**: just `git push origin main`. Both domains
-  rebuild themselves from source automatically:
-    - `bridge-classroom.com` → `.github/workflows/deploy.yml` → GitHub Pages.
-    - `bridge-classroom.org` → Cloudflare Pages project `bridge-classroom`.
-  Both run `npm ci && npm run build && bash scripts/build-site.sh` and
-  publish `dist/`. Do **not** run `npx vite build && cp -r dist/* docs/` —
-  that legacy flow is what caused `.org` to drift behind `.com`.
-- To preview locally: `npm run build && bash scripts/build-site.sh && npx serve dist`.
-- See `documentation/cloudflare-setup.md` for full details
+  rebuild themselves from source. Do **not** run
+  `npx vite build && cp -r dist/* docs/` — that legacy flow is what
+  caused `.org` to silently drift behind `.com` for weeks before it was
+  caught. `docs/assets/` and `docs/solo-practice-app/` are gitignored
+  for the same reason.
+- **Local preview** of the published site:
+  `npm run build && bash scripts/build-site.sh && npx serve dist`.
+  This produces the exact tree both domains serve.
+- **Build pipeline** (identical on GitHub Actions and Cloudflare):
+  1. `npm ci`
+  2. `npm run build` — Vite builds the SPA into `dist/`, with
+     `dist/index.html` as the SPA entry and chunks under `dist/assets/`.
+  3. `bash scripts/build-site.sh` — moves `dist/index.html` →
+     `dist/solo-practice-app/index.html`, then copies the static landing
+     pages and assets from `docs/` into `dist/`. Idempotent. Logs
+     `==== build-site.sh: START / DONE ====` markers so failures are
+     obvious in deploy logs.
+  4. Publish `dist/`. GitHub Actions uploads via `actions/upload-pages-artifact`;
+     Cloudflare invokes `npx wrangler deploy` which reads the root
+     `wrangler.jsonc` and uploads `./dist` as static assets.
+- **Cloudflare Worker dashboard config** (Workers & Pages → bridge-classroom → Settings → Build):
+  - Path: *(blank — repo root)*
+  - Build command: `npm ci && npm run build && bash scripts/build-site.sh`
+  - Deploy command: `npx wrangler deploy`
+  - Production branch: `main`
+- See `documentation/cloudflare-setup.md` for the broader Cloudflare/DNS picture (largely focused on `.com`/GitHub Pages).
 
 ### Directory Conventions
 
-- **`docs/`** — Source for static landing pages (`index.html`, `bidding-practice.html`, etc.) and the redirect under `bidding-practice/`. **Not** served directly to either domain — `scripts/build-site.sh` copies the relevant files into `dist/` alongside the Vite-built SPA. Build output (`docs/assets/`, `docs/solo-practice-app/`) is gitignored; if it shows up here it's a stale relic.
-- **`documentation/`** — Project documentation, design specs, mockups, and reference material. Not served by GitHub Pages.
+- **`docs/`** — Source for the static landing pages (`index.html` hub, plus per-tool detail pages) and the per-app subdirectories like `docs/curator/` and `docs/bidding-practice/` (the tiny redirect into the SPA route). **Not** served directly to either domain — `scripts/build-site.sh` copies the relevant files into `dist/` alongside the Vite-built SPA at deploy time. `docs/assets/` and `docs/solo-practice-app/` are gitignored; if they show up here they're stale relics from the legacy `cp -r dist/* docs/` flow.
+- **`dist/`** — Build output. Gitignored. Produced fresh per deploy by `npm run build && bash scripts/build-site.sh`. This is what both `.com` and `.org` publish.
+- **`scripts/build-site.sh`** — The shared post-build restructure step. Single source of truth for the published layout — both `.github/workflows/deploy.yml` and the Cloudflare Worker call it.
+- **`wrangler.jsonc`** (repo root) — Cloudflare Worker config for the `.org` deploy. `assets.directory: "./dist"`. Do not move into `docs/`.
+- **`documentation/`** — Project documentation, design specs, mockups, and reference material. Not published to either domain.
 - **`tools/`** — Local-only admin utilities (gitignored). May contain secrets — never commit.
 
 ### Preview Site (Static Landing Pages)
 
-The `docs/` directory contains static HTML landing pages alongside the Vue SPA build output. These pages use `docs/styles.css` for shared design tokens and `docs/favicon.svg` (green spade) for the tab icon.
+The `docs/` directory contains the static landing-page sources that `scripts/build-site.sh` copies into `dist/` at deploy time. These pages share `docs/styles.css` for design tokens and `docs/favicon.svg` (green spade) for the tab icon.
 
-- **`index-preview.html`** — Hub page with tile grid organized by audience: "For students", "Teacher resources", "Author tools". Each tile links to a detail page.
-- **Detail pages**: `solo-practice.html`, `bbo-scenarios.html`, `game-analysis.html`, `classrooms.html`, `hand-curator.html`, `deal-library.html`, `lesson-materials.html`, `teacher-utilities.html`, `about.html`
-- **`docs/screenshots/`** — Real app screenshots used on detail pages (no fake browser chrome — displayed as clean panels with captions)
+- **`docs/index.html`** — Hub page with tile grid organized by audience: "For students", "Teacher resources", "Author tools". Each tile links to a detail page or directly into the SPA.
+- **Detail pages**: `solo-practice.html`, `bbo-scenarios.html`, `game-analysis.html`, `classrooms.html`, `hand-curator.html`, `deal-library.html`, `lesson-materials.html`, `teacher-utilities.html`, `bidding-practice.html`, `about.html`. Add new ones here AND extend the `cp` list in `scripts/build-site.sh`.
+- **`docs/screenshots/`** — Real app screenshots used on detail pages (no fake browser chrome — displayed as clean panels with captions).
 - **Design notes**: Tiles are 260px wide with 14-16px body text for senior/super-senior readability. All detail pages use a consistent two-column layout (description left, screenshots right) with a shared `.screenshot` style.
-- **Footer links**: GitHub, Discord, Email support, Patreon, About
+- **Footer links**: GitHub, Discord, Email support, Patreon, About.
+- **Cross-domain branding**: `docs/site.js` rewrites visible `bridge-classroom.com` strings to `bridge-classroom.org` on the fly when served from the `.org` host, so the same HTML serves both domains without a duplicate build.
 
 ### API Security Notes
 
