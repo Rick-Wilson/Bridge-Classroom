@@ -1,8 +1,7 @@
 import { ref, reactive } from 'vue'
 import { useObservationStore } from './useObservationStore.js'
+import { API_URL } from '@/utils/apiUrl.js'
 
-// API configuration
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 
 // Singleton cache: { "userId::subfolder" → { boards: [...], fetchedAt: timestamp } }

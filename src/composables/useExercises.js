@@ -1,6 +1,6 @@
 import { ref } from 'vue'
+import { API_URL } from '@/utils/apiUrl.js'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 
 // Singleton reactive state

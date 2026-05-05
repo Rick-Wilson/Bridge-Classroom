@@ -3,14 +3,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useUserStore } from '../composables/useUserStore.js'
 import { logDiagnostic, flush as flushDiagnostics } from '../utils/diagnostics.js'
+import { API_URL } from '@/utils/apiUrl.js'
 
 const emit = defineEmits(['userReady'])
 
 const appConfig = useAppConfig()
 const userStore = useUserStore()
-
-// API URL for admin key and registration
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 // View state: 'form' | 'returning' | 'switcher' | 'recovery-sent' | 'recovery-claiming'
 const viewState = ref('form')

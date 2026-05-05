@@ -5,7 +5,7 @@
  * is to log errors — we don't want logging itself to cause errors).
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+import { API_URL } from './apiUrl.js'
 const FLUSH_INTERVAL_MS = 5000
 const MAX_BUFFER_SIZE = 20
 

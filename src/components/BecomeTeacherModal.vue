@@ -110,10 +110,10 @@
 import { ref } from 'vue'
 import { useUserStore } from '../composables/useUserStore.js'
 import { generateViewerKeyPair } from '../utils/crypto.js'
+import { API_URL } from '@/utils/apiUrl.js'
 
 defineEmits(['close', 'activated'])
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 
 const userStore = useUserStore()

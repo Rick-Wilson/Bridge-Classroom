@@ -179,6 +179,7 @@
 import { ref, onMounted } from 'vue'
 import { useAdminDashboard } from '../../composables/useAdminDashboard.js'
 import { useAnnouncement } from '../../composables/useAnnouncement.js'
+import { API_URL } from '@/utils/apiUrl.js'
 import AdminStatsRow from './AdminStatsRow.vue'
 import PopularLessons from './PopularLessons.vue'
 import DatabasePanel from './DatabasePanel.vue'
@@ -271,7 +272,6 @@ function renderMessage(message) {
 }
 
 // Name correction state
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 const searchEmail = ref('')
 const searchResults = ref([])

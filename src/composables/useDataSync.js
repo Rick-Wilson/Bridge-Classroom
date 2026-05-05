@@ -4,9 +4,8 @@ import { useObservationStore } from './useObservationStore.js'
 import { useAccomplishments } from './useAccomplishments.js'
 import { useBoardStatus } from './useBoardStatus.js'
 import { logDiagnostic } from '../utils/diagnostics.js'
+import { API_URL } from '@/utils/apiUrl.js'
 
-// API configuration
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const API_KEY = import.meta.env.VITE_API_KEY || ''
 
 // Singleton state

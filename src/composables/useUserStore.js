@@ -6,6 +6,7 @@ import {
   validateSecretKey,
   createSharingGrant
 } from '../utils/crypto.js'
+import { API_URL } from '@/utils/apiUrl.js'
 
 const STORAGE_KEY = 'bridgePractice'
 
@@ -544,11 +545,10 @@ async function syncRole() {
   const user = users.value[currentUserId.value]
   if (!user) return
 
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
   const apiKey = import.meta.env.VITE_API_KEY || ''
 
   try {
-    const res = await fetch(`${apiUrl}/users/${encodeURIComponent(user.id)}`, {
+    const res = await fetch(`${API_URL}/users/${encodeURIComponent(user.id)}`, {
       headers: { 'x-api-key': apiKey }
     })
     if (!res.ok) return
