@@ -112,7 +112,7 @@
                   @toggle-bid="toggleDivergedBid"
                 />
               </div>
-              <div v-if="currentSeat === 'S' && !auctionLoading" class="bp-card">
+              <div v-if="currentSeat === STUDENT_SEAT && !auctionLoading" class="bp-card">
                 <h3>Your bid</h3>
                 <BiddingBox
                   :last-bid="lastNonPassNonDouble"
@@ -125,8 +125,8 @@
             </div>
             <div class="bp-hand-col">
               <HandDisplay
-                :hand="currentDeal.hands.S"
-                seat="S"
+                :hand="currentDeal.hands[STUDENT_SEAT]"
+                :seat="STUDENT_SEAT"
                 :show-hcp="true"
                 :show-total-points="true"
               />
@@ -173,7 +173,7 @@
                 />
               </div>
 
-              <div v-if="!auctionComplete && currentSeat === 'S' && !auctionLoading" class="bp-card">
+              <div v-if="!auctionComplete && currentSeat === STUDENT_SEAT && !auctionLoading" class="bp-card">
                 <h3>Your bid</h3>
                 <BiddingBox
                   :last-bid="lastNonPassNonDouble"
@@ -263,28 +263,8 @@ const CONFIG = {
 // single-deal player: scenario menu/nav are hidden, the BBA call uses
 // explicit conventions instead of a scenario name, and lifecycle events
 // (ready, auction-complete, done, error) are postMessage'd to window.parent.
-
-// Rotation maps: actual compass seat → visual seat such that the student
-// always ends up at the bottom (visual S). The component's bidding logic
-// is South-centric, so we rotate the deal once and let the rest run as-is.
-// Vulnerability rotates too: NS/EW swap iff the student is E or W.
-const ACTUAL_TO_VISUAL = {
-  S: { N: 'N', E: 'E', S: 'S', W: 'W' },
-  W: { N: 'W', E: 'N', S: 'E', W: 'S' },
-  N: { N: 'S', E: 'W', S: 'N', W: 'E' },
-  E: { N: 'E', E: 'S', S: 'W', W: 'N' },
-}
-const VISUAL_TO_ACTUAL = (() => {
-  const out = {}
-  for (const seat of ['S', 'W', 'N', 'E']) {
-    out[seat] = {}
-    for (const [actual, visual] of Object.entries(ACTUAL_TO_VISUAL[seat])) {
-      out[seat][visual] = actual
-    }
-  }
-  return out
-})()
-
+// The deal is left in its actual compass frame — N is N, the DD table
+// matches the board — and we just show the student's specific hand panel.
 function readEmbeddedParams() {
   if (typeof window === 'undefined') return null
   // Hash router: query may live before the hash (?pbn=...#/route) or
@@ -311,17 +291,13 @@ function readEmbeddedParams() {
 }
 const embeddedParams = readEmbeddedParams()
 const EMBEDDED = !!embeddedParams
+// The compass seat the human is sitting at. Defaults to S for the
+// standalone scenario flow (which has always been South-centric).
+const STUDENT_SEAT = EMBEDDED ? embeddedParams.seat : 'S'
 
 function postEmbedded(msg) {
   if (typeof window === 'undefined') return
   try { window.parent.postMessage(msg, '*') } catch {}
-}
-
-// Convert a visual seat (after rotation) back to its actual compass seat.
-// Used when posting results to the host so they get absolute positions.
-function visualToActualSeat(visualSeat) {
-  if (!EMBEDDED || embeddedParams.seat === 'S') return visualSeat
-  return VISUAL_TO_ACTUAL[embeddedParams.seat][visualSeat] || visualSeat
 }
 
 // ── State ─────────────────────────────────────────────────────────────
@@ -393,13 +369,15 @@ const poolLabels = computed(() => [...selectedScenarios.value].map(prettifyLabel
 const visibleHands = computed(() => {
   if (!currentDeal.value) return { N: null, E: null, S: null, W: null }
   if (auctionComplete.value) return currentDeal.value.hands
-  // During bidding, only S is visible.
-  return { N: null, E: null, S: currentDeal.value.hands.S, W: null }
+  // During bidding, only the student's seat is visible.
+  const visible = { N: null, E: null, S: null, W: null }
+  visible[STUDENT_SEAT] = currentDeal.value.hands[STUDENT_SEAT]
+  return visible
 })
 const hiddenSeats = computed(() => {
   if (!currentDeal.value) return []
   if (auctionComplete.value) return []
-  return ['N', 'E', 'W']
+  return ['N', 'E', 'S', 'W'].filter(s => s !== STUDENT_SEAT)
 })
 
 const canDouble = computed(() => {
@@ -717,43 +695,19 @@ async function loadEmbeddedDeal() {
   try {
     const hands = parseDealHandsForBridgeTable(embeddedParams.pbn)
     if (!hands) throw new Error('Invalid PBN deal string (expected "N:hand hand hand hand")')
-    const actualDeal = {
+    const deal = {
       board: '?',
       dealer: embeddedParams.dealer || 'N',
       vulnerable: embeddedParams.vul || 'None',
       hands,
       pbn: embeddedParams.pbn,
     }
-    const deal = rotateDealForViewer(actualDeal, embeddedParams.seat)
     currentScenario.value = '__embedded__'
     currentScenarioLabel.value = 'Replay'
     dealsForScenario.value = [deal]
     await loadDealAt(0)
   } catch (err) {
     dealError.value = 'Could not load embedded deal: ' + err.message
-  }
-}
-
-// Rotate the deal so that `studentSeat` (compass) becomes visual S, where
-// all the existing South-centric bidding logic operates. Vulnerability
-// flips when the student is E/W (the partnerships swap orientation).
-function rotateDealForViewer(deal, studentSeat) {
-  if (!studentSeat || studentSeat === 'S') return deal
-  const map = ACTUAL_TO_VISUAL[studentSeat]
-  const newHands = {}
-  for (const [actual, visual] of Object.entries(map)) {
-    newHands[visual] = deal.hands[actual]
-  }
-  let newVul = deal.vulnerable
-  if (studentSeat === 'E' || studentSeat === 'W') {
-    if (newVul === 'NS') newVul = 'EW'
-    else if (newVul === 'EW') newVul = 'NS'
-  }
-  return {
-    ...deal,
-    hands: newHands,
-    dealer: map[deal.dealer] || deal.dealer,
-    vulnerable: newVul,
   }
 }
 
@@ -767,9 +721,9 @@ watch(() => auctionComplete.value, (isComplete) => {
     type: 'bridge-classroom:auction-complete',
     auction: bids.value.slice(),
     contract: finalContract.value.contract,
-    declarer: visualToActualSeat(finalContract.value.declarer),
-    dealer: embeddedParams.dealer || visualToActualSeat(currentDeal.value.dealer),
-    studentSeat: embeddedParams.seat,
+    declarer: finalContract.value.declarer,
+    dealer: currentDeal.value.dealer,
+    studentSeat: STUDENT_SEAT,
     meanings: meanings.value.slice(),
   })
 })
@@ -1029,7 +983,7 @@ async function resetAuction() {
 async function playToHumanTurn() {
   while (!isAuctionOver(bids.value) && bids.value.length < expectedAuction.value.length) {
     const seat = seatAtIndex(currentDeal.value.dealer, bids.value.length)
-    if (seat === 'S') break
+    if (seat === STUDENT_SEAT) break
     const bid = expectedAuction.value[bids.value.length]
     await sleep(300)
     bids.value.push(bid)
