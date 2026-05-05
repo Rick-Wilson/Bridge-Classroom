@@ -96,7 +96,50 @@
             </div>
           </div>
 
-          <div class="bp-table-wrap">
+          <div v-if="EMBEDDED && !auctionComplete" class="bp-embedded-bidding">
+            <div class="bp-side-col">
+              <div class="bp-card">
+                <h3>Auction</h3>
+                <AuctionTable
+                  :bids="bids"
+                  :dealer="currentDeal.dealer"
+                  :current-bid-index="bids.length"
+                  :wrong-bid-indices="wrongIndicesArray"
+                  :show-turn-indicator="!auctionComplete"
+                  :meanings="meanings"
+                  :diverged-bids="divergedBids"
+                  :allow-divergence-toggle="!auctionLoading"
+                  @toggle-bid="toggleDivergedBid"
+                />
+              </div>
+              <div v-if="currentSeat === 'S' && !auctionLoading" class="bp-card">
+                <h3>Your bid</h3>
+                <BiddingBox
+                  :last-bid="lastNonPassNonDouble"
+                  :can-double="canDouble"
+                  :can-redouble="canRedouble"
+                  @bid="onUserBid"
+                />
+              </div>
+              <div v-if="auctionLoading" class="bp-loading-card">Computing&hellip;</div>
+            </div>
+            <div class="bp-hand-col">
+              <HandDisplay
+                :hand="currentDeal.hands.S"
+                seat="S"
+                :show-hcp="true"
+                :show-total-points="true"
+              />
+              <div class="bp-deal-tags">
+                <span class="bp-vul-tag" :class="{ 'is-vul': vulForSide('NS') || vulForSide('EW') }">
+                  {{ currentDeal.vulnerable === 'None' ? 'None vul' : currentDeal.vulnerable + ' vul' }}
+                </span>
+                <span class="bp-dealer-tag">Dealer {{ currentDeal.dealer }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="bp-table-wrap">
             <BridgeTable
               :hands="visibleHands"
               :hidden-seats="hiddenSeats"
@@ -196,6 +239,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import BridgeTable from '../components/BridgeTable.vue'
+import HandDisplay from '../components/HandDisplay.vue'
 import BiddingBox from '../components/BiddingBox.vue'
 import AuctionTable from '../components/AuctionTable.vue'
 import { formatBid } from '../utils/cardFormatting.js'
@@ -219,6 +263,28 @@ const CONFIG = {
 // single-deal player: scenario menu/nav are hidden, the BBA call uses
 // explicit conventions instead of a scenario name, and lifecycle events
 // (ready, auction-complete, done, error) are postMessage'd to window.parent.
+
+// Rotation maps: actual compass seat → visual seat such that the student
+// always ends up at the bottom (visual S). The component's bidding logic
+// is South-centric, so we rotate the deal once and let the rest run as-is.
+// Vulnerability rotates too: NS/EW swap iff the student is E or W.
+const ACTUAL_TO_VISUAL = {
+  S: { N: 'N', E: 'E', S: 'S', W: 'W' },
+  W: { N: 'W', E: 'N', S: 'E', W: 'S' },
+  N: { N: 'S', E: 'W', S: 'N', W: 'E' },
+  E: { N: 'E', E: 'S', S: 'W', W: 'N' },
+}
+const VISUAL_TO_ACTUAL = (() => {
+  const out = {}
+  for (const seat of ['S', 'W', 'N', 'E']) {
+    out[seat] = {}
+    for (const [actual, visual] of Object.entries(ACTUAL_TO_VISUAL[seat])) {
+      out[seat][visual] = actual
+    }
+  }
+  return out
+})()
+
 function readEmbeddedParams() {
   if (typeof window === 'undefined') return null
   // Hash router: query may live before the hash (?pbn=...#/route) or
@@ -231,10 +297,12 @@ function readEmbeddedParams() {
   const pbn = sp.get('pbn')
   if (!pbn) return null
   const card = sp.get('card') || CONFIG.DEFAULT_CARD
+  const seat = (sp.get('seat') || 'S').toUpperCase()
   return {
     pbn,
     dealer: sp.get('dealer'),
     vul: sp.get('vul'),
+    seat: ['N', 'E', 'S', 'W'].includes(seat) ? seat : 'S',
     cards: {
       ns: sp.get('cardNS') || card,
       ew: sp.get('cardEW') || card,
@@ -247,6 +315,13 @@ const EMBEDDED = !!embeddedParams
 function postEmbedded(msg) {
   if (typeof window === 'undefined') return
   try { window.parent.postMessage(msg, '*') } catch {}
+}
+
+// Convert a visual seat (after rotation) back to its actual compass seat.
+// Used when posting results to the host so they get absolute positions.
+function visualToActualSeat(visualSeat) {
+  if (!EMBEDDED || embeddedParams.seat === 'S') return visualSeat
+  return VISUAL_TO_ACTUAL[embeddedParams.seat][visualSeat] || visualSeat
 }
 
 // ── State ─────────────────────────────────────────────────────────────
@@ -642,19 +717,43 @@ async function loadEmbeddedDeal() {
   try {
     const hands = parseDealHandsForBridgeTable(embeddedParams.pbn)
     if (!hands) throw new Error('Invalid PBN deal string (expected "N:hand hand hand hand")')
-    const deal = {
+    const actualDeal = {
       board: '?',
       dealer: embeddedParams.dealer || 'N',
       vulnerable: embeddedParams.vul || 'None',
       hands,
       pbn: embeddedParams.pbn,
     }
+    const deal = rotateDealForViewer(actualDeal, embeddedParams.seat)
     currentScenario.value = '__embedded__'
     currentScenarioLabel.value = 'Replay'
     dealsForScenario.value = [deal]
     await loadDealAt(0)
   } catch (err) {
     dealError.value = 'Could not load embedded deal: ' + err.message
+  }
+}
+
+// Rotate the deal so that `studentSeat` (compass) becomes visual S, where
+// all the existing South-centric bidding logic operates. Vulnerability
+// flips when the student is E/W (the partnerships swap orientation).
+function rotateDealForViewer(deal, studentSeat) {
+  if (!studentSeat || studentSeat === 'S') return deal
+  const map = ACTUAL_TO_VISUAL[studentSeat]
+  const newHands = {}
+  for (const [actual, visual] of Object.entries(map)) {
+    newHands[visual] = deal.hands[actual]
+  }
+  let newVul = deal.vulnerable
+  if (studentSeat === 'E' || studentSeat === 'W') {
+    if (newVul === 'NS') newVul = 'EW'
+    else if (newVul === 'EW') newVul = 'NS'
+  }
+  return {
+    ...deal,
+    hands: newHands,
+    dealer: map[deal.dealer] || deal.dealer,
+    vulnerable: newVul,
   }
 }
 
@@ -668,7 +767,9 @@ watch(() => auctionComplete.value, (isComplete) => {
     type: 'bridge-classroom:auction-complete',
     auction: bids.value.slice(),
     contract: finalContract.value.contract,
-    declarer: finalContract.value.declarer,
+    declarer: visualToActualSeat(finalContract.value.declarer),
+    dealer: embeddedParams.dealer || visualToActualSeat(currentDeal.value.dealer),
+    studentSeat: embeddedParams.seat,
     meanings: meanings.value.slice(),
   })
 })
@@ -982,7 +1083,63 @@ async function onUserBid(bid) {
   grid-template-columns: minmax(0, 1fr);
 }
 .bp-app.embedded .bp-stage {
-  padding: 14px;
+  padding: 10px 14px;
+  gap: 10px;
+  align-items: stretch;
+}
+.bp-app.embedded .bp-scenario-bar {
+  padding: 7px 12px;
+  max-width: none;
+}
+.bp-app.embedded .bp-scenario-name { font-size: 14px; }
+.bp-app.embedded .bp-scenario-meta { font-size: 11px; }
+
+/* Compact 2-col layout for embedded mode during the auction:
+   left = auction + bidding box, right = student's hand. After the auction
+   completes we fall back to the full BridgeTable layout for the reveal. */
+.bp-embedded-bidding {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+}
+.bp-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.bp-hand-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  border: 0.5px solid #ddd;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.bp-deal-tags {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 12px;
+  color: #555;
+  margin-top: 4px;
+}
+.bp-loading-card {
+  background: #fff;
+  border: 0.5px solid #ddd;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  color: #1D9E75;
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .bp-embedded-bidding { grid-template-columns: minmax(0, 1fr); }
+  .bp-hand-col { order: -1; }
 }
 
 .bp-nav {
