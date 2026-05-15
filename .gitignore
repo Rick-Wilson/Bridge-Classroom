@@ -41,3 +41,6 @@ reputation/
 .DS_Store
 Thumbs.db
 activity-log.json
+
+# Playwright MCP session artifacts
+.playwright-mcp/

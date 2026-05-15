@@ -12,7 +12,7 @@
           {{ anon.isAnonymized.value ? 'Clear' : 'Anon' }}
         </button>
         <button class="secondary-btn" @click="refresh">Refresh</button>
-        <button class="secondary-btn" @click="$emit('close')">Back</button>
+        <button v-if="!embedded" class="secondary-btn" @click="$emit('close')">Back</button>
       </div>
     </header>
 
@@ -113,6 +113,10 @@ import { useTeacherRole } from '../composables/useTeacherRole.js'
 import { useClassrooms } from '../composables/useClassrooms.js'
 import { useUserStore } from '../composables/useUserStore.js'
 import { useAnonymizer } from '../composables/useAnonymizer.js'
+
+defineProps({
+  embedded: { type: Boolean, default: false }
+})
 
 const emit = defineEmits(['close', 'select-student'])
 

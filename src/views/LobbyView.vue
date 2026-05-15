@@ -1,65 +1,73 @@
 <template>
   <div class="lobby-view">
-    <!-- Admin sees teacher dashboard by default, with toggle to admin panel -->
-    <AdminLobby v-if="showAdminPanel" @back="showAdminPanel = false" />
-    <TeacherLobby v-else-if="userRole === 'admin' || userRole === 'teacher'"
-      :is-admin="userRole === 'admin'"
-      @select-collection="$emit('select-collection', $event)"
-      @show-admin="showAdminPanel = true"
-      @load-file="$emit('load-file', $event)"
+    <LobbyTabs
+      v-if="visibleTabs.length > 1"
+      :tabs="visibleTabs"
+      :active="activeTab"
+      @update:active="activeTab = $event"
     />
-    <StudentLobby v-else-if="hasAssignments || hasClassrooms"
+
+    <LessonsTab
+      v-if="activeTab === 'lessons'"
       @select-collection="$emit('select-collection', $event)"
       @select-assignment="$emit('select-assignment', $event)"
       @resume-lesson="$emit('resume-lesson', $event)"
       @show-progress="$emit('show-progress')"
       @load-file="$emit('load-file', $event)"
     />
-    <CasualLobby v-else
-      @select-collection="$emit('select-collection', $event)"
-      @resume-lesson="$emit('resume-lesson', $event)"
-      @show-progress="$emit('show-progress')"
-      @show-become-teacher="$emit('show-become-teacher')"
-      @load-file="$emit('load-file', $event)"
+    <StudentsTab
+      v-else-if="activeTab === 'students'"
+      @navigate-to-lesson="(subfolder, boardNumber) => $emit('navigate-to-lesson', subfolder, boardNumber)"
     />
+    <TeacherLobby
+      v-else-if="activeTab === 'classrooms'"
+    />
+    <AssignmentsTab v-else-if="activeTab === 'assignments'" />
+    <ComingSoon v-else-if="activeTab === 'exercises'" title="Exercises" />
+    <ComingSoon v-else-if="activeTab === 'conventionCard'" title="Convention Card" />
+    <AdminLobby v-else-if="activeTab === 'admin'" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useUserStore } from '../composables/useUserStore.js'
-import { useAssignments } from '../composables/useAssignments.js'
-import CasualLobby from '../components/lobby/CasualLobby.vue'
-import StudentLobby from '../components/lobby/StudentLobby.vue'
+import LobbyTabs from '../components/lobby/LobbyTabs.vue'
+import LessonsTab from '../components/lobby/tabs/LessonsTab.vue'
+import StudentsTab from '../components/lobby/tabs/StudentsTab.vue'
+import AssignmentsTab from '../components/lobby/tabs/AssignmentsTab.vue'
+import ComingSoon from '../components/lobby/tabs/ComingSoon.vue'
 import TeacherLobby from '../components/lobby/TeacherLobby.vue'
 import AdminLobby from '../components/lobby/AdminLobby.vue'
 
-defineEmits(['select-collection', 'select-assignment', 'resume-lesson', 'show-become-teacher', 'load-file', 'show-progress'])
+defineEmits([
+  'select-collection',
+  'select-assignment',
+  'resume-lesson',
+  'show-become-teacher',
+  'load-file',
+  'show-progress',
+  'navigate-to-lesson'
+])
 
 const userStore = useUserStore()
-const assignmentStore = useAssignments()
-const showAdminPanel = ref(false)
 
-const userRole = computed(() => {
-  const user = userStore.currentUser.value
-  return user?.role || 'student'
-})
+const userRole = computed(() => userStore.currentUser.value?.role || 'student')
 
-const hasAssignments = computed(() => {
-  return assignmentStore.studentAssignments.value.length > 0
-})
-const hasClassrooms = computed(() => {
-  const user = userStore.currentUser.value
-  return Array.isArray(user?.classrooms) && user.classrooms.length > 0
-})
-
-// Pre-fetch student assignments to determine lobby view
-onMounted(() => {
-  const user = userStore.currentUser.value
-  if (user && userRole.value === 'student') {
-    assignmentStore.fetchStudentAssignments(user.id)
+// Convention Card is intentionally omitted everywhere until it has real content.
+const visibleTabs = computed(() => {
+  if (userRole.value === 'admin') {
+    return ['lessons', 'students', 'classrooms', 'assignments', 'exercises', 'admin']
   }
+  if (userRole.value === 'teacher') {
+    return ['lessons', 'students', 'classrooms', 'assignments', 'exercises']
+  }
+  return ['lessons']
 })
+
+const activeTab = ref(
+  userRole.value === 'teacher' || userRole.value === 'admin' ? 'classrooms' : 'lessons'
+)
 </script>
 
 <style scoped>

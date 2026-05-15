@@ -6,9 +6,10 @@
   />
 
   <!-- Main App (shown when user is authenticated) -->
-  <div v-else class="app">
+  <div v-else class="app" @click.capture="dismissWelcome">
     <header class="app-header">
       <h1><a href="/" style="color:inherit;text-decoration:none">{{ deals.length ? dealTitle : appTitle }}</a></h1>
+      <span v-if="showWelcome" class="welcome-greeting">Welcome back, {{ firstName }}</span>
       <div class="header-right">
         <SyncStatus />
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
@@ -16,9 +17,6 @@
         </button>
         <button class="accomplishments-btn" @click="showAccomplishments = true" title="View Accomplishments">
           Accomplishments
-        </button>
-        <button v-if="teacherRole.isTeacher.value" class="teacher-btn" @click="showTeacherView = true; selectedStudentId = null; selectedStudentName = ''" title="View Students">
-          Students
         </button>
         <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + getCollection(currentCollection)?.name">
           {{ getCollection(currentCollection)?.name }}
@@ -30,9 +28,8 @@
           <span class="correct">{{ totalCorrect }}</span>
           <span class="wrong">{{ totalWrong }}</span>
         </div>
-        <!-- User avatar with role badge -->
+        <!-- User avatar -->
         <div class="user-avatar-group">
-          <button v-if="userRole !== 'student'" class="role-badge" :class="'role-' + userRole" @click="returnToLobby" :title="'Return to ' + userRole + ' lobby'">{{ userRole }}</button>
           <button class="user-btn" @click="showSettings = true" :title="userName">
             {{ userInitials }}
           </button>
@@ -45,28 +42,16 @@
       <AnnouncementBanner />
       <!-- Assignment Banner -->
       <AssignmentBanner />
-      <!-- Teacher student view -->
-      <TeacherStudentList
-        v-if="showTeacherView && !selectedStudentId"
-        @close="showTeacherView = false"
-        @select-student="(id, name) => { selectedStudentId = id; selectedStudentName = name }"
-      />
-      <TeacherStudentDetail
-        v-else-if="showTeacherView && selectedStudentId"
-        :studentId="selectedStudentId"
-        :studentName="selectedStudentName"
-        @back="selectedStudentId = null"
-        @navigate-to-lesson="handleTeacherNavigateToLesson"
-      />
       <!-- Lobby when no deals and no collection selected -->
       <LobbyView
-        v-else-if="!deals.length && !currentCollection"
+        v-if="!deals.length && !currentCollection"
         @select-collection="selectCollection"
         @select-assignment="handleSelectAssignment"
         @resume-lesson="handleResumeLesson"
         @show-progress="showProgress = true"
         @show-become-teacher="showBecomeTeacher = true"
         @load-file="onFileSelect"
+        @navigate-to-lesson="handleTeacherNavigateToLesson"
       />
 
       <!-- Collection selected but no lesson loaded yet - show lesson browser inline -->
@@ -301,8 +286,6 @@ import AnnouncementBanner from '../components/AnnouncementBanner.vue'
 import SyncStatus from '../components/SyncStatus.vue'
 import ProgressDashboard from '../components/ProgressDashboard.vue'
 import AccomplishmentsView from '../components/AccomplishmentsView.vue'
-import TeacherStudentList from '../components/TeacherStudentList.vue'
-import TeacherStudentDetail from '../components/TeacherStudentDetail.vue'
 import LessonBrowser from '../components/LessonBrowser.vue'
 import BoardMasteryStrip from '../components/BoardMasteryStrip.vue'
 import IntroPdfViewer from '../components/IntroPdfViewer.vue'
@@ -329,10 +312,12 @@ const practice = useDealPractice()
 const showSettings = ref(false)
 const showProgress = ref(false)
 const showAccomplishments = ref(false)
-const showTeacherView = ref(false)
-const selectedStudentId = ref(null)
-const selectedStudentName = ref('')
+const showWelcome = ref(true)
 const commentaryContainer = ref(null)
+
+function dismissWelcome() {
+  if (showWelcome.value) showWelcome.value = false
+}
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 const showBecomeTeacher = ref(false)
@@ -386,15 +371,12 @@ const userName = computed(() => {
   return user ? `${user.firstName} ${user.lastName}` : ''
 })
 
+const firstName = computed(() => userStore.currentUser.value?.firstName || '')
+
 const userInitials = computed(() => {
   const user = userStore.currentUser.value
   if (!user) return '?'
   return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
-})
-
-const userRole = computed(() => {
-  const user = userStore.currentUser.value
-  return user?.role || 'student'
 })
 
 const appTitle = computed(() => {
@@ -459,6 +441,7 @@ onMounted(async () => {
 async function handleUserReady(user) {
   // User is now authenticated, app will show main content
   console.log('User ready:', user.firstName, user.lastName)
+  showWelcome.value = true
 
   // Show brief registration toast if this is a new user (key backup modal was triggered)
   if (userStore.showKeyBackupModal.value) {
@@ -504,8 +487,6 @@ function handleSwitchUser() {
   // Clear current user to show welcome screen
   userStore.currentUserId.value = null
   showSettings.value = false
-  showTeacherView.value = false
-  selectedStudentId.value = null
 }
 
 // Handle teacher role activation from BecomeTeacherModal
@@ -749,8 +730,6 @@ async function navigateToDeal({ subfolder, dealNumber }) {
 
 function handleNavigateToDeal(payload) {
   showAccomplishments.value = false
-  showTeacherView.value = false
-  selectedStudentId.value = null
   navigateToDeal(payload)
 }
 
@@ -759,8 +738,6 @@ function handleResumeLesson({ subfolder, dealNumber }) {
 }
 
 function handleTeacherNavigateToLesson(subfolder, boardNumber) {
-  showTeacherView.value = false
-  selectedStudentId.value = null
   navigateToDeal({ subfolder, dealNumber: boardNumber || 1 })
 }
 
@@ -773,8 +750,6 @@ function returnToLessons() {
   practice.resetStats()
   showIntroPdf.value = false
   introUrl.value = null
-  showTeacherView.value = false
-  selectedStudentId.value = null
   exerciseContext.value = null
 }
 
@@ -789,8 +764,6 @@ function returnToLobby() {
   practice.resetStats()
   showIntroPdf.value = false
   introUrl.value = null
-  showTeacherView.value = false
-  selectedStudentId.value = null
   exerciseContext.value = null
 }
 
@@ -1095,6 +1068,7 @@ body {
 }
 
 .app-header {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1115,31 +1089,23 @@ body {
   gap: 16px;
 }
 
+.welcome-greeting {
+  position: absolute;
+  left: 50%;
+  top: calc(50% - 6px);
+  transform: translate(-50%, -50%);
+  font-family: var(--font-heading, 'Source Serif 4', serif);
+  font-size: 24px;
+  color: var(--green-dark, #2d6a4f);
+  font-weight: 700;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .user-avatar-group {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.role-badge {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: capitalize;
-  padding: 2px 8px;
-  border-radius: var(--radius-badge, 12px);
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.role-badge.role-teacher {
-  background: var(--green-pale, #d8f3dc);
-  color: var(--green-dark, #2d6a4f);
-}
-
-.role-badge.role-admin {
-  background: var(--purple-light, #ede9fe);
-  color: #6d28d9;
 }
 
 .stats {
@@ -1218,23 +1184,6 @@ body {
 .accomplishments-btn:hover {
   background: #c8e6c9;
   color: #2e7d32;
-}
-
-.teacher-btn {
-  padding: 6px 12px;
-  border-radius: 16px;
-  background: #e8eaf6;
-  border: none;
-  font-size: 13px;
-  font-weight: 500;
-  color: #3949ab;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.teacher-btn:hover {
-  background: #c5cae9;
-  color: #283593;
 }
 
 .lessons-btn {

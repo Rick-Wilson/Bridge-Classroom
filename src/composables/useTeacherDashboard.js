@@ -82,7 +82,8 @@ async function clearPanel(teacherId, panel) {
 export function useTeacherDashboard() {
   const summaryStats = computed(() => ({
     classroomCount: lobbyClassrooms.value.length,
-    openAssignmentCount: lobbyClassrooms.value.reduce((s, c) => s + (c.open_assignment_count || 0), 0)
+    openAssignmentCount: lobbyClassrooms.value.reduce((s, c) => s + (c.open_assignment_count || 0), 0),
+    studentCount: lobbyClassrooms.value.reduce((s, c) => s + (c.member_count || 0), 0)
   }))
 
   return {

@@ -128,18 +128,41 @@ The `docs/` directory contains the static landing-page sources that `scripts/bui
 
 ## Application Architecture
 
-### Role-Based Lobby System
+### Role-Based Lobby Tabs
 
-Users have one of three roles: `student`, `teacher`, `admin`. The lobby view (`src/views/LobbyView.vue`) routes to the appropriate lobby component:
+Users have one of three roles: `student`, `teacher`, `admin`. The lobby (`src/views/LobbyView.vue`) renders a tab strip under the header and switches the tab content based on the active tab. Tabs visible per role:
 
-| Role | Default View | Notes |
-|------|-------------|-------|
-| `admin` | TeacherLobby (with Admin Panel button) | Admin is a superset of teacher |
-| `teacher` | TeacherLobby | Full classroom/assignment management |
-| `student` (with classrooms/assignments) | StudentLobby | Assignment-focused view |
-| `student` (casual) | CasualLobby | Browse lesson collections |
+| Tab | Student | Teacher | Admin |
+|-----|:-:|:-:|:-:|
+| Lessons | ✓ | ✓ | ✓ |
+| Students |   | ✓ | ✓ |
+| Classrooms |   | ✓ | ✓ |
+| Assignments |   | ✓ | ✓ |
+| Exercises |   | ✓ | ✓ |
+| Convention Card | (hidden) | (hidden) | (hidden) |
+| Admin |   |   | ✓ |
 
-**Admin users** see the TeacherLobby by default with a purple "Admin Panel" button to toggle to AdminLobby. This ensures admins retain all teacher functionality.
+- Default tab: **Classrooms** for teacher/admin, **Lessons** for student.
+- When a role only has a single visible tab (current student case), the tab strip itself is hidden (`LobbyView` only renders `<LobbyTabs>` when `visibleTabs.length > 1`).
+- Convention Card is intentionally omitted from `visibleTabs` until it has real content.
+- Exercises and Convention Card render a shared `ComingSoon` placeholder.
+- The tab strip lives **only on the lobby view**, not on practice/collection screens. The header's "Lessons" and "Lobby" buttons handle returning from practice.
+
+**Tab content components** (in `src/components/lobby/tabs/`):
+- `LessonsTab.vue` — `AssignmentPanel` + `RecentLessons` (students only) + `CollectionGrid`.
+- `StudentsTab.vue` — wraps `TeacherStudentList` ↔ `TeacherStudentDetail` with internal `selectedStudentId` state. Emits `navigate-to-lesson` up to `MainLayout` which then leaves the lobby and enters practice.
+- `AssignmentsTab.vue` — "+ New Assignment" button + flat list of all teacher assignments (clicking opens `AssignmentDetailModal`). The backend has no archived/closed state for assignments — every classroom assignment is "open" (see [teacher_dashboard.rs](bridge-classroom-api/src/routes/teacher_dashboard.rs) `open_assignment_count: assignments.len()`).
+- `ComingSoon.vue` — shared placeholder for not-yet-built tabs.
+- Classrooms tab content is `TeacherLobby.vue` directly (welcome stats row + classroom cards + Needs Attention + Recent Activity).
+- Admin tab content is `AdminLobby.vue` directly.
+
+### Header Greeting
+
+`MainLayout.vue` shows a centered "Welcome back, &lt;FirstName&gt;" greeting in the header for every authenticated user. It uses `var(--font-heading)` at 24px/700 to match the app title visually. `showWelcome` resets to `true` in `handleUserReady` (so Switch User → re-login re-triggers it) and clears on the first click anywhere inside `.app` via a `@click.capture` listener.
+
+### SyncStatus Visibility
+
+`SyncStatus.vue` only renders when `isOffline` or `hasError` is true. The healthy/synced/pending/syncing states are intentionally invisible — users shouldn't need to think about sync unless it's actively failing.
 
 ### User Role Sync
 
@@ -160,7 +183,8 @@ Users have one of three roles: `student`, `teacher`, `admin`. The lobby view (`s
 - Classrooms with per-assignment completion stats
 - "Needs Attention" items: `due_soon`, `low_score`
 - "Recent Activity" events: `assignment_completed`, `student_joined`
-- Two-column layout: classrooms (left 3fr) + attention/activity (right 2fr)
+- Two-column layout (classrooms left 3fr + attention/activity right 2fr) — rendered inside the Classrooms tab
+- A summary row above the grid shows `N classrooms · N students · N open assignments` (sourced from `useTeacherDashboard.summaryStats`)
 
 **Admin Dashboard** (`GET /api/admin/stats`, `GET /api/admin/health`):
 - Stats: total users, 7-day active, observation counts, popular lessons, DB table sizes
@@ -174,15 +198,14 @@ Users have one of three roles: `student`, `teacher`, `admin`. The lobby view (`s
 ```
 src/
 ├── views/
-│   ├── MainLayout.vue          # Top-level app shell, route orchestration
-│   ├── LobbyView.vue           # Role-based lobby routing
+│   ├── MainLayout.vue          # Top-level app shell, route orchestration, header greeting
+│   ├── LobbyView.vue           # Tab orchestrator (visible tabs by role, active tab content)
 │   └── JoinClassroomView.vue   # /join/:code handler
 ├── components/
 │   ├── lobby/
-│   │   ├── TeacherLobby.vue    # Teacher dashboard (two-column layout)
-│   │   ├── AdminLobby.vue      # Admin dashboard (stats, health, popular lessons)
-│   │   ├── StudentLobby.vue    # Student assignment view
-│   │   ├── CasualLobby.vue     # Browse collections
+│   │   ├── LobbyTabs.vue       # Tab strip — emits update:active
+│   │   ├── TeacherLobby.vue    # Classrooms-tab content (summary row + dashboard grid)
+│   │   ├── AdminLobby.vue      # Admin-tab content (stats, health, popular lessons)
 │   │   ├── ClassroomCard.vue   # Expandable classroom card with completion bars
 │   │   ├── NeedsAttention.vue  # Teacher attention alerts
 │   │   ├── RecentActivity.vue  # Teacher activity feed
@@ -191,7 +214,12 @@ src/
 │   │   ├── DatabasePanel.vue   # Admin DB stats
 │   │   ├── SystemHealth.vue    # Admin health indicators
 │   │   ├── CollectionGrid.vue  # Lesson collection browser
-│   │   └── ClassroomCreateModal.vue / AssignmentCreateModal.vue
+│   │   ├── ClassroomCreateModal.vue / AssignmentCreateModal.vue
+│   │   └── tabs/
+│   │       ├── LessonsTab.vue       # AssignmentPanel + RecentLessons + CollectionGrid
+│   │       ├── StudentsTab.vue      # TeacherStudentList ↔ TeacherStudentDetail
+│   │       ├── AssignmentsTab.vue   # + New Assignment + open assignments list
+│   │       └── ComingSoon.vue       # Placeholder for not-yet-built tabs
 │   ├── BridgeTable.vue         # Main card table rendering
 │   ├── BiddingBox.vue          # Bidding input
 │   └── ...                     # Other game components

@@ -1,13 +1,7 @@
 <template>
-  <div class="sync-status" :class="statusClass" @click="handleClick">
-    <!-- Syncing indicator -->
-    <div v-if="dataSync.isSyncing.value" class="status-content">
-      <span class="spinner"></span>
-      <span class="status-text">Syncing...</span>
-    </div>
-
+  <div v-if="shouldShow" class="sync-status" :class="statusClass" @click="handleClick">
     <!-- Offline indicator -->
-    <div v-else-if="dataSync.isOffline.value" class="status-content offline">
+    <div v-if="dataSync.isOffline.value" class="status-content offline">
       <span class="icon">&#9888;</span>
       <span class="status-text">Offline</span>
       <span v-if="pendingCount > 0" class="badge">{{ pendingCount }}</span>
@@ -19,18 +13,6 @@
       <span class="status-text">{{ errorText }}</span>
       <span v-if="pendingCount > 0" class="badge">{{ pendingCount }}</span>
       <button class="retry-btn" @click.stop="handleRetry">Retry</button>
-    </div>
-
-    <!-- Pending observations -->
-    <div v-else-if="pendingCount > 0" class="status-content pending">
-      <span class="icon">&#8635;</span>
-      <span class="status-text">{{ pendingCount }} pending</span>
-    </div>
-
-    <!-- All synced -->
-    <div v-else class="status-content synced">
-      <span class="icon">&#10003;</span>
-      <span class="status-text">Synced</span>
     </div>
   </div>
 </template>
@@ -50,12 +32,12 @@ const errorText = computed(() => {
   return 'Sync failed'
 })
 
+const shouldShow = computed(() => dataSync.isOffline.value || dataSync.hasError.value)
+
 const statusClass = computed(() => {
-  if (dataSync.isSyncing.value) return 'syncing'
   if (dataSync.isOffline.value) return 'offline'
   if (dataSync.hasError.value) return 'error'
-  if (pendingCount.value > 0) return 'pending'
-  return 'synced'
+  return ''
 })
 
 function handleClick() {
