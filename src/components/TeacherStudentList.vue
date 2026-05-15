@@ -95,13 +95,17 @@
 
 <script>
 // Module-level state: this <script> block runs once per module load,
-// not per component-instance mount. `selectedFilter` therefore
-// survives navigating into a student detail and back — without it
-// the v-if in MainLayout unmounts the list, and a fresh local ref
-// would reset to 'all' on remount. Imports here flow into the
-// <script setup> below.
+// not per component-instance mount. Both `selectedFilter` and
+// `classroomMembers` survive navigating into a student detail and
+// back (the v-if in MainLayout unmounts the list). Without
+// `classroomMembers` persisting, on remount the filter computed
+// briefly sees an empty member-set, falls through to "return all",
+// and flashes the unfiltered list for one tick before the async
+// fetch in onMounted lands.
 import { ref, computed, onMounted } from 'vue'
 const selectedFilter = ref('all')
+// Map of classroomId -> Set of student IDs.
+const classroomMembers = ref({})
 </script>
 
 <script setup>
@@ -116,9 +120,6 @@ const teacherRole = useTeacherRole()
 const classrooms = useClassrooms()
 const userStore = useUserStore()
 const anon = useAnonymizer()
-
-// Map of classroomId -> Set of student IDs
-const classroomMembers = ref({})
 
 onMounted(async () => {
   await teacherRole.loadAllStudentSummaries()
