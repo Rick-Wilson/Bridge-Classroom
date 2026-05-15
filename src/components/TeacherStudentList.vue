@@ -93,8 +93,18 @@
   </div>
 </template>
 
-<script setup>
+<script>
+// Module-level state: this <script> block runs once per module load,
+// not per component-instance mount. `selectedFilter` therefore
+// survives navigating into a student detail and back — without it
+// the v-if in MainLayout unmounts the list, and a fresh local ref
+// would reset to 'all' on remount. Imports here flow into the
+// <script setup> below.
 import { ref, computed, onMounted } from 'vue'
+const selectedFilter = ref('all')
+</script>
+
+<script setup>
 import { useTeacherRole } from '../composables/useTeacherRole.js'
 import { useClassrooms } from '../composables/useClassrooms.js'
 import { useUserStore } from '../composables/useUserStore.js'
@@ -107,7 +117,6 @@ const classrooms = useClassrooms()
 const userStore = useUserStore()
 const anon = useAnonymizer()
 
-const selectedFilter = ref('all')
 // Map of classroomId -> Set of student IDs
 const classroomMembers = ref({})
 
