@@ -72,18 +72,25 @@ export const BAKER_BRIDGE_TAXONOMY = [
   // ═══════════════════════════════════════════════════════════════
   // PARTNERSHIP BIDDING (two-player cooperative lessons)
   // ═══════════════════════════════════════════════════════════════
-  { path: 'partnership_bidding/advanced_forcing',    name: 'Advanced Forcing',       category: 'Partnership Bidding', pbn: 'Partnership-AdvancedForcing.pbn',    dealCount: 24 },
-  { path: 'partnership_bidding/basic_bidding',       name: 'Basic Bidding',          category: 'Partnership Bidding', pbn: 'Partnership-BasicBidding.pbn',       dealCount: 24 },
-  { path: 'partnership_bidding/basic_major',         name: 'Basic Major',            category: 'Partnership Bidding', pbn: 'Partnership-BasicMajor.pbn',         dealCount: 24 },
-  { path: 'partnership_bidding/basic_notrump',       name: 'Basic Notrump',          category: 'Partnership Bidding', pbn: 'Partnership-BasicNotrump.pbn',       dealCount: 24 },
-  { path: 'partnership_bidding/blackwood',           name: 'Blackwood',              category: 'Partnership Bidding', pbn: 'Partnership-Blackwood.pbn',          dealCount: 24 },
-  { path: 'partnership_bidding/jacoby_2nt',          name: 'Jacoby 2NT',             category: 'Partnership Bidding', pbn: 'Partnership-Jacoby2NT.pbn',          dealCount: 24 },
-  { path: 'partnership_bidding/negative_doubles',    name: 'Negative Doubles',       category: 'Partnership Bidding', pbn: 'Partnership-NegativeDoubles.pbn',    dealCount: 24 },
-  { path: 'partnership_bidding/overcalls',           name: 'Overcalls',              category: 'Partnership Bidding', pbn: 'Partnership-Overcalls.pbn',          dealCount: 24 },
-  { path: 'partnership_bidding/roman_key_card',      name: 'Roman Key Card',         category: 'Partnership Bidding', pbn: 'Partnership-RomanKeyCard.pbn',       dealCount: 24 },
-  { path: 'partnership_bidding/stayman_transfers',   name: 'Stayman & Transfers',    category: 'Partnership Bidding', pbn: 'Partnership-StaymanTransfers.pbn',   dealCount: 24 },
-  { path: 'partnership_bidding/two_club',            name: 'Two Club',               category: 'Partnership Bidding', pbn: 'Partnership-TwoClub.pbn',            dealCount: 24 },
-  { path: 'partnership_bidding/weak_twos',           name: 'Weak Twos',              category: 'Partnership Bidding', pbn: 'Partnership-WeakTwos.pbn',           dealCount: 24 },
+  // Every Partnership entry gets "(Partnership)" suffixed on its
+  // display name so it is globally unique. Several base names
+  // collide with their general-section counterparts (e.g. Blackwood,
+  // Negative Doubles, Overcalls, Weak Twos) and the chart legend
+  // can't distinguish them by category alone. Applying the suffix
+  // uniformly keeps the section internally consistent and
+  // future-proofs against new collisions.
+  { path: 'partnership_bidding/advanced_forcing',    name: 'Advanced Forcing (Partnership)',     category: 'Partnership Bidding', pbn: 'Partnership-AdvancedForcing.pbn',    dealCount: 24 },
+  { path: 'partnership_bidding/basic_bidding',       name: 'Basic Bidding (Partnership)',        category: 'Partnership Bidding', pbn: 'Partnership-BasicBidding.pbn',       dealCount: 24 },
+  { path: 'partnership_bidding/basic_major',         name: 'Basic Major (Partnership)',          category: 'Partnership Bidding', pbn: 'Partnership-BasicMajor.pbn',         dealCount: 24 },
+  { path: 'partnership_bidding/basic_notrump',       name: 'Basic Notrump (Partnership)',        category: 'Partnership Bidding', pbn: 'Partnership-BasicNotrump.pbn',       dealCount: 24 },
+  { path: 'partnership_bidding/blackwood',           name: 'Blackwood (Partnership)',            category: 'Partnership Bidding', pbn: 'Partnership-Blackwood.pbn',          dealCount: 24 },
+  { path: 'partnership_bidding/jacoby_2nt',          name: 'Jacoby 2NT (Partnership)',           category: 'Partnership Bidding', pbn: 'Partnership-Jacoby2NT.pbn',          dealCount: 24 },
+  { path: 'partnership_bidding/negative_doubles',    name: 'Negative Doubles (Partnership)',     category: 'Partnership Bidding', pbn: 'Partnership-NegativeDoubles.pbn',    dealCount: 24 },
+  { path: 'partnership_bidding/overcalls',           name: 'Overcalls (Partnership)',            category: 'Partnership Bidding', pbn: 'Partnership-Overcalls.pbn',          dealCount: 24 },
+  { path: 'partnership_bidding/roman_key_card',      name: 'Roman Key Card (Partnership)',       category: 'Partnership Bidding', pbn: 'Partnership-RomanKeyCard.pbn',       dealCount: 24 },
+  { path: 'partnership_bidding/stayman_transfers',   name: 'Stayman & Transfers (Partnership)',  category: 'Partnership Bidding', pbn: 'Partnership-StaymanTransfers.pbn',   dealCount: 24 },
+  { path: 'partnership_bidding/two_club',            name: 'Two Club (Partnership)',             category: 'Partnership Bidding', pbn: 'Partnership-TwoClub.pbn',            dealCount: 24 },
+  { path: 'partnership_bidding/weak_twos',           name: 'Weak Twos (Partnership)',            category: 'Partnership Bidding', pbn: 'Partnership-WeakTwos.pbn',           dealCount: 24 },
 
   // ═══════════════════════════════════════════════════════════════
   // PRACTICE DEALS (unguided practice sets)
