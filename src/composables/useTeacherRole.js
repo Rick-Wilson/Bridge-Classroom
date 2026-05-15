@@ -1,7 +1,6 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
 import { useBoardMastery } from './useBoardMastery.js'
-import { useBoardStatus } from './useBoardStatus.js'
 import { useAccomplishments } from './useAccomplishments.js'
 import { decryptSharingGrant, decryptObservation } from '../utils/crypto.js'
 import { API_URL } from '@/utils/apiUrl.js'
@@ -12,8 +11,9 @@ const API_KEY = import.meta.env.VITE_API_KEY || ''
 const isTeacher = ref(false)
 const viewerId = ref(null)
 const students = ref([])           // { id, first_name, last_name, email, classroom }
-const studentObservations = ref({}) // Map<userId, observations[]>
-const studentRawObservations = ref({}) // Map<userId, rawObservations[]> (with encrypted_data/iv)
+const studentObservations = ref({}) // Map<userId, observations[]> (drilldown only)
+const studentRawObservations = ref({}) // Map<userId, rawObservations[]> (drilldown only)
+const studentSummaries = ref({})    // Map<userId, StudentSummaryEntry> from /api/student-summaries
 const loading = ref(false)
 const error = ref(null)
 const initialized = ref(false)
@@ -162,29 +162,27 @@ async function loadAllStudentSummaries() {
   error.value = null
 
   try {
-    const boardStatusApi = useBoardStatus()
-
-    // Fetch observations and board_status for every student in parallel.
-    // board_status is what drives the mastery summary; observations are
-    // only used for the drilldown views.
-    await Promise.allSettled(
-      students.value.flatMap(s => [
-        fetchStudentObservations(s.id),
-        boardStatusApi.fetchBoardStatus(s.id, null)
-      ])
-    )
-
-    // Trigger board count fetching for any new lesson subfolders
-    const mastery = useBoardMastery()
-    const allSubfolders = new Set()
-    for (const obs of Object.values(studentObservations.value)) {
-      for (const o of obs) {
-        if (o.deal_subfolder) allSubfolders.add(o.deal_subfolder)
-      }
+    const userIds = students.value.map(s => s.id).filter(Boolean)
+    if (userIds.length === 0) {
+      studentSummaries.value = {}
+      return
     }
-    if (allSubfolders.size > 0) {
-      mastery.fetchMissingBoardCounts([...allSubfolders])
+
+    // One bulk call to /api/student-summaries instead of N round-trips
+    // per student. The endpoint reads from the `student_summary` table
+    // (a denormalised cache maintained on observation insert) plus the
+    // top-3 recent lessons from board_status — exactly what the
+    // roster view needs. See CORRECTNESS_AND_MASTERY.md §14.
+    const url = `${API_URL}/student-summaries?user_ids=${encodeURIComponent(userIds.join(','))}`
+    const res = await fetch(url, { headers: { 'x-api-key': API_KEY } })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+
+    const map = {}
+    for (const entry of data.summaries || []) {
+      if (entry.user_id) map[entry.user_id] = entry
     }
+    studentSummaries.value = map
   } catch (err) {
     error.value = err.message
     console.error('Failed to load student summaries:', err)
@@ -196,58 +194,48 @@ async function loadAllStudentSummaries() {
 /**
  * Compute mastery summary for a student.
  *
- * Reads from the backend `board_status` cache (via useBoardStatus).
- * The cache must be primed by `loadAllStudentSummaries`, which fetches
- * each student's full board_status alongside their raw observations.
+ * Reads from the `studentSummaries` map, populated in one bulk call
+ * by `loadAllStudentSummaries`. Yellow is intentionally 0 — that
+ * shade is a per-board cooldown decay; at the roster level we lump
+ * yellow into orange.
  *
- * Returns { green, orange, yellow, red, grey, total, lastObservationTime }
+ * Returns { green, blue, orange, yellow, red, grey, total, lastObservationTime }
  */
 function getStudentMasterySummary(userId) {
-  const boardStatusApi = useBoardStatus()
-  // Touch the cache version so callers re-render after fetch completes.
-  boardStatusApi.cacheVersion.value
+  const summary = studentSummaries.value[userId]
+  const empty = { green: 0, blue: 0, orange: 0, yellow: 0, red: 0, grey: 0, total: 0, lastObservationTime: null }
+  if (!summary) return empty
 
-  const apiBoards = boardStatusApi.getCachedBoards(userId, null) || []
-  const counts = { green: 0, blue: 0, orange: 0, yellow: 0, red: 0, grey: 0 }
-
-  let lastObservationTime = null
-  for (const board of apiBoards) {
-    const color = boardStatusApi.getDisplayColor(board.status, board.last_error_date)
-    counts[color] = (counts[color] || 0) + 1
-    if (board.last_observation_at &&
-        (!lastObservationTime || board.last_observation_at > lastObservationTime)) {
-      lastObservationTime = board.last_observation_at
-    }
-  }
+  const green = summary.boards_clean_correct || 0
+  const orange = (summary.boards_corrected || 0) + (summary.boards_close_correct || 0)
+  const red = summary.boards_failed || 0
+  const grey = summary.boards_not_attempted || 0
 
   return {
-    ...counts,
-    total: counts.green + counts.blue + counts.orange + counts.yellow + counts.red + counts.grey,
-    lastObservationTime
+    green,
+    blue: 0,
+    orange,
+    yellow: 0,
+    red,
+    grey,
+    total: green + orange + red + grey,
+    lastObservationTime: summary.last_observation_at || null
   }
 }
 
 /**
  * Get the N most recently practiced lesson names for a student.
+ *
+ * Reads `recent_lessons` from the bulk summary endpoint (already
+ * derived server-side from `board_status.last_observation_at`).
  */
 function getStudentRecentLessons(userId, limit = 3) {
-  const obs = studentObservations.value[userId] || []
+  const summary = studentSummaries.value[userId]
+  if (!summary || !Array.isArray(summary.recent_lessons)) return []
   const accomplishments = useAccomplishments()
-
-  // Group by subfolder, find most recent timestamp per lesson
-  const lessonTimes = {}
-  for (const o of obs) {
-    const sf = o.deal_subfolder
-    if (!sf) continue
-    if (!lessonTimes[sf] || o.timestamp > lessonTimes[sf]) {
-      lessonTimes[sf] = o.timestamp
-    }
-  }
-
-  return Object.entries(lessonTimes)
-    .sort(([, a], [, b]) => b.localeCompare(a))
+  return summary.recent_lessons
     .slice(0, limit)
-    .map(([sf]) => accomplishments.formatLessonName(sf))
+    .map(sf => accomplishments.formatLessonName(sf))
 }
 
 /**
@@ -402,6 +390,7 @@ function reset() {
   students.value = []
   studentObservations.value = {}
   studentRawObservations.value = {}
+  studentSummaries.value = {}
   loading.value = false
   error.value = null
   initialized.value = false
@@ -420,6 +409,7 @@ export function useTeacherRole() {
     viewerId,
     students,
     studentObservations,
+    studentSummaries,
     loading,
     error,
     initialized,
