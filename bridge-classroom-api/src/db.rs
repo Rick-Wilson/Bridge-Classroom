@@ -47,6 +47,37 @@ pub async fn init_db(database_url: &str) -> Result<Pool<Sqlite>, DbError> {
     Ok(pool)
 }
 
+/// Add a column to `table` only if it doesn't already exist.
+///
+/// `column_def` is the type and constraints, e.g. `"TEXT"` or
+/// `"INTEGER NOT NULL DEFAULT 0"`. Caller-supplied — not bound — so do not
+/// pass user input here.
+async fn add_column_if_missing(
+    pool: &Pool<Sqlite>,
+    table: &str,
+    column: &str,
+    column_def: &str,
+) -> Result<(), DbError> {
+    let exists: bool = sqlx::query_scalar(&format!(
+        "SELECT COUNT(*) > 0 FROM pragma_table_info('{}') WHERE name = ?",
+        table
+    ))
+    .bind(column)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if !exists {
+        let sql = format!("ALTER TABLE {} ADD COLUMN {} {}", table, column, column_def);
+        sqlx::query(&sql)
+            .execute(pool)
+            .await
+            .map_err(|e| DbError::Migration(e.to_string()))?;
+        tracing::info!("Added column {}.{}", table, column);
+    }
+    Ok(())
+}
+
 /// Run database migrations
 async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     // Users table - stores student information
@@ -627,18 +658,128 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         .await
         .map_err(|e| DbError::Migration(e.to_string()))?;
 
-    // View: board_status with human-readable username
+    // ===============================================================
+    // Correctness & Mastery v2 — see documentation/CORRECTNESS_AND_MASTERY.md
+    // (issue #2). Adds clear-text context fields to observations,
+    // expands board_status with per-board achievement state, adds
+    // schema_meta to gate one-shot data backfills, and adds
+    // student_summary for teacher-dashboard rollups (§14.2).
+    // ===============================================================
+
+    // ---- New observations columns (per CORRECTNESS_AND_MASTERY.md §16) ----
+    // status / wilderness populated by the recompute walker. The three
+    // context fields (exercise_id, assignment_id, jungle) are set by the
+    // client at insert time and used by the backend to derive wilderness.
+    add_column_if_missing(pool, "observations", "status", "TEXT").await?;
+    add_column_if_missing(pool, "observations", "wilderness", "TEXT").await?;
+    add_column_if_missing(pool, "observations", "exercise_id", "TEXT").await?;
+    add_column_if_missing(pool, "observations", "assignment_id", "TEXT").await?;
+    add_column_if_missing(pool, "observations", "jungle", "INTEGER NOT NULL DEFAULT 0").await?;
+
+    // ---- New board_status columns (per CORRECTNESS_AND_MASTERY.md §6, §7) ----
+    // The old `achievement` column is intentionally left in place; the
+    // new model replaces it with the (max_stars, wild_achievement) pair,
+    // and code stops reading the old column.
+    add_column_if_missing(pool, "board_status", "wilderness", "TEXT NOT NULL DEFAULT 'Tame'").await?;
+    add_column_if_missing(pool, "board_status", "last_error_date", "TEXT").await?;
+    add_column_if_missing(pool, "board_status", "star_count", "INTEGER NOT NULL DEFAULT 0").await?;
+    add_column_if_missing(pool, "board_status", "max_stars", "INTEGER NOT NULL DEFAULT 0").await?;
+    add_column_if_missing(pool, "board_status", "last_star_update", "TEXT").await?;
+    add_column_if_missing(pool, "board_status", "wild_achievement", "TEXT").await?;
+
+    // ---- Index for the "is the board cold?" check (CORRECTNESS_AND_MASTERY.md §7.2) ----
+    // Supports the wild_achievement promotion lookup: for a given
+    // (user, board), are there any observations in [t - 6 days, t)?
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_observations_user_board_ts
+           ON observations(user_id, deal_subfolder, deal_number, timestamp)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- schema_meta — gates one-shot data migrations ----
+    // Each row records that a named migration has run. Used to keep
+    // the v2 backfill (in a follow-up commit) from re-running on every
+    // server startup.
     sqlx::query(
         r#"
-        CREATE VIEW IF NOT EXISTS board_status_by_name AS
+        CREATE TABLE IF NOT EXISTS schema_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            completed_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- student_summary — denormalised per-student rollup (§14.2) ----
+    // A cache, not source of truth: rebuildable from board_status and
+    // observations at any time. Read by the teacher dashboard so the
+    // GUI never spans observations across multiple students.
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS student_summary (
+            user_id              TEXT PRIMARY KEY,
+            last_observation_at  TEXT,
+            total_observations   INTEGER NOT NULL DEFAULT 0,
+            distinct_lessons     INTEGER NOT NULL DEFAULT 0,
+            distinct_boards_seen INTEGER NOT NULL DEFAULT 0,
+
+            boards_not_attempted INTEGER NOT NULL DEFAULT 0,
+            boards_failed        INTEGER NOT NULL DEFAULT 0,
+            boards_corrected     INTEGER NOT NULL DEFAULT 0,
+            boards_close_correct INTEGER NOT NULL DEFAULT 0,
+            boards_clean_correct INTEGER NOT NULL DEFAULT 0,
+
+            boards_silver        INTEGER NOT NULL DEFAULT 0,
+            boards_gold          INTEGER NOT NULL DEFAULT 0,
+            on_star_track        INTEGER NOT NULL DEFAULT 0,
+
+            boards_recent_paw    INTEGER NOT NULL DEFAULT 0,
+            boards_fresh_paw     INTEGER NOT NULL DEFAULT 0,
+
+            lessons_exploring    INTEGER NOT NULL DEFAULT 0,
+            lessons_learning     INTEGER NOT NULL DEFAULT 0,
+            lessons_retaining    INTEGER NOT NULL DEFAULT 0,
+            lessons_mastering    INTEGER NOT NULL DEFAULT 0,
+
+            updated_at           TEXT NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- View: board_status with human-readable username ----
+    // DROP + CREATE rather than CREATE IF NOT EXISTS because the column
+    // list has changed (issue #2, CORRECTNESS_AND_MASTERY.md §16). Used
+    // by the DB browser for ad-hoc lookups where user IDs aren't
+    // memorable; surface the new achievement fields here too.
+    sqlx::query(r#"DROP VIEW IF EXISTS board_status_by_name"#)
+        .execute(pool)
+        .await
+        .map_err(|e| DbError::Migration(e.to_string()))?;
+    sqlx::query(
+        r#"
+        CREATE VIEW board_status_by_name AS
         SELECT
             bs.user_id,
             u.first_name || ' ' || u.last_name AS student_name,
-            u.email AS student_email,
+            u.email                            AS student_email,
             bs.deal_subfolder,
             bs.deal_number,
             bs.status,
-            bs.achievement,
+            bs.wilderness,
+            bs.last_error_date,
+            bs.star_count,
+            bs.max_stars,
+            bs.last_star_update,
+            bs.wild_achievement,
             bs.last_observation_at,
             bs.updated_at
         FROM board_status bs
@@ -729,7 +870,119 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
         tracing::info!("Assigned 2/1 Intermediate card to all existing users");
     }
 
+    // One-shot data backfill for the Correctness & Mastery v2 schema
+    // additions above. Gated by `schema_meta` so it runs exactly once.
+    run_v2_backfill(pool).await?;
+
     tracing::info!("Database migrations completed successfully");
+    Ok(())
+}
+
+/// One-shot backfill for the Correctness & Mastery v2 columns added in
+/// the section above. Walks every (user, board) tuple with observations
+/// through `recompute_board_history`, then rebuilds `student_summary`
+/// for every user with observations. Records completion in `schema_meta`
+/// so subsequent startups no-op.
+///
+/// See `documentation/CORRECTNESS_AND_MASTERY.md` §16 for the migration
+/// plan and §14.2 for the summary table shape.
+async fn run_v2_backfill(pool: &Pool<Sqlite>) -> Result<(), DbError> {
+    let already_done: bool = sqlx::query_scalar(
+        r#"SELECT COUNT(*) > 0 FROM schema_meta WHERE key = 'correctness_v2_backfill'"#,
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if already_done {
+        tracing::debug!("correctness_v2_backfill already complete, skipping");
+        return Ok(());
+    }
+
+    tracing::info!("Running correctness_v2_backfill...");
+    let started = std::time::Instant::now();
+
+    // 1. Recompute board_status (and per-observation status/wilderness)
+    //    for every distinct (user, board) tuple that appears in EITHER
+    //    table. UNION with board_status catches orphan rows whose
+    //    observations have been deleted — those get recomputed to
+    //    `not_attempted` under the new rules instead of stranding stale
+    //    enum values (e.g. `fresh_correct`) from the old model.
+    let boards: Vec<(String, String, i32)> = sqlx::query_as(
+        r#"
+        SELECT DISTINCT user_id, deal_subfolder, deal_number
+        FROM observations
+        WHERE deal_subfolder IS NOT NULL AND deal_number IS NOT NULL
+        UNION
+        SELECT user_id, deal_subfolder, deal_number FROM board_status
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    tracing::info!("v2 backfill: recomputing {} (user, board) tuples", boards.len());
+
+    let mut board_succeeded = 0_usize;
+    let mut board_failed = 0_usize;
+    for (user_id, subfolder, deal_number) in &boards {
+        match crate::routes::board_status::recompute_board_history(
+            pool, user_id, subfolder, *deal_number,
+        )
+        .await
+        {
+            Ok(()) => board_succeeded += 1,
+            Err(e) => {
+                tracing::error!(
+                    "v2 backfill: recompute failed for {}/{}/{}: {}",
+                    user_id, subfolder, deal_number, e
+                );
+                board_failed += 1;
+            }
+        }
+    }
+    tracing::info!(
+        "v2 backfill: board_status — {} succeeded, {} failed",
+        board_succeeded, board_failed
+    );
+
+    // 2. Build student_summary from the rebuilt board_status.
+    let users_with_obs: Vec<String> = sqlx::query_scalar(
+        r#"SELECT DISTINCT user_id FROM observations"#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    tracing::info!("v2 backfill: building student_summary for {} users", users_with_obs.len());
+
+    let mut summary_failed = 0_usize;
+    for user_id in &users_with_obs {
+        if let Err(e) = crate::student_summary::recompute_student_summary(pool, user_id).await {
+            tracing::error!("v2 backfill: summary failed for {}: {}", user_id, e);
+            summary_failed += 1;
+        }
+    }
+    if summary_failed > 0 {
+        tracing::warn!("v2 backfill: {} student_summary rows failed", summary_failed);
+    }
+
+    // 3. Mark complete so subsequent startups skip Steps 1 & 2.
+    let now = chrono::Utc::now().to_rfc3339();
+    sqlx::query(
+        r#"INSERT INTO schema_meta (key, value, completed_at) VALUES (?, ?, ?)"#,
+    )
+    .bind("correctness_v2_backfill")
+    .bind("done")
+    .bind(&now)
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    tracing::info!(
+        "correctness_v2_backfill complete in {:.2}s",
+        started.elapsed().as_secs_f64()
+    );
     Ok(())
 }
 

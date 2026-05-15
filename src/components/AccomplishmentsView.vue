@@ -134,6 +134,8 @@
 import { computed, onMounted, watch } from 'vue'
 import { useAccomplishments } from '../composables/useAccomplishments.js'
 import { useBoardMastery } from '../composables/useBoardMastery.js'
+import { useBoardStatus } from '../composables/useBoardStatus.js'
+import { useUserStore } from '../composables/useUserStore.js'
 import { generateBoardMasteryTestData } from '../utils/boardMasteryTestData.js'
 import BoardMasteryStrip from './BoardMasteryStrip.vue'
 
@@ -141,6 +143,8 @@ const emit = defineEmits(['close', 'navigate-to-deal'])
 
 const accomplishments = useAccomplishments()
 const mastery = useBoardMastery()
+const boardStatusApi = useBoardStatus()
+const userStore = useUserStore()
 
 // Check URL for test mode flag
 const urlParams = new URLSearchParams(window.location.search)
@@ -170,17 +174,25 @@ function onBoardClick(subfolder, dealNumber) {
 }
 
 /**
- * All lessons with mastery data, sorted alphabetically
+ * All lessons with mastery data, sorted alphabetically.
+ * Mastery comes from the backend `board_status` cache via
+ * useBoardStatus. The watcher below populates that cache.
  */
 const lessonMasteryList = computed(() => {
   const observations = mastery.getObservations()
   const lessons = mastery.extractLessonsFromObservations(observations)
+  const userId = userStore.currentUserId.value
+
+  // Touch the cache version so this computed re-runs when fetches land.
+  boardStatusApi.cacheVersion.value
 
   return lessons
     .map(lesson => {
-      const boardMasteryResults = mastery.computeBoardMastery(
-        observations,
-        lesson.subfolder,
+      const apiBoards = userId
+        ? (boardStatusApi.getCachedBoards(userId, lesson.subfolder) || [])
+        : []
+      const boardMasteryResults = boardStatusApi.buildBoardMastery(
+        apiBoards,
         lesson.boardNumbers
       )
       const lessonAchievement = mastery.computeLessonAchievement(boardMasteryResults)
@@ -192,9 +204,19 @@ const lessonMasteryList = computed(() => {
     .sort((a, b) => formatLessonName(a.subfolder).localeCompare(formatLessonName(b.subfolder)))
 })
 
-// Fetch board counts from GitHub for any lessons not in cache
-watch(lessonMasteryList, (lessons) => {
-  mastery.fetchMissingBoardCounts(lessons.map(l => l.subfolder))
+// Populate caches the lessons depend on: board-number cache and the
+// API `board_status` cache. Fires on mount and whenever the lesson set
+// changes (e.g. after switching users).
+watch(lessonMasteryList, async (lessons) => {
+  if (lessons.length === 0) return
+  const subfolders = lessons.map(l => l.subfolder)
+  mastery.fetchMissingBoardCounts(subfolders)
+  const userId = userStore.currentUserId.value
+  if (userId) {
+    await Promise.all(
+      subfolders.map(sf => boardStatusApi.fetchBoardStatus(userId, sf))
+    )
+  }
 }, { immediate: true })
 
 function formatLessonName(folderName) {

@@ -13,7 +13,10 @@ use crate::{
     AppState,
 };
 
-use super::board_status::recompute_board_status;
+use super::board_status::{derive_wilderness, recompute_board_history};
+use crate::student_summary::recompute_student_summary;
+
+use std::collections::HashSet;
 
 /// Query parameters for submit endpoint (for sendBeacon support)
 #[derive(Debug, Deserialize)]
@@ -57,25 +60,43 @@ pub async fn submit_observations(
     let mut stored = 0;
     let mut errors = Vec::new();
 
-    // Collect (user_id, deal_subfolder, deal_number) tuples for board status recomputation
-    let mut boards_to_recompute: Vec<(String, String, i32)> = Vec::new();
+    // Boards needing recomputation, and users needing a refreshed summary.
+    // Use HashSet to dedupe across multiple observations in the same batch.
+    let mut boards_to_recompute: HashSet<(String, String, i32)> = HashSet::new();
+    let mut users_to_refresh: HashSet<String> = HashSet::new();
 
     for encrypted_obs in req.observations {
         let obs = Observation::from_encrypted(encrypted_obs);
+
+        // CORRECTNESS_AND_MASTERY.md §11.2: derive wilderness from the
+        // observation's context fields, frozen at insert time.
+        let wilderness = derive_wilderness(
+            &state.db,
+            obs.deal_subfolder.as_deref(),
+            obs.exercise_id.as_deref(),
+            obs.assignment_id.as_deref(),
+            obs.jungle,
+        )
+        .await;
 
         match sqlx::query(
             r#"
             INSERT INTO observations (
                 id, user_id, timestamp, skill_path, correct, classroom,
-                deal_subfolder, deal_number, encrypted_data, iv, created_at, board_result
+                deal_subfolder, deal_number, encrypted_data, iv, created_at,
+                board_result, wilderness, exercise_id, assignment_id, jungle
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 encrypted_data = excluded.encrypted_data,
-                iv = excluded.iv,
-                correct = excluded.correct,
-                timestamp = excluded.timestamp,
-                board_result = excluded.board_result
+                iv             = excluded.iv,
+                correct        = excluded.correct,
+                timestamp      = excluded.timestamp,
+                board_result   = excluded.board_result,
+                wilderness     = excluded.wilderness,
+                exercise_id    = excluded.exercise_id,
+                assignment_id  = excluded.assignment_id,
+                jungle         = excluded.jungle
             "#,
         )
         .bind(&obs.id)
@@ -90,18 +111,22 @@ pub async fn submit_observations(
         .bind(&obs.iv)
         .bind(&obs.created_at)
         .bind(&obs.board_result)
+        .bind(&wilderness)
+        .bind(&obs.exercise_id)
+        .bind(&obs.assignment_id)
+        .bind(obs.jungle)
         .execute(&state.db)
         .await
         {
             Ok(_) => {
                 stored += 1;
-                // Track boards that need status recomputation
                 if let (Some(ref subfolder), Some(deal_num)) = (&obs.deal_subfolder, obs.deal_number) {
-                    boards_to_recompute.push((
+                    boards_to_recompute.insert((
                         obs.user_id.clone(),
                         subfolder.clone(),
                         deal_num,
                     ));
+                    users_to_refresh.insert(obs.user_id.clone());
                 }
             }
             Err(e) => {
@@ -111,17 +136,32 @@ pub async fn submit_observations(
         }
     }
 
-    // Recompute board status for affected boards
+    // Recompute board_status (and per-observation status/wilderness) for
+    // every affected (user, board). This is the v2 walker that produces
+    // the new state machine, stars, and wild_achievement.
     for (user_id, subfolder, deal_number) in &boards_to_recompute {
-        if let Err(e) = recompute_board_status(&state.db, user_id, subfolder, *deal_number).await {
+        if let Err(e) =
+            recompute_board_history(&state.db, user_id, subfolder, *deal_number).await
+        {
             tracing::error!(
-                "Failed to recompute board status for {}/{}/{}: {}",
+                "Failed to recompute board history for {}/{}/{}: {}",
                 user_id, subfolder, deal_number, e
             );
         }
     }
 
-    tracing::info!("Stored {}/{} observations", stored, received);
+    // Refresh the per-user summary row once for each affected user.
+    // student_summary is a cache; this is what keeps it in sync.
+    for user_id in &users_to_refresh {
+        if let Err(e) = recompute_student_summary(&state.db, user_id).await {
+            tracing::error!("Failed to refresh student_summary for {}: {}", user_id, e);
+        }
+    }
+
+    tracing::info!(
+        "Stored {}/{} observations ({} boards recomputed, {} summaries refreshed)",
+        stored, received, boards_to_recompute.len(), users_to_refresh.len(),
+    );
 
     Ok(Json(SubmitObservationsResponse {
         received,

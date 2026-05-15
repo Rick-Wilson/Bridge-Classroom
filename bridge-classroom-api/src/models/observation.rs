@@ -18,6 +18,14 @@ pub struct Observation {
     pub iv: String,
     pub created_at: String,
     pub board_result: Option<String>,
+    // Correctness & Mastery v2 — see CORRECTNESS_AND_MASTERY.md §11/§5.
+    // `status` is null until the recompute walker fills it in.
+    // `wilderness` is derived at insert time from the three context fields below.
+    pub status: Option<String>,
+    pub wilderness: Option<String>,
+    pub exercise_id: Option<String>,
+    pub assignment_id: Option<String>,
+    pub jungle: bool,
 }
 
 /// Metadata-only observation (for dashboard queries)
@@ -70,6 +78,14 @@ pub struct ObservationMetadataInput {
     pub deal_subfolder: Option<String>,
     pub deal_number: Option<i32>,
     pub board_result: Option<String>,
+    // Correctness & Mastery v2 context — see CORRECTNESS_AND_MASTERY.md §11.1.
+    // All three default to None/false for clients that haven't been updated yet.
+    #[serde(default)]
+    pub exercise_id: Option<String>,
+    #[serde(default)]
+    pub assignment_id: Option<String>,
+    #[serde(default)]
+    pub jungle: bool,
 }
 
 /// Request to submit observations
@@ -131,7 +147,10 @@ pub struct ObservationsMetadataResponse {
 }
 
 impl Observation {
-    /// Create an observation from an encrypted submission
+    /// Create an observation from an encrypted submission. `wilderness`
+    /// and `status` are left None here; the route handler computes
+    /// wilderness from the context fields before insert, and the
+    /// recompute walker fills status afterwards.
     pub fn from_encrypted(enc: EncryptedObservation) -> Self {
         let now = chrono::Utc::now().to_rfc3339();
 
@@ -148,6 +167,11 @@ impl Observation {
             encrypted_data: enc.encrypted_data,
             iv: enc.iv,
             created_at: now,
+            status: None,
+            wilderness: None,
+            exercise_id: enc.metadata.exercise_id,
+            assignment_id: enc.metadata.assignment_id,
+            jungle: enc.metadata.jungle,
         }
     }
 }

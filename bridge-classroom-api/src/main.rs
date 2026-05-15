@@ -16,6 +16,7 @@ mod config;
 mod db;
 mod models;
 mod routes;
+mod student_summary;
 
 use config::Config;
 
@@ -42,14 +43,11 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::from_env()?;
     tracing::info!("Loaded configuration");
 
-    // Initialize database
+    // Initialize database. The v2 backfill (CORRECTNESS_AND_MASTERY.md
+    // §16) runs inside run_migrations and handles populating
+    // board_status and student_summary from existing observations.
     let db = db::init_db(&config.database_url).await?;
     tracing::info!("Database initialized");
-
-    // Backfill board_status from existing observations (one-time, if table is empty)
-    if let Err(e) = routes::board_status::backfill_board_status(&db).await {
-        tracing::error!("Board status backfill failed: {}", e);
-    }
 
     // Build CORS layer
     let cors = build_cors_layer(&config);

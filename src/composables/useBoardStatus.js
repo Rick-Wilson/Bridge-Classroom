@@ -84,26 +84,60 @@ function invalidateCache(userId = null, dealSubfolder = null) {
 }
 
 /**
- * Get the display color for a board status, applying time-based logic.
- * - 'corrected' → 'yellow' if < 1hr old, 'orange' if >= 1hr
- * - Others map directly to their color
+ * Get the display color for a board status, applying cooldown decay.
+ * See CORRECTNESS_AND_MASTERY.md §5.3.
+ *
+ * Stored status values:
+ *   - 'failed'         → red
+ *   - 'corrected'      → yellow if last_error_date is within cooldown, else orange
+ *   - 'close_correct'  → yellow if last_error_date is within cooldown, else orange
+ *   - 'clean_correct'  → green
+ *   - 'not_attempted'  → grey
+ *
+ * `corrected` and `close_correct` share the same color schedule but
+ * are distinct stored values pedagogically.
+ *
  * @param {string} status - Board status from API
- * @param {string} [lastObservationAt] - ISO timestamp of last observation
+ * @param {string|null} [lastErrorDate] - ISO timestamp of most recent error, or null
  * @returns {string} CSS color class name
  */
-function getDisplayColor(status, lastObservationAt) {
+function getDisplayColor(status, lastErrorDate) {
   switch (status) {
-    case 'failed': return 'red'
-    case 'corrected': {
-      if (!lastObservationAt) return 'orange'
-      const age = Date.now() - new Date(lastObservationAt).getTime()
+    case 'failed':
+      return 'red'
+    case 'corrected':
+    case 'close_correct': {
+      if (!lastErrorDate) return 'orange'
+      const age = Date.now() - new Date(lastErrorDate).getTime()
       return age < COOLDOWN_MS ? 'yellow' : 'orange'
     }
-    case 'fresh_correct': return 'orange'
-    case 'clean_correct': return 'green'
+    case 'clean_correct':
+      return 'green'
     case 'not_attempted':
-    default: return 'grey'
+    default:
+      return 'grey'
   }
+}
+
+/**
+ * Map max_stars to the legacy "achievement" string used by older UI
+ * components. Per CORRECTNESS_AND_MASTERY.md §6.4:
+ *   max_stars = 0 → no badge
+ *   max_stars = 1 → silver
+ *   max_stars >= 2 → gold (capped)
+ *
+ * Components that need richer information should read `max_stars`
+ * directly from the mastery entry. This shim exists so older components
+ * (BoardMasteryStrip, AccomplishmentsView, etc.) keep rendering during
+ * the rollout.
+ *
+ * @param {number} maxStars
+ * @returns {'none'|'silver'|'gold'}
+ */
+function achievementFromMaxStars(maxStars) {
+  if (!maxStars || maxStars <= 0) return 'none'
+  if (maxStars === 1) return 'silver'
+  return 'gold'
 }
 
 /**
@@ -128,14 +162,29 @@ function buildBoardMastery(apiBoards, boardNumbers) {
         boardNumber: bn,
         status: 'grey',
         achievement: 'none',
+        maxStars: 0,
+        wildAchievement: null,
+        wilderness: 'Tame',
+        lastErrorDate: null,
+        lastStarUpdate: null,
         lastObservationAt: null
       }
     }
     return {
       boardNumber: bn,
-      status: getDisplayColor(entry.status, entry.last_observation_at),
-      achievement: entry.achievement || 'none',
-      lastObservationAt: entry.last_observation_at
+      // Display color derived from stored status + cooldown decay
+      // against last_error_date. See §5.3 of the doc.
+      status: getDisplayColor(entry.status, entry.last_error_date),
+      // Backwards-compat string for components that still read
+      // `board.achievement`. New components should read `maxStars`
+      // (and `wildAchievement`) directly.
+      achievement: achievementFromMaxStars(entry.max_stars),
+      maxStars: entry.max_stars || 0,
+      wildAchievement: entry.wild_achievement || null,
+      wilderness: entry.wilderness || 'Tame',
+      lastErrorDate: entry.last_error_date || null,
+      lastStarUpdate: entry.last_star_update || null,
+      lastObservationAt: entry.last_observation_at || null
     }
   })
 }
@@ -178,6 +227,25 @@ function mergeLocalPending(mastery, lessonSubfolder) {
   }
 }
 
+/**
+ * Read cached board status synchronously. Returns the cached array
+ * (possibly empty) or null if the cache hasn't been populated for
+ * this (userId, dealSubfolder). Reads the reactive cache, so calls
+ * from inside a Vue `computed()` re-run when the cache changes.
+ *
+ * Callers must trigger `fetchBoardStatus(userId, subfolder)` (typically
+ * on component mount) to populate the cache.
+ *
+ * @param {string} userId
+ * @param {string} [dealSubfolder]
+ * @returns {Array|null}
+ */
+function getCachedBoards(userId, dealSubfolder = null) {
+  if (!userId) return null
+  const cacheKey = `${userId}::${dealSubfolder || '__all__'}`
+  return cache[cacheKey]?.boards || null
+}
+
 export function useBoardStatus() {
   return {
     loading,
@@ -186,6 +254,7 @@ export function useBoardStatus() {
     invalidateCache,
     getDisplayColor,
     buildBoardMastery,
-    mergeLocalPending
+    mergeLocalPending,
+    getCachedBoards
   }
 }

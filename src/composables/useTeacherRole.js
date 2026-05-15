@@ -1,6 +1,7 @@
 import { ref, computed } from 'vue'
 import { useUserStore } from './useUserStore.js'
 import { useBoardMastery } from './useBoardMastery.js'
+import { useBoardStatus } from './useBoardStatus.js'
 import { useAccomplishments } from './useAccomplishments.js'
 import { decryptSharingGrant, decryptObservation } from '../utils/crypto.js'
 import { API_URL } from '@/utils/apiUrl.js'
@@ -161,8 +162,16 @@ async function loadAllStudentSummaries() {
   error.value = null
 
   try {
+    const boardStatusApi = useBoardStatus()
+
+    // Fetch observations and board_status for every student in parallel.
+    // board_status is what drives the mastery summary; observations are
+    // only used for the drilldown views.
     await Promise.allSettled(
-      students.value.map(s => fetchStudentObservations(s.id))
+      students.value.flatMap(s => [
+        fetchStudentObservations(s.id),
+        boardStatusApi.fetchBoardStatus(s.id, null)
+      ])
     )
 
     // Trigger board count fetching for any new lesson subfolders
@@ -186,29 +195,28 @@ async function loadAllStudentSummaries() {
 
 /**
  * Compute mastery summary for a student.
+ *
+ * Reads from the backend `board_status` cache (via useBoardStatus).
+ * The cache must be primed by `loadAllStudentSummaries`, which fetches
+ * each student's full board_status alongside their raw observations.
+ *
  * Returns { green, orange, yellow, red, grey, total, lastObservationTime }
  */
 function getStudentMasterySummary(userId) {
-  const obs = studentObservations.value[userId] || []
-  if (obs.length === 0) return { green: 0, blue: 0, orange: 0, yellow: 0, red: 0, grey: 0, total: 0, lastObservationTime: null }
+  const boardStatusApi = useBoardStatus()
+  // Touch the cache version so callers re-render after fetch completes.
+  boardStatusApi.cacheVersion.value
 
-  const mastery = useBoardMastery()
-  const lessons = mastery.extractLessonsFromObservations(obs)
-
+  const apiBoards = boardStatusApi.getCachedBoards(userId, null) || []
   const counts = { green: 0, blue: 0, orange: 0, yellow: 0, red: 0, grey: 0 }
 
-  for (const lesson of lessons) {
-    const boardResults = mastery.computeBoardMastery(obs, lesson.subfolder, lesson.boardNumbers)
-    for (const board of boardResults) {
-      counts[board.status] = (counts[board.status] || 0) + 1
-    }
-  }
-
-  // Find last observation time
   let lastObservationTime = null
-  for (const o of obs) {
-    if (!lastObservationTime || o.timestamp > lastObservationTime) {
-      lastObservationTime = o.timestamp
+  for (const board of apiBoards) {
+    const color = boardStatusApi.getDisplayColor(board.status, board.last_error_date)
+    counts[color] = (counts[color] || 0) + 1
+    if (board.last_observation_at &&
+        (!lastObservationTime || board.last_observation_at > lastObservationTime)) {
+      lastObservationTime = board.last_observation_at
     }
   }
 

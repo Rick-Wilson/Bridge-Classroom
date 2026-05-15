@@ -96,7 +96,13 @@ export function createObservation({
   skillPath,
   assignment = null,
   prompts = null,
-  boardResult = null
+  boardResult = null,
+  // Correctness & Mastery v2 context — see CORRECTNESS_AND_MASTERY.md §11.1.
+  // The practice flow supplies whichever of these applies; the backend
+  // derives wilderness from the combination. Default values mean "regular
+  // self-directed lesson practice → Tame".
+  exerciseId = null,
+  jungle = false
 }) {
   const totalPrompts = deal.steps?.filter(s => s.type === 'bid').length || 1
   const studentSeat = deal.studentSeat || 'S'
@@ -146,12 +152,22 @@ export function createObservation({
     skill_path: skillPath,
     board_result: boardResult,
     assignment,
-    prompts: prompts || []
+    prompts: prompts || [],
+    exercise_id: exerciseId,
+    jungle
   }
 }
 
 /**
- * Extract metadata from an observation for server-side queries
+ * Extract metadata from an observation for server-side queries.
+ *
+ * The new clear-text context fields (exercise_id, assignment_id,
+ * jungle) drive the wilderness derivation on the backend — see
+ * CORRECTNESS_AND_MASTERY.md §11.1. Practice flows that originate
+ * from an exercise/assignment/jungle must populate the corresponding
+ * field when constructing the observation; the defaults below mean
+ * "regular self-directed lesson practice → Tame".
+ *
  * @param {Observation} observation
  * @param {string} classroom - User's classroom
  * @returns {Object} Metadata object
@@ -167,7 +183,13 @@ export function extractMetadata(observation, classroom) {
     board_result: observation.board_result || null,
     classroom: classroom || null,
     deal_subfolder: observation.deal.subfolder,
-    deal_number: observation.deal.deal_number
+    deal_number: observation.deal.deal_number,
+    // Correctness & Mastery v2 context (clear-text). Lifted from the
+    // observation body so the backend can derive wilderness without
+    // decryption.
+    exercise_id: observation.exercise_id || null,
+    assignment_id: observation.assignment?.id || null,
+    jungle: observation.jungle === true
   }
 }
 

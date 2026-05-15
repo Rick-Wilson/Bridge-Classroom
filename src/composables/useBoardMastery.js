@@ -208,11 +208,22 @@ function getAllObservationsIncludingLocal(accomplishments) {
 }
 
 /**
- * Raw mastery computation (non-reactive). Use this inside your own computed().
+ * Raw mastery computation over an arbitrary subset of observations.
  *
- * @param {Array} allObservations - All observations to search through
- * @param {string} lessonSubfolder - The deal_subfolder value (e.g. "Negative")
- * @param {Array<number>} boardNumbers - Board numbers in the lesson
+ * NOTE: This is **not** the canonical path for board state or
+ * Silver/Gold stars — those come from the backend `board_status` table
+ * via `useBoardStatus` (CORRECTNESS_AND_MASTERY.md §10). This function
+ * is retained for **exercise / assignment scoring** that needs to
+ * compute board outcomes over a *date-bounded slice* of observations
+ * (e.g. "how is the student doing on the boards in this assignment,
+ * counting only plays since assigned_at?"). The doc says those modes
+ * do not contribute to board-level mastery (§8); they have their own
+ * scoring, which is what this function powers.
+ *
+ * @param {Array} allObservations - Observations to search through (may
+ *   already be filtered by date or otherwise)
+ * @param {string} lessonSubfolder
+ * @param {Array<number>} boardNumbers
  * @returns {Array<{boardNumber, status, achievement, attemptCount, lastAttemptTime}>}
  */
 function computeBoardMastery(allObservations, lessonSubfolder, boardNumbers) {

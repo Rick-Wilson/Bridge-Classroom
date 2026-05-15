@@ -179,17 +179,12 @@ const lessonMasteryList = computed(() => {
 
   return lessons
     .map(lesson => {
-      let boardMasteryResults
-      const apiData = apiBySubfolder[lesson.subfolder]
-
-      if (apiData && apiData.length > 0) {
-        // Use API data
-        boardMasteryResults = boardStatusApi.buildBoardMastery(apiData, lesson.boardNumbers)
-      } else {
-        // Fall back to local computation
-        boardMasteryResults = mastery.computeBoardMastery(obs, lesson.subfolder, lesson.boardNumbers)
-      }
-
+      // Backend `board_status` is the single source of truth — see
+      // CORRECTNESS_AND_MASTERY.md §10. If the API cache is empty for
+      // a lesson, all boards show as not_attempted/grey until the
+      // fetch lands; the watcher below populates the cache.
+      const apiData = apiBySubfolder[lesson.subfolder] || []
+      const boardMasteryResults = boardStatusApi.buildBoardMastery(apiData, lesson.boardNumbers)
       const lessonAchievement = mastery.computeLessonAchievement(boardMasteryResults)
       return {
         ...lesson,

@@ -139,21 +139,14 @@ const boardMastery = computed(() => {
     return results
   }
 
-  let results
-
-  if (useApi.value && apiBoards.value.length > 0) {
-    // API path: use server-computed board status
-    results = boardStatusApi.buildBoardMastery(apiBoards.value, props.boardNumbers)
-    // Overlay local pending observations
-    boardStatusApi.mergeLocalPending(results, props.lessonSubfolder)
-  } else {
-    // Fallback: local computation (offline or no API data yet)
-    results = mastery.computeBoardMastery(
-      mastery.getObservations(),
-      props.lessonSubfolder,
-      props.boardNumbers
-    )
-  }
+  // Backend is the single source of truth for board state and mastery
+  // (CORRECTNESS_AND_MASTERY.md §10). Local pending observations are
+  // merged on top for instant feedback before the next sync.
+  let results = boardStatusApi.buildBoardMastery(
+    apiBoards.value || [],
+    props.boardNumbers
+  )
+  boardStatusApi.mergeLocalPending(results, props.lessonSubfolder)
 
   // Local override: force board statuses during/after play
   if (props.forceBoardStatus) {
