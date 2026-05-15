@@ -6,6 +6,8 @@ const API_KEY = import.meta.env.VITE_API_KEY || ''
 
 // Singleton cache: { "userId::subfolder" → { boards: [...], fetchedAt: timestamp } }
 const cache = reactive({})
+// Lesson-mastery cache: { userId → { tiers: { subfolder → "Exploring"|"Learning"|"Retaining"|"Mastering" }, fetchedAt } }
+const lessonMasteryCache = reactive({})
 const loading = ref(false)
 const cacheVersion = ref(0)
 
@@ -246,6 +248,58 @@ function getCachedBoards(userId, dealSubfolder = null) {
   return cache[cacheKey]?.boards || null
 }
 
+/**
+ * Fetch per-lesson mastery tiers (Exploring / Learning / Retaining /
+ * Mastering) for a user. Caches by userId. See
+ * `documentation/CORRECTNESS_AND_MASTERY.md` §13.
+ *
+ * @param {string} userId
+ * @param {boolean} [force=false] - Bypass cache
+ * @returns {Promise<Object<string,string>>} Map subfolder → tier
+ */
+async function fetchLessonMastery(userId, force = false) {
+  if (!userId) return {}
+  const entry = lessonMasteryCache[userId]
+  if (!force && entry && Date.now() - entry.fetchedAt < 30000) {
+    return entry.tiers
+  }
+
+  try {
+    const res = await fetch(
+      `${API_URL}/lesson-mastery?user_id=${encodeURIComponent(userId)}`,
+      { headers: { 'x-api-key': API_KEY } }
+    )
+    if (!res.ok) {
+      console.error('Failed to fetch lesson mastery:', res.status)
+      return lessonMasteryCache[userId]?.tiers || {}
+    }
+    const data = await res.json()
+    const tiers = {}
+    for (const entry of data.lessons || []) {
+      if (entry.deal_subfolder && entry.tier) {
+        tiers[entry.deal_subfolder] = entry.tier
+      }
+    }
+    lessonMasteryCache[userId] = { tiers, fetchedAt: Date.now() }
+    return tiers
+  } catch (err) {
+    console.error('Failed to fetch lesson mastery:', err)
+    return lessonMasteryCache[userId]?.tiers || {}
+  }
+}
+
+/**
+ * Read cached lesson mastery tiers synchronously. Returns the map
+ * subfolder → tier (possibly empty) or null if not yet fetched.
+ *
+ * @param {string} userId
+ * @returns {Object<string,string>|null}
+ */
+function getCachedLessonTiers(userId) {
+  if (!userId) return null
+  return lessonMasteryCache[userId]?.tiers || null
+}
+
 export function useBoardStatus() {
   return {
     loading,
@@ -255,6 +309,8 @@ export function useBoardStatus() {
     getDisplayColor,
     buildBoardMastery,
     mergeLocalPending,
-    getCachedBoards
+    getCachedBoards,
+    fetchLessonMastery,
+    getCachedLessonTiers
   }
 }

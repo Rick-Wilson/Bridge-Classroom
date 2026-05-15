@@ -54,6 +54,10 @@ export function useRecentLessons() {
     // Touch the cache version so the computed re-runs after invalidation.
     boardStatusApi.cacheVersion.value
 
+    const tiersByLesson = userId
+      ? (boardStatusApi.getCachedLessonTiers(userId) || {})
+      : {}
+
     const enriched = lessons.map(lesson => {
       const apiBoards = userId
         ? (boardStatusApi.getCachedBoards(userId, lesson.subfolder) || [])
@@ -88,7 +92,10 @@ export function useRecentLessons() {
         untried: untriedCount,
         resumeDealNumber,
         lastActivity: lesson.lastActivity,
-        relativeTime: formatRelativeTime(lesson.lastActivity)
+        relativeTime: formatRelativeTime(lesson.lastActivity),
+        // Lesson mastery tier per CORRECTNESS_AND_MASTERY.md §13.
+        // Null until /api/lesson-mastery has been fetched.
+        tier: tiersByLesson[lesson.subfolder] || null
       }
     })
 
@@ -119,9 +126,10 @@ export function useRecentLessons() {
 
     const userId = userStore.currentUserId.value
     if (userId) {
-      await Promise.all(
-        subfolders.map(sf => boardStatusApi.fetchBoardStatus(userId, sf))
-      )
+      await Promise.all([
+        ...subfolders.map(sf => boardStatusApi.fetchBoardStatus(userId, sf)),
+        boardStatusApi.fetchLessonMastery(userId)
+      ])
     }
   }
 

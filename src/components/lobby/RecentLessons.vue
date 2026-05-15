@@ -22,7 +22,14 @@
             <span v-if="lesson.collectionName" class="collection-label">
               {{ lesson.collectionName.toUpperCase() }}
             </span>
-            <span class="lesson-name">{{ lesson.displayName }}</span>
+            <span class="lesson-name">
+              {{ lesson.displayName }}
+              <span
+                v-if="lesson.tier"
+                class="tier-badge"
+                :class="`tier-${lesson.tier.toLowerCase()}`"
+              >{{ lesson.tier }}</span>
+            </span>
             <span class="board-count">{{ boardProgressText(lesson) }}</span>
           </div>
           <div class="card-right">
@@ -168,6 +175,36 @@ onMounted(() => {
   font-weight: 600;
   color: var(--text-primary, #1a1a1a);
   line-height: 1.2;
+}
+
+/* Lesson mastery tier (CORRECTNESS_AND_MASTERY.md §13). */
+.tier-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-family: var(--font-body, system-ui, sans-serif);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  vertical-align: 2px;
+}
+.tier-badge.tier-exploring {
+  background: #eef0f3;
+  color: #5f6b7a;
+}
+.tier-badge.tier-learning {
+  background: #dde9f5;
+  color: #1d4f80;
+}
+.tier-badge.tier-retaining {
+  background: #d8efdc;
+  color: #1f6638;
+}
+.tier-badge.tier-mastering {
+  background: #fbe9b8;
+  color: #7a5a08;
 }
 
 .board-count {

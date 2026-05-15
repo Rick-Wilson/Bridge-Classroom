@@ -503,9 +503,9 @@ across every board in the lesson. Five possible values:
 | ------------ | -------------------------------------------------------------------------------------------------------------------- |
 | *(none)*     | No observations exist for any board in this lesson.                                                                  |
 | Exploring    | At least one observation exists for at least one board in the lesson.                                                |
-| Learning     | ≥ **50%** of the lesson's boards have `max_stars ≥ 2` (silver-or-better).                                            |
-| Retaining    | ≥ **80%** of the lesson's boards have `max_stars ≥ 3` (gold star).                                                   |
-| Mastering    | ≥ **80%** of the lesson's boards have `max_stars ≥ 3` **OR** `wild_achievement = 'Fresh'`, **AND** ≥ **25%** of the lesson's boards have `wild_achievement = 'Fresh'`. |
+| Learning     | ≥ **50%** of the lesson's boards have `max_stars ≥ 1` (silver-or-better).                                            |
+| Retaining    | ≥ **80%** of the lesson's boards have `max_stars ≥ 2` (gold star).                                                   |
+| Mastering    | ≥ **80%** of the lesson's boards have `max_stars ≥ 2` **OR** `wild_achievement = 'Fresh'`, **AND** ≥ **25%** of the lesson's boards have `wild_achievement = 'Fresh'`. |
 
 ### 13.1 What "the lesson's boards" means
 
@@ -601,9 +601,9 @@ boards_corrected         INT
 boards_close_correct     INT
 boards_clean_correct     INT
 
--- Star achievement distribution (using max_stars)
-boards_silver            INT   -- max_stars = 2
-boards_gold              INT   -- max_stars >= 3
+-- Star achievement distribution (using max_stars; see §6.4)
+boards_silver            INT   -- max_stars = 1
+boards_gold              INT   -- max_stars >= 2
 on_star_track            INT   -- max_stars > 0 OR last_star_update IS NOT NULL
 
 -- Paw achievement distribution
