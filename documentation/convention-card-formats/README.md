@@ -6,10 +6,15 @@ importer/exporter code lives in [src/utils/](../../src/utils/).
 
 ## Files in this directory
 
+For the cross-format **field-by-field mapping** (our JSON ↔ bridgeodex ↔
+ACBL Classic ↔ ACBL New), see **[SCHEMA_MAPPING.md](SCHEMA_MAPPING.md)**.
+
 | File | Format | Source | State |
 |------|--------|--------|-------|
 | [bbo-card-example.xml](bbo-card-example.xml) | BBO XML | Rick + Art card exported from BBO | Fully filled card |
 | [swan-bridge-card-schema.json](swan-bridge-card-schema.json) | Swan Bridge JSON | BridgeWinners export | Empty schema (all leaves blank) |
+| [acbl-classic-2023-blank.pdf](acbl-classic-2023-blank.pdf) | ACBL Classic PDF (2023 revision) | ACBL fillable form | Blank — layout reference for the PDF exporter |
+| [acbl-new-blank.pdf](acbl-new-blank.pdf) | ACBL New format PDF | ACBL fillable form | Blank — alternate fill target |
 
 A bridgeodex JSON sample lives implicitly in the test cards we've been
 importing — no need to duplicate it here while
