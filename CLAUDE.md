@@ -42,7 +42,7 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 ## Deployment Architecture
 
 - **Website**: https://bridge-classroom.com
-- **Discord**: https://discord.gg/e7MZ3Z5A
+- **Discord**: https://discord.gg/GqyyU3sVS4
 - **Patreon**: https://patreon.com/BridgeCraftwork
 - **Email support**: bridge-craftwork@gmail.com
 - **GitHub**: https://github.com/Rick-Wilson/Bridge-Classroom
