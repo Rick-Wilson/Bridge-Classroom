@@ -455,13 +455,29 @@ backend always speaks last.
 
 ### 11.4 Pre-existing observations
 
-Observations recorded before this work shipped have none of the
-three context fields populated, and recomputing their wilderness
-would require decrypting their original `assignment` payload. The
-backfill assigns `wilderness = Tame` to them and leaves the
-context fields null. This is safe: no Jungle observations exist
-yet (issue #11 isn't built), and no Fresh paws have ever been
-awarded, so no historical achievement state is at risk.
+Observations recorded before this work shipped landed with all
+three context fields null and `wilderness = Tame` — the safe
+default. This was correct for wilderness (no Jungle yet, no Fresh
+paws to retract) but left `assignment_id` and `exercise_id` empty,
+which the teacher progress UI and the exercise usage rollup both
+needed populated.
+
+Issue #15 retroactively linked those rows. A one-shot startup
+backfill walked every assignment and stamped `assignment_id` +
+`exercise_id` on every observation that matched the assignment's
+classroom membership, the exercise's board list, and a
+`timestamp >= assigned_at` window — the same fuzzy join the
+legacy progress query encoded. 816 observations were linked in
+this pass; the rest are free-form practice and stay null. The
+backfill code has since been removed; new observations populate
+the columns directly from the assignment-mode practice flow.
+
+A historical surprise worth recording: the encrypted blob's
+`assignment.id` sub-field referenced in §16 was never actually
+populated by the frontend in practice. The forward path always
+wrote `assignment_id` to the clear-text column directly; the
+blob-side copy was a spec artifact that the production code
+never honored.
 
 ## 12. What's stored vs. encrypted
 
