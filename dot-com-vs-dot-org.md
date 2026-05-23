@@ -145,6 +145,18 @@ service) ever needs to be set up from scratch, the steps are:
   point to from BBO/Discord/Patreon, and that has the reputation +
   inbound traffic. We need both.
 
+## Measuring `.com` vs `.org` usage
+
+We use **GoatCounter** as a client-side beacon on both domains and
+filter by hostname in the dashboard. Cloudflare's zone analytics
+isn't viable here because `.com` is DNS-only (grey cloud) on
+Cloudflare and the HTTP requests go straight to GitHub Pages — only
+`.org` would show up. The client-side beacon counts both equally.
+
+See [site-analytics.md](site-analytics.md) for the GoatCounter
+setup, which HTML files carry the snippet, and how to add custom
+events.
+
 ## Quick mental model
 
 > The TLD on the address bar must equal the TLD on every API request
