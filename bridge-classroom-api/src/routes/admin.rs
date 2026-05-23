@@ -685,58 +685,75 @@ fn get_disk_usage() -> (f64, f64) {
 // Observation context backfill (issue #15 — TEMPORARY)
 // =====================================================================
 //
-// One-shot pass that decrypts every observation whose `context_resolved_at`
-// is null, extracts `assignment.id` from the plaintext blob, and writes
-// `assignment_id` + the joined `exercise_id` back to the row in the
-// clear. After running once on the prod DB and confirming the data
-// looks right, this entire section can be deleted along with the
-// `context_resolved_at` column migration.
+// One-shot pass that links pre-rollout observations to their owning
+// assignment by mirroring the time-window fuzzy match
+// `compute_student_progress()` has been using all along: for each
+// assignment, find every observation by a member of that assignment's
+// classroom (or the single student, for student-targeted assignments)
+// on a board that's in the exercise, with timestamp >= assigned_at,
+// and stamp `assignment_id` + `exercise_id` on those rows.
 //
-// Why startup and not an endpoint: this is a one-shot. Hooking it in
-// after `init_db` in `main.rs` means it runs on the next deploy without
-// anyone needing to remember to curl an admin route. The
-// `context_resolved_at` stamp keeps subsequent restarts cheap — the
-// driving WHERE clause finds zero rows once the backfill has completed.
+// We don't decrypt anything — investigation showed `assignment.id` was
+// never written into the encrypted blob in practice. The fuzzy match
+// is the system's de-facto source of truth and the GUI already relies
+// on it, so we replicate it once into the clear-text columns and then
+// switch the GUI off the fuzzy match.
+//
+// Soft spot the user has accepted: any free-form practice on a board
+// already in an assignment, *after* the assignment date, gets pulled in
+// too. They've been living with this in the existing progress view and
+// judged it acceptable ("not many cases of someone running an exercise
+// hand after completing the exercise").
 //
 // Wilderness assumption (CORRECTNESS_AND_MASTERY.md §11.4 + §11.2): the
-// SQL audit you ran returned zero exercises that mix lessons unevenly
-// enough to trigger Wild, so every backfilled row stays `wilderness =
-// 'Tame'`. No board_status recompute is needed; nothing downstream
-// changes. If a future deploy adds a Wild-eligible exercise, the
-// normal observation-insert path handles wilderness derivation, not
-// this backfill.
+// SQL audit returned zero exercises that mix lessons unevenly enough
+// to trigger Wild, so every backfilled row stays `wilderness = 'Tame'`.
+// No board_status recompute needed.
+//
+// Idempotency: `observations.context_resolved_at` is stamped on every
+// row we touch — stays cheap on subsequent restarts. Linked rows are
+// also guarded by `assignment_id IS NULL` so a re-run can't clobber a
+// value the forward path has correctly set.
 
 #[derive(Debug, Default, Serialize)]
 pub struct ContextBackfillStats {
-    pub users_seen: usize,
-    pub users_skipped_no_key: usize,
-    pub rows_processed: usize,
-    pub rows_with_assignment: usize,
-    pub rows_without_assignment: usize,
-    pub rows_assignment_missing: usize, // blob had an assignment.id that doesn't exist in assignments table
-    pub decrypt_errors: usize,
-    pub parse_errors: usize,
-    pub update_errors: usize,
+    pub assignments_processed: usize,
+    pub linked_observations: u64,         // got assignment_id + exercise_id stamped
+    pub unlinked_observations: u64,       // free-form practice; only context_resolved_at stamped
+    pub assignments_skipped_malformed: usize,
+    pub errors: usize,
 }
 
 #[derive(sqlx::FromRow)]
-struct UnresolvedObservation {
+struct AssignmentForBackfill {
     id: String,
-    encrypted_data: String,
-    iv: String,
+    exercise_id: String,
+    classroom_id: Option<String>,
+    student_id: Option<String>,
+    assigned_at: String,
 }
 
-/// Walk every user's still-unresolved observations, decrypt each blob,
-/// and stamp the clear-text context fields. Idempotent — only touches
-/// rows where `context_resolved_at IS NULL`.
+/// Stamp `observations.assignment_id` and `exercise_id` on every row
+/// the existing fuzzy progress join would have matched, then mark the
+/// rest as resolved-but-not-linked. Idempotent.
 pub async fn backfill_observation_context(
     pool: &sqlx::SqlitePool,
-    recovery_secret: &str,
 ) -> Result<ContextBackfillStats, String> {
     let now = chrono::Utc::now().to_rfc3339();
     let mut stats = ContextBackfillStats::default();
 
-    // Quick exit: anything to do at all?
+    // The earlier decrypt-based backfill stamped most rows without
+    // populating any link, so we can't trust the existing
+    // `context_resolved_at` as "already done." Clear it once at the
+    // top so every row is reconsidered, and so the unlinked-count we
+    // report at the end is honest. This is cheap (one UPDATE per
+    // restart) and only exists for the lifetime of this temporary
+    // backfill.
+    sqlx::query("UPDATE observations SET context_resolved_at = NULL")
+        .execute(pool)
+        .await
+        .map_err(|e| format!("Reset of context_resolved_at failed: {}", e))?;
+
     let pending: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM observations WHERE context_resolved_at IS NULL",
     )
@@ -745,142 +762,107 @@ pub async fn backfill_observation_context(
     .map_err(|e| format!("Pending count failed: {}", e))?;
 
     if pending == 0 {
-        tracing::info!("Context backfill: 0 unresolved observations — nothing to do");
+        tracing::info!("Context backfill: nothing to do");
         return Ok(stats);
     }
     tracing::info!("Context backfill: starting with {} unresolved observations", pending);
 
-    // Users who still have unresolved observations. Users with no
-    // recovery key can't be processed — they get skipped (no stamp, so
-    // we'll retry on a future run if a key ever appears).
-    let users: Vec<UserRecoveryRow> = sqlx::query_as(
-        r#"
-        SELECT DISTINCT u.id, u.recovery_encrypted_key
-        FROM users u
-        JOIN observations o ON o.user_id = u.id
-        WHERE o.context_resolved_at IS NULL
-        "#,
+    let assignments: Vec<AssignmentForBackfill> = sqlx::query_as(
+        "SELECT id, exercise_id, classroom_id, student_id, assigned_at FROM assignments",
     )
     .fetch_all(pool)
     .await
-    .map_err(|e| format!("User scan failed: {}", e))?;
+    .map_err(|e| format!("Assignment fetch failed: {}", e))?;
 
-    for user in &users {
-        stats.users_seen += 1;
+    for assignment in &assignments {
+        stats.assignments_processed += 1;
 
-        let encrypted_key = match &user.recovery_encrypted_key {
-            Some(k) if !k.is_empty() => k,
-            _ => {
-                stats.users_skipped_no_key += 1;
-                continue;
-            }
+        // Resolve the candidate student list. Classroom-targeted
+        // assignments fan out to every classroom member; student-targeted
+        // assignments are exactly one student. Anything else is malformed
+        // and we skip — the CHECK constraint on `assignments` should
+        // already prevent this, but we don't trust it.
+        let student_ids: Vec<String> = if let Some(student_id) = &assignment.student_id {
+            vec![student_id.clone()]
+        } else if let Some(classroom_id) = &assignment.classroom_id {
+            sqlx::query_scalar(
+                "SELECT student_id FROM classroom_members WHERE classroom_id = ?",
+            )
+            .bind(classroom_id)
+            .fetch_all(pool)
+            .await
+            .map_err(|e| format!("Classroom member fetch failed: {}", e))?
+        } else {
+            stats.assignments_skipped_malformed += 1;
+            continue;
         };
 
-        let aes_key = match decrypt_for_recovery(encrypted_key, recovery_secret) {
-            Ok(k) => k,
-            Err(e) => {
-                tracing::warn!("Recovery key decrypt failed for {}: {}", user.id, e);
-                stats.users_skipped_no_key += 1;
-                continue;
-            }
-        };
+        if student_ids.is_empty() {
+            // Classroom is empty — no observations to link, nothing
+            // else to do for this assignment. Continue.
+            continue;
+        }
 
-        let rows: Vec<UnresolvedObservation> = sqlx::query_as(
+        // UPDATE every matching observation. The IN-list for student_ids
+        // is built with explicit placeholders so sqlx binds it safely.
+        let placeholders = std::iter::repeat("?")
+            .take(student_ids.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
             r#"
-            SELECT id, encrypted_data, iv
-            FROM observations
-            WHERE user_id = ? AND context_resolved_at IS NULL
+            UPDATE observations
+            SET assignment_id       = ?,
+                exercise_id         = ?,
+                context_resolved_at = ?
+            WHERE assignment_id IS NULL
+              AND timestamp >= ?
+              AND user_id IN ({students})
+              AND EXISTS (
+                  SELECT 1 FROM exercise_boards eb
+                  WHERE eb.exercise_id    = ?
+                    AND eb.deal_subfolder = observations.deal_subfolder
+                    AND eb.deal_number    = observations.deal_number
+              )
             "#,
-        )
-        .bind(&user.id)
-        .fetch_all(pool)
-        .await
-        .map_err(|e| format!("Observation fetch failed for {}: {}", user.id, e))?;
+            students = placeholders
+        );
 
-        for obs in rows {
-            // Decrypt
-            let plaintext = match decrypt_observation_data(&obs.encrypted_data, &obs.iv, &aes_key) {
-                Ok(t) => t,
-                Err(e) => {
-                    tracing::warn!("Decrypt failed for obs {}: {}", obs.id, e);
-                    stats.decrypt_errors += 1;
-                    continue;
-                }
-            };
+        let mut q = sqlx::query(&sql)
+            .bind(&assignment.id)
+            .bind(&assignment.exercise_id)
+            .bind(&now)
+            .bind(&assignment.assigned_at);
+        for sid in &student_ids {
+            q = q.bind(sid);
+        }
+        q = q.bind(&assignment.exercise_id);
 
-            let blob: serde_json::Value = match serde_json::from_str(&plaintext) {
-                Ok(v) => v,
-                Err(e) => {
-                    tracing::warn!("JSON parse failed for obs {}: {}", obs.id, e);
-                    stats.parse_errors += 1;
-                    continue;
-                }
-            };
-
-            // Per CORRECTNESS_AND_MASTERY.md §16: `assignment.id` was the
-            // encrypted sub-field that became the clear-text column.
-            let assignment_id_from_blob = blob
-                .get("assignment")
-                .and_then(|a| a.get("id"))
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
-
-            let result = if let Some(aid) = assignment_id_from_blob {
-                // Resolve exercise_id from the assignments table. If the
-                // assignment has since been deleted, we still record the
-                // assignment_id (it's a string reference, not a FK), and
-                // exercise_id stays null.
-                let exercise_id: Option<String> = sqlx::query_scalar(
-                    "SELECT exercise_id FROM assignments WHERE id = ?",
-                )
-                .bind(&aid)
-                .fetch_optional(pool)
-                .await
-                .ok()
-                .flatten();
-
-                if exercise_id.is_some() {
-                    stats.rows_with_assignment += 1;
-                } else {
-                    stats.rows_assignment_missing += 1;
-                }
-
-                sqlx::query(
-                    r#"
-                    UPDATE observations
-                    SET assignment_id        = ?,
-                        exercise_id          = ?,
-                        context_resolved_at  = ?
-                    WHERE id = ?
-                    "#,
-                )
-                .bind(&aid)
-                .bind(&exercise_id)
-                .bind(&now)
-                .bind(&obs.id)
-                .execute(pool)
-                .await
-            } else {
-                stats.rows_without_assignment += 1;
-                // Free-form practice — no assignment, just stamp the row.
-                sqlx::query(
-                    "UPDATE observations SET context_resolved_at = ? WHERE id = ?",
-                )
-                .bind(&now)
-                .bind(&obs.id)
-                .execute(pool)
-                .await
-            };
-
-            match result {
-                Ok(_) => stats.rows_processed += 1,
-                Err(e) => {
-                    tracing::warn!("Context update failed for obs {}: {}", obs.id, e);
-                    stats.update_errors += 1;
-                }
+        match q.execute(pool).await {
+            Ok(result) => stats.linked_observations += result.rows_affected(),
+            Err(e) => {
+                tracing::warn!(
+                    "Backfill update failed for assignment {}: {}",
+                    assignment.id,
+                    e
+                );
+                stats.errors += 1;
             }
         }
     }
+
+    // Anything still unresolved is free-form practice (or pre-dates any
+    // assignment that would match). Stamp it so we don't keep
+    // reconsidering these rows on every restart.
+    let unlinked = sqlx::query(
+        "UPDATE observations SET context_resolved_at = ? WHERE context_resolved_at IS NULL",
+    )
+    .bind(&now)
+    .execute(pool)
+    .await
+    .map_err(|e| format!("Final stamp failed: {}", e))?
+    .rows_affected();
+    stats.unlinked_observations = unlinked;
 
     tracing::info!("Context backfill complete: {:?}", stats);
     Ok(stats)

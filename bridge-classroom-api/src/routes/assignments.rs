@@ -246,7 +246,7 @@ async fn list_student_assignments(
 
     let mut assignments = Vec::new();
     for row in rows {
-        let progress = compute_student_progress(state, &row.exercise_id, student_id, &row.assigned_at).await?;
+        let progress = compute_student_progress(state, &row.id, &row.exercise_id, student_id).await?;
         assignments.push(AssignmentInfo {
             id: row.id,
             exercise_name: row.exercise_name,
@@ -382,13 +382,20 @@ async fn list_classroom_assignments(
     }))
 }
 
-/// Compute progress for a single student on an exercise
-/// Returns (total_boards, attempted_boards, correct_boards)
+/// Compute progress for a single student on an exercise.
+/// Returns (total_boards, attempted_boards, correct_boards).
+///
+/// Issue #15: filters by the explicit `observations.assignment_id`
+/// link rather than the legacy time-window fuzzy match. The startup
+/// backfill in `admin::backfill_observation_context` populates
+/// `assignment_id` on historical rows using the same fuzzy criteria
+/// the old query encoded, so existing displays read the same numbers
+/// after migration.
 async fn compute_student_progress(
     state: &AppState,
+    assignment_id: &str,
     exercise_id: &str,
     student_id: &str,
-    assigned_at: &str,
 ) -> Result<(i64, i64, i64), (StatusCode, String)> {
     // Get boards for this exercise
     let boards = sqlx::query_as::<_, BoardRef>(
@@ -404,7 +411,6 @@ async fn compute_student_progress(
         return Ok((0, 0, 0));
     }
 
-    // Get observations for this student on these boards since assignment date
     let mut attempted = std::collections::HashSet::new();
     let mut correct = std::collections::HashSet::new();
 
@@ -413,18 +419,18 @@ async fn compute_student_progress(
             r#"
             SELECT deal_subfolder, deal_number, correct
             FROM observations
-            WHERE user_id = ?
+            WHERE assignment_id  = ?
+              AND user_id        = ?
               AND deal_subfolder = ?
-              AND deal_number = ?
-              AND timestamp >= ?
+              AND deal_number    = ?
             ORDER BY timestamp DESC
             LIMIT 1
             "#,
         )
+        .bind(assignment_id)
         .bind(student_id)
         .bind(&board.deal_subfolder)
         .bind(board.deal_number)
-        .bind(assigned_at)
         .fetch_optional(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -501,9 +507,9 @@ pub async fn get_assignment(
         for member in members {
             let progress = compute_student_progress(
                 &state,
+                &row.id,
                 &row.exercise_id,
                 &member.student_id,
-                &row.assigned_at,
             )
             .await?;
 
@@ -528,7 +534,7 @@ pub async fn get_assignment(
 
         if let Some(s) = student {
             let progress =
-                compute_student_progress(&state, &row.exercise_id, sid, &row.assigned_at).await?;
+                compute_student_progress(&state, &row.id, &row.exercise_id, sid).await?;
             student_progress.push(StudentAssignmentProgress {
                 student_id: s.student_id,
                 first_name: s.first_name,
