@@ -36,6 +36,40 @@ function effectiveResult(a) {
 }
 
 /**
+ * Annotate each attempt with the per-play status it would have produced
+ * on `board_status` per CORRECTNESS_AND_MASTERY.md §5.1. The backend
+ * computes this canonically at insert time; this frontend mirror is used
+ * only by display-only metrics that don't want to round-trip to the
+ * backend (e.g. lesson card recent accuracy — see §15).
+ *
+ * @param {Array} attempts - [{ts, correct, board_result}] in any order
+ * @returns {Array<{ts, status: 'clean_correct'|'close_correct'|'corrected'|'failed'}>}
+ *   in the same chronological order as the sorted attempts.
+ */
+export function perAttemptStatuses(attempts) {
+  if (!attempts || attempts.length === 0) return []
+  const sorted = [...attempts].sort((a, b) => a.ts - b.ts)
+  let lastErrorTs = null
+  return sorted.map(a => {
+    const result = effectiveResult(a)
+    let status
+    if (result === 'failed') {
+      status = 'failed'
+      lastErrorTs = a.ts
+    } else if (result === 'corrected') {
+      status = 'corrected'
+      lastErrorTs = a.ts
+    } else {
+      // 'correct' — clean vs close depends on the most recent error so far
+      status = (lastErrorTs && (a.ts - lastErrorTs) < ONE_HOUR)
+        ? 'close_correct'
+        : 'clean_correct'
+    }
+    return { ts: a.ts, status }
+  })
+}
+
+/**
  * Classify a board's current state per CORRECTNESS_AND_MASTERY.md §5.
  *
  * If an authoritative `board_status` entry is supplied, its `status` is
@@ -192,16 +226,25 @@ export function processData(rawData, lessonTotals = {}, lessonNames = {}, boardS
       bl.points = bl.points.map(p => ({ ...p, x: (p.rawTs - tMin) / tRange }))
     })
 
-    // Recent accuracy: last 5 attempts per board, averaged
+    // Recent accuracy: clean_correct ratio over a recent window of
+    // observations. Window is the past 7 days; if that contains fewer
+    // than 10 observations, the window extends back in time until 10
+    // are included (or the lesson runs out of observations). Per
+    // CORRECTNESS_AND_MASTERY.md §15 — display-only metric, computed
+    // frontend, not stored on the backend.
     const recentRate = (() => {
-      const boardAttempts = Object.values(deals)
-      if (boardAttempts.length === 0) return 0
-      const totalCorrect = boardAttempts.reduce((sum, atts) => {
-        const recent = atts.slice(-5)
-        return sum + recent.filter(a => a.correct).length
-      }, 0)
-      const totalRecent = boardAttempts.reduce((sum, atts) => sum + Math.min(atts.length, 5), 0)
-      return totalRecent > 0 ? Math.round(totalCorrect / totalRecent * 100) : 0
+      const annotated = []
+      for (const dn of dealNums) {
+        for (const s of perAttemptStatuses(deals[dn])) annotated.push(s)
+      }
+      if (annotated.length === 0) return 0
+      annotated.sort((a, b) => b.ts - a.ts)
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000
+      const cutoffMs = Date.now() - SEVEN_DAYS
+      let window = annotated.filter(s => s.ts.getTime() >= cutoffMs)
+      if (window.length < 10) window = annotated.slice(0, 10)
+      const cleanCount = window.filter(s => s.status === 'clean_correct').length
+      return Math.round(cleanCount / window.length * 100)
     })()
 
     return {

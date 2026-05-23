@@ -635,7 +635,73 @@ teacher dashboard reads `student_summary` for the roster, lets
 the teacher click into a student for a Tier-2 view, and only
 fetches observations on Tier-3 drilldowns.
 
-## 15. Open questions
+## 15. Recent accuracy (frontend-only display metric)
+
+A per-lesson "recent accuracy" percentage rendered on the lesson card
+in the Progress panel. It is **not** a state on `board_status` and is
+**not** computed by the backend — the frontend already pulls every
+observation for the user (to render the Daily Practice Activity chart),
+so it can compute this number locally without a second round trip.
+
+This is the only metric in this document that lives entirely in the
+frontend.
+
+### 15.1 Definition
+
+Let `obs` be the full observation list for the lesson, annotated with
+per-play status using the rules in §5.1 (the frontend computes
+`status` itself from `board_result` + the running `last_error_date` for
+that board, because the observations endpoint does not return the
+backend-canonical `observations.status`).
+
+1. **Window selection.** Take all observations with `timestamp ≥ now -
+   7 days`.
+   - If that window contains **≥ 10 observations**, use it.
+   - Otherwise, ignore the 7-day cutoff and use the **most recent 10
+     observations** instead. If the lesson has fewer than 10
+     observations total, use all of them.
+   - If the lesson has zero observations, the percentage is 0.
+2. **Numerator.** Count observations in the window whose annotated
+   status is exactly `clean_correct`.
+3. **Denominator.** The size of the window.
+4. **Result.** `round(numerator / denominator × 100)`, expressed as a
+   whole-number percent.
+
+Notes:
+
+- "Correct" here means `clean_correct` only. `corrected` and
+  `close_correct` plays do **not** count toward the numerator, in
+  contrast with the boolean `observations.correct` (which lumps them
+  in as wins). This keeps the metric semantically aligned with the
+  green dot on the dot chart and the green segment of the mastery bar.
+- The window is "observations in the lesson," not "observations per
+  board," so a board you've replayed many times can dominate the
+  number — that's intentional. Recent activity should weight what the
+  student has actually been working on lately.
+
+### 15.2 Display color
+
+The card colors the percent value to give the student an at-a-glance
+read independent of the exact number. The thresholds match the
+state-color palette in §5.3:
+
+| Range          | Color  | Rationale                                                        |
+| -------------- | ------ | ---------------------------------------------------------------- |
+| `rate ≥ 75`    | green  | Same green as `clean_correct`. Most recent plays were clean.     |
+| `50 ≤ rate < 75` | orange | Same orange as `close_correct` / `corrected`. Mixed performance. |
+| `rate < 50`    | red    | Same red as `failed`. Recent plays are mostly not clean wins.    |
+
+### 15.3 Where it lives
+
+- Computation: `processData()` in
+  [`src/utils/studentProgressData.js`](../src/utils/studentProgressData.js),
+  using `perAttemptStatuses()` from the same module.
+- Render: `StudentProgressPanel.vue`'s lesson card (`.sp-card-rate`).
+- Backend: no endpoint. If a future query pattern needs this number
+  server-side (e.g. for a teacher roster), move the calculation into
+  `student_summary` (§14.2) and update this section.
+
+## 16. Open questions
 
 These are deliberately unresolved and will be settled before the
 implementation PR (or as design follow-ups).
@@ -650,7 +716,7 @@ implementation PR (or as design follow-ups).
   asynchronously. (a) is simpler and almost certainly fast enough
   at our scale; (b) is the fallback if it isn't.
 
-## 16. Migration / name changes
+## 17. Migration / name changes
 
 For implementers migrating existing code:
 
@@ -688,7 +754,7 @@ but the ID is now in the clear so the backend can use it.
 
 New table: `student_summary` — see §14.2.
 
-## 17. Out of scope for this doc
+## 18. Out of scope for this doc
 
 - The **lesson achievement catalog** and the **player achievement
   catalog** — defined in `ACHIEVEMENTS.md`. This doc defines the
