@@ -49,6 +49,23 @@ async fn main() -> anyhow::Result<()> {
     let db = db::init_db(&config.database_url).await?;
     tracing::info!("Database initialized");
 
+    // Observation context backfill (issue #15, TEMPORARY). One-shot pass
+    // that decrypts pre-rollout observations and writes their
+    // assignment_id / exercise_id back in the clear. Idempotent via
+    // `observations.context_resolved_at`, so this is cheap on every
+    // subsequent restart. Skipped silently when RECOVERY_SECRET isn't
+    // configured (dev environments). Remove this block along with
+    // `routes::admin::backfill_observation_context` once the prod data
+    // has been reviewed and the column dropped.
+    if let Some(secret) = config.recovery_secret.as_deref() {
+        match routes::backfill_observation_context(&db, secret).await {
+            Ok(stats) => tracing::info!("Context backfill stats: {:?}", stats),
+            Err(e) => tracing::error!("Context backfill failed (continuing anyway): {}", e),
+        }
+    } else {
+        tracing::info!("RECOVERY_SECRET not configured; skipping observation context backfill");
+    }
+
     // Build CORS layer
     let cors = build_cors_layer(&config);
 

@@ -326,7 +326,7 @@ struct ObservationEncryptedRow {
 }
 
 /// Decrypt an observation's encrypted_data using the student's AES key.
-fn decrypt_observation_data(
+pub fn decrypt_observation_data(
     encrypted_data: &str,
     iv: &str,
     aes_key_base64: &str,
@@ -679,4 +679,209 @@ fn get_disk_usage() -> (f64, f64) {
         }
         Err(_) => (0.0, 0.0),
     }
+}
+
+// =====================================================================
+// Observation context backfill (issue #15 — TEMPORARY)
+// =====================================================================
+//
+// One-shot pass that decrypts every observation whose `context_resolved_at`
+// is null, extracts `assignment.id` from the plaintext blob, and writes
+// `assignment_id` + the joined `exercise_id` back to the row in the
+// clear. After running once on the prod DB and confirming the data
+// looks right, this entire section can be deleted along with the
+// `context_resolved_at` column migration.
+//
+// Why startup and not an endpoint: this is a one-shot. Hooking it in
+// after `init_db` in `main.rs` means it runs on the next deploy without
+// anyone needing to remember to curl an admin route. The
+// `context_resolved_at` stamp keeps subsequent restarts cheap — the
+// driving WHERE clause finds zero rows once the backfill has completed.
+//
+// Wilderness assumption (CORRECTNESS_AND_MASTERY.md §11.4 + §11.2): the
+// SQL audit you ran returned zero exercises that mix lessons unevenly
+// enough to trigger Wild, so every backfilled row stays `wilderness =
+// 'Tame'`. No board_status recompute is needed; nothing downstream
+// changes. If a future deploy adds a Wild-eligible exercise, the
+// normal observation-insert path handles wilderness derivation, not
+// this backfill.
+
+#[derive(Debug, Default, Serialize)]
+pub struct ContextBackfillStats {
+    pub users_seen: usize,
+    pub users_skipped_no_key: usize,
+    pub rows_processed: usize,
+    pub rows_with_assignment: usize,
+    pub rows_without_assignment: usize,
+    pub rows_assignment_missing: usize, // blob had an assignment.id that doesn't exist in assignments table
+    pub decrypt_errors: usize,
+    pub parse_errors: usize,
+    pub update_errors: usize,
+}
+
+#[derive(sqlx::FromRow)]
+struct UnresolvedObservation {
+    id: String,
+    encrypted_data: String,
+    iv: String,
+}
+
+/// Walk every user's still-unresolved observations, decrypt each blob,
+/// and stamp the clear-text context fields. Idempotent — only touches
+/// rows where `context_resolved_at IS NULL`.
+pub async fn backfill_observation_context(
+    pool: &sqlx::SqlitePool,
+    recovery_secret: &str,
+) -> Result<ContextBackfillStats, String> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut stats = ContextBackfillStats::default();
+
+    // Quick exit: anything to do at all?
+    let pending: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM observations WHERE context_resolved_at IS NULL",
+    )
+    .fetch_one(pool)
+    .await
+    .map_err(|e| format!("Pending count failed: {}", e))?;
+
+    if pending == 0 {
+        tracing::info!("Context backfill: 0 unresolved observations — nothing to do");
+        return Ok(stats);
+    }
+    tracing::info!("Context backfill: starting with {} unresolved observations", pending);
+
+    // Users who still have unresolved observations. Users with no
+    // recovery key can't be processed — they get skipped (no stamp, so
+    // we'll retry on a future run if a key ever appears).
+    let users: Vec<UserRecoveryRow> = sqlx::query_as(
+        r#"
+        SELECT DISTINCT u.id, u.recovery_encrypted_key
+        FROM users u
+        JOIN observations o ON o.user_id = u.id
+        WHERE o.context_resolved_at IS NULL
+        "#,
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| format!("User scan failed: {}", e))?;
+
+    for user in &users {
+        stats.users_seen += 1;
+
+        let encrypted_key = match &user.recovery_encrypted_key {
+            Some(k) if !k.is_empty() => k,
+            _ => {
+                stats.users_skipped_no_key += 1;
+                continue;
+            }
+        };
+
+        let aes_key = match decrypt_for_recovery(encrypted_key, recovery_secret) {
+            Ok(k) => k,
+            Err(e) => {
+                tracing::warn!("Recovery key decrypt failed for {}: {}", user.id, e);
+                stats.users_skipped_no_key += 1;
+                continue;
+            }
+        };
+
+        let rows: Vec<UnresolvedObservation> = sqlx::query_as(
+            r#"
+            SELECT id, encrypted_data, iv
+            FROM observations
+            WHERE user_id = ? AND context_resolved_at IS NULL
+            "#,
+        )
+        .bind(&user.id)
+        .fetch_all(pool)
+        .await
+        .map_err(|e| format!("Observation fetch failed for {}: {}", user.id, e))?;
+
+        for obs in rows {
+            // Decrypt
+            let plaintext = match decrypt_observation_data(&obs.encrypted_data, &obs.iv, &aes_key) {
+                Ok(t) => t,
+                Err(e) => {
+                    tracing::warn!("Decrypt failed for obs {}: {}", obs.id, e);
+                    stats.decrypt_errors += 1;
+                    continue;
+                }
+            };
+
+            let blob: serde_json::Value = match serde_json::from_str(&plaintext) {
+                Ok(v) => v,
+                Err(e) => {
+                    tracing::warn!("JSON parse failed for obs {}: {}", obs.id, e);
+                    stats.parse_errors += 1;
+                    continue;
+                }
+            };
+
+            // Per CORRECTNESS_AND_MASTERY.md §16: `assignment.id` was the
+            // encrypted sub-field that became the clear-text column.
+            let assignment_id_from_blob = blob
+                .get("assignment")
+                .and_then(|a| a.get("id"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+
+            let result = if let Some(aid) = assignment_id_from_blob {
+                // Resolve exercise_id from the assignments table. If the
+                // assignment has since been deleted, we still record the
+                // assignment_id (it's a string reference, not a FK), and
+                // exercise_id stays null.
+                let exercise_id: Option<String> = sqlx::query_scalar(
+                    "SELECT exercise_id FROM assignments WHERE id = ?",
+                )
+                .bind(&aid)
+                .fetch_optional(pool)
+                .await
+                .ok()
+                .flatten();
+
+                if exercise_id.is_some() {
+                    stats.rows_with_assignment += 1;
+                } else {
+                    stats.rows_assignment_missing += 1;
+                }
+
+                sqlx::query(
+                    r#"
+                    UPDATE observations
+                    SET assignment_id        = ?,
+                        exercise_id          = ?,
+                        context_resolved_at  = ?
+                    WHERE id = ?
+                    "#,
+                )
+                .bind(&aid)
+                .bind(&exercise_id)
+                .bind(&now)
+                .bind(&obs.id)
+                .execute(pool)
+                .await
+            } else {
+                stats.rows_without_assignment += 1;
+                // Free-form practice — no assignment, just stamp the row.
+                sqlx::query(
+                    "UPDATE observations SET context_resolved_at = ? WHERE id = ?",
+                )
+                .bind(&now)
+                .bind(&obs.id)
+                .execute(pool)
+                .await
+            };
+
+            match result {
+                Ok(_) => stats.rows_processed += 1,
+                Err(e) => {
+                    tracing::warn!("Context update failed for obs {}: {}", obs.id, e);
+                    stats.update_errors += 1;
+                }
+            }
+        }
+    }
+
+    tracing::info!("Context backfill complete: {:?}", stats);
+    Ok(stats)
 }

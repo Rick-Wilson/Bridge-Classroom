@@ -24,7 +24,7 @@
       v-else-if="activeTab === 'classrooms'"
     />
     <AssignmentsTab v-else-if="activeTab === 'assignments'" />
-    <ComingSoon v-else-if="activeTab === 'exercises'" title="Exercises" />
+    <TeacherExercisesTab v-else-if="activeTab === 'exercises'" />
     <ConventionCardView v-else-if="activeTab === 'conventionCard'" embedded />
     <AdminLobby v-else-if="activeTab === 'admin'" />
   </div>
@@ -37,7 +37,7 @@ import LobbyTabs from '../components/lobby/LobbyTabs.vue'
 import LessonsTab from '../components/lobby/tabs/LessonsTab.vue'
 import StudentsTab from '../components/lobby/tabs/StudentsTab.vue'
 import AssignmentsTab from '../components/lobby/tabs/AssignmentsTab.vue'
-import ComingSoon from '../components/lobby/tabs/ComingSoon.vue'
+import TeacherExercisesTab from '../components/lobby/tabs/TeacherExercisesTab.vue'
 import TeacherLobby from '../components/lobby/TeacherLobby.vue'
 import AdminLobby from '../components/lobby/AdminLobby.vue'
 import ConventionCardView from './ConventionCardView.vue'

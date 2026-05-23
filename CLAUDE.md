@@ -144,13 +144,14 @@ Users have one of three roles: `student`, `teacher`, `admin`. The lobby (`src/vi
 
 - Default tab: **Classrooms** for teacher/admin, **Lessons** for student.
 - When a role only has a single visible tab, the tab strip itself is hidden (`LobbyView` only renders `<LobbyTabs>` when `visibleTabs.length > 1`).
-- Exercises is the only tab that still renders a shared `ComingSoon` placeholder.
+- `ComingSoon.vue` exists as a shared placeholder but no tab currently uses it — it's kept for future tabs. The Exercises tab now renders `TeacherExercisesTab.vue` (issue #15).
 - The tab strip lives **only on the lobby view**, not on practice/collection screens. The header's "Lessons" and "Lobby" buttons handle returning from practice.
 
 **Tab content components** (in `src/components/lobby/tabs/`):
 - `LessonsTab.vue` — `AssignmentPanel` + `RecentLessons` (students only) + `CollectionGrid`.
 - `StudentsTab.vue` — wraps `TeacherStudentList` ↔ `TeacherStudentDetail` with internal `selectedStudentId` state. Emits `navigate-to-lesson` up to `MainLayout` which then leaves the lobby and enters practice.
 - `AssignmentsTab.vue` — "+ New Assignment" button + flat list of all teacher assignments (clicking opens `AssignmentDetailModal`). The backend has no archived/closed state for assignments — every classroom assignment is "open" (see [teacher_dashboard.rs](bridge-classroom-api/src/routes/teacher_dashboard.rs) `open_assignment_count: assignments.len()`).
+- `TeacherExercisesTab.vue` — issue #15. Lists exercises filtered to `created_by = currentUser`, supports create/edit/delete via `ExerciseEditorModal.vue`. The modal pickers source boards from the `bakerBridgeTaxonomy` `dealCount`, so the lobby never has to ask the backend "what boards exist in lesson X." Wilderness preview uses `src/utils/wilderness.js`, a JS mirror of `derive_wilderness()` in `board_status.rs`. Backend enforces soft-delete (`exercises.deleted_at`), per-creator ownership on PUT/DELETE, and per-creator creation quotas (100/30-days, 1000 lifetime).
 - `ComingSoon.vue` — shared placeholder for not-yet-built tabs.
 - Classrooms tab content is `TeacherLobby.vue` directly (welcome stats row + classroom cards + Needs Attention + Recent Activity).
 - Admin tab content is `AdminLobby.vue` directly.

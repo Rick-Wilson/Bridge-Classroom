@@ -51,6 +51,16 @@ pub struct UpdateExerciseRequest {
     pub description: Option<String>,
     pub visibility: Option<String>,
     pub boards: Option<Vec<BoardEntry>>,
+    /// Caller's user_id. When the exercise has a `created_by` owner,
+    /// the actor must match (or be unset on the row for legacy
+    /// open-edit behaviour). Issue #15.
+    pub actor_user_id: Option<String>,
+}
+
+/// Query parameters for the DELETE endpoint (issue #15 soft-delete).
+#[derive(Debug, Deserialize)]
+pub struct DeleteExerciseQuery {
+    pub actor_user_id: Option<String>,
 }
 
 /// Query parameters for listing exercises
@@ -61,7 +71,35 @@ pub struct ExerciseQuery {
     pub visibility: Option<String>,
 }
 
-/// Exercise info with board count (for listings)
+/// A single assignment that references an exercise (issue #15). Public
+/// exercises can be assigned by any teacher, so the `assigned_by` here
+/// is not necessarily the same person as the exercise's `created_by`.
+#[derive(Debug, Clone, FromRow, Serialize)]
+pub struct ExerciseAssignmentRef {
+    pub id: String,
+    pub exercise_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classroom_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub classroom_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub student_id: Option<String>,
+    pub assigned_by: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub assigned_by_name: Option<String>,
+    pub assigned_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub due_at: Option<String>,
+}
+
+/// Exercise info with usage rollup (for listings). Counts are computed
+/// per row in the list endpoint; the `assignments` list is fetched in
+/// a single batched query and zipped in.
+///
+/// Caveat: `observation_count`, `student_count`, and `success_rate` only
+/// reflect observations that were recorded after `observations.exercise_id`
+/// became a clear-text column (CORRECTNESS_AND_MASTERY.md §11.4). Older
+/// observations have null context and aren't counted.
 #[derive(Debug, Serialize)]
 pub struct ExerciseInfo {
     pub id: String,
@@ -75,6 +113,14 @@ pub struct ExerciseInfo {
     pub visibility: String,
     pub created_at: String,
     pub board_count: i64,
+    pub assignment_count: i64,
+    pub student_count: i64,
+    pub observation_count: i64,
+    /// 0.0 – 1.0 fraction of observations whose `status = 'clean_correct'`.
+    /// Null when there are no observations. Definition matches §15.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub success_rate: Option<f64>,
+    pub assignments: Vec<ExerciseAssignmentRef>,
 }
 
 /// Exercise detail with board list

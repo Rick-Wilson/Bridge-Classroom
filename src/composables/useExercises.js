@@ -118,7 +118,10 @@ export function useExercises() {
     }
   }
 
-  /** Update an existing exercise */
+  /**
+   * Update an existing exercise. Pass `updates.actor_user_id` so the
+   * backend can enforce per-creator ownership (issue #15).
+   */
   async function updateExercise(exerciseId, updates) {
     loading.value = true
     error.value = null
@@ -153,11 +156,18 @@ export function useExercises() {
     }
   }
 
-  /** Delete an exercise */
-  async function deleteExercise(exerciseId) {
+  /**
+   * Soft-delete an exercise (issue #15). Pass `actorUserId` so the
+   * backend can enforce ownership. The row is tombstoned, not removed,
+   * so observation history keeps resolving against the exercise_id.
+   */
+  async function deleteExercise(exerciseId, actorUserId = null) {
     try {
+      const params = new URLSearchParams()
+      if (actorUserId) params.set('actor_user_id', actorUserId)
+      const qs = params.toString()
       const response = await fetch(
-        `${API_URL}/exercises/${encodeURIComponent(exerciseId)}`,
+        `${API_URL}/exercises/${encodeURIComponent(exerciseId)}${qs ? '?' + qs : ''}`,
         {
           method: 'DELETE',
           headers: { 'x-api-key': API_KEY }
