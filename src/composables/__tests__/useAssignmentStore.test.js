@@ -229,7 +229,9 @@ describe('useAssignmentStore', () => {
         id: store.currentAssignment.value.id,
         name: 'Week 5 Practice',
         teacherName: 'Rick',
-        assignedAt: store.currentAssignment.value.assignedAt
+        assignedAt: store.currentAssignment.value.assignedAt,
+        // URL-based createAssignment doesn't carry an exerciseId
+        exerciseId: null
       })
     })
 
@@ -241,6 +243,56 @@ describe('useAssignmentStore', () => {
       })
       store.exitAssignmentMode()
 
+      expect(store.getAssignmentTag()).toBeNull()
+    })
+  })
+
+  describe('setCurrentClassroomAssignment (issue #7 forward-path fix)', () => {
+    it('enters assignment mode with both assignment_id and exercise_id available on the tag', () => {
+      const store = useAssignmentStore()
+      const backendAssignment = {
+        id: 'asgn-abc',
+        exercise_id: 'ex-xyz',
+        exercise_name: 'Features and Ogust Sequence',
+        classroom_name: 'Tuesday Noon Zoom',
+        assigned_by_name: 'Rick Wilson',
+        assigned_at: '2026-03-06T02:50:01Z',
+        due_at: '2026-03-08'
+      }
+
+      store.setCurrentClassroomAssignment(backendAssignment)
+
+      expect(store.currentAssignmentId.value).toBe('asgn-abc')
+      expect(store.inAssignmentMode.value).toBe(true)
+
+      const tag = store.getAssignmentTag()
+      expect(tag).toEqual({
+        id: 'asgn-abc',
+        name: 'Features and Ogust Sequence',
+        teacherName: 'Rick Wilson',
+        assignedAt: '2026-03-06T02:50:01Z',
+        exerciseId: 'ex-xyz'
+      })
+    })
+
+    it('exitAssignmentMode clears the in-mode flag so subsequent observations are untagged', () => {
+      const store = useAssignmentStore()
+      store.setCurrentClassroomAssignment({
+        id: 'asgn-1',
+        exercise_id: 'ex-1',
+        exercise_name: 'X',
+        assigned_at: '2026-03-06T00:00:00Z'
+      })
+      expect(store.getAssignmentTag()).not.toBeNull()
+
+      store.exitAssignmentMode()
+      expect(store.getAssignmentTag()).toBeNull()
+    })
+
+    it('is a no-op when the backend assignment lacks an id', () => {
+      const store = useAssignmentStore()
+      store.setCurrentClassroomAssignment({ exercise_id: 'orphan' })
+      expect(store.inAssignmentMode.value).toBe(false)
       expect(store.getAssignmentTag()).toBeNull()
     })
   })

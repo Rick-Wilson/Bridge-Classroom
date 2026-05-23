@@ -219,7 +219,14 @@ function recordDealCompletion(dealId) {
 }
 
 /**
- * Get assignment metadata for tagging observations
+ * Get assignment metadata for tagging observations.
+ *
+ * `exerciseId` is included so the observation submit path can populate
+ * the clear-text `exercise_id` column on the observation row (issue
+ * #15 / spec §11.1). The backend doesn't derive exercise_id from
+ * assignment_id at insert time — both columns are written directly
+ * from the request.
+ *
  * @returns {Object|null} Assignment tag data or null if not in assignment mode
  */
 function getAssignmentTag() {
@@ -234,8 +241,38 @@ function getAssignmentTag() {
     id: assignment.id,
     name: assignment.name,
     teacherName: assignment.teacherName,
-    assignedAt: assignment.assignedAt
+    assignedAt: assignment.assignedAt,
+    exerciseId: assignment.exerciseId || null,
   }
+}
+
+/**
+ * Enter assignment mode for a backend (classroom) assignment, fetched
+ * from `/api/assignments`. Lobby's `handleSelectAssignment` calls this
+ * after loading the deal deck so subsequent observations get tagged
+ * with both `assignment_id` and `exercise_id`.
+ *
+ * The shape we store is the minimum that `getAssignmentTag` reads
+ * back; we don't try to mirror every field a URL-based assignment
+ * carries.
+ *
+ * @param {Object} a - Backend assignment object (must have id,
+ *   exercise_id, exercise_name, assigned_at)
+ */
+function setCurrentClassroomAssignment(a) {
+  if (!a || !a.id) return
+  assignments.value[a.id] = {
+    id: a.id,
+    name: a.exercise_name || a.name || '',
+    teacherName: a.assigned_by_name || a.teacherName || '',
+    classroom: a.classroom_name || a.classroom || '',
+    lessons: [],
+    assignedAt: a.assigned_at || a.assignedAt || null,
+    dueDate: a.due_at || a.dueDate || null,
+    exerciseId: a.exercise_id || a.exerciseId || null,
+  }
+  currentAssignmentId.value = a.id
+  inAssignmentMode.value = true
 }
 
 /**
@@ -348,6 +385,7 @@ export function useAssignmentStore() {
     loadFromStorage,
     saveToStorage,
     createAssignment,
+    setCurrentClassroomAssignment,
     isLessonInAssignment,
     setTotalDeals,
     recordDealCompletion,

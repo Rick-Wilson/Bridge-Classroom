@@ -785,6 +785,9 @@ function returnToLobby() {
   showIntroPdf.value = false
   introUrl.value = null
   exerciseContext.value = null
+  // Exit assignment mode so the next free-form practice doesn't
+  // inherit a stale assignment_id / exercise_id (issue #7).
+  assignmentStore.exitAssignmentMode()
 }
 
 // Check if an intro PDF exists for the current lesson
@@ -933,6 +936,12 @@ async function handleSelectAssignment(assignment) {
     })),
     assignedAt: assignment.assigned_at
   }
+
+  // Enter assignment mode in the store so subsequent observations get
+  // tagged with assignment_id + exercise_id (issue #7 forward-path
+  // fix). Without this, `getAssignmentTag()` returns null and every
+  // play submits as untagged free-form practice.
+  assignmentStore.setCurrentClassroomAssignment(assignment)
 
   // Load into practice mode
   deals.value = allDeals

@@ -125,8 +125,13 @@ async function recordObservation({
     skillPath = generateSkillPath(subfolder)
   }
 
-  // Get assignment tag if in assignment mode
+  // Get assignment tag if in assignment mode. `exerciseId` rides
+  // along on the tag so the observation row gets the clear-text
+  // `exercise_id` column populated alongside `assignment_id` (spec
+  // §11.1). The backend keeps them as independent columns; both
+  // need to be supplied from the frontend.
   const assignment = assignmentStore.getAssignmentTag()
+  const exerciseId = assignment?.exerciseId || null
 
   // Check if this is an upsert (replacing an existing pending observation)
   const isUpsert = observationId && pendingObservations.value.some(
@@ -149,7 +154,8 @@ async function recordObservation({
     skillPath,
     assignment,
     prompts,
-    boardResult
+    boardResult,
+    exerciseId
   })
 
   // Validate observation
