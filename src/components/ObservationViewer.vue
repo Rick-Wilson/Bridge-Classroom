@@ -218,7 +218,7 @@
               </div>
               <div class="info-item">
                 <span class="info-label">Total Time</span>
-                <span class="info-value">{{ promptStats.totalTime > 0 ? formatMs(promptStats.totalTime) : 'n/a' }}</span>
+                <span class="info-value">{{ promptStats.totalTime > 0 ? formatTotalTime(promptStats.totalTime) : 'n/a' }}</span>
               </div>
               <div class="info-item full-width">
                 <span class="info-label">Result</span>
@@ -234,7 +234,7 @@
               </div>
               <div class="info-item">
                 <span class="info-label">Time Taken</span>
-                <span class="info-value">{{ result.time_taken_ms === 0 ? 'n/a' : result.time_taken_ms + ' ms' }}</span>
+                <span class="info-value">{{ result.time_taken_ms ? formatTotalTime(result.time_taken_ms) : 'n/a' }}</span>
               </div>
             </template>
             <div class="info-item full-width">
@@ -251,6 +251,7 @@
 
 <script setup>
 import { ref, computed, onBeforeUnmount } from 'vue'
+import { formatDurationMs } from '../utils/formatDuration.js'
 
 const props = defineProps({
   obs: { type: Object, required: true },
@@ -429,10 +430,18 @@ const auctionRows = computed(() => {
   return rows
 })
 
+// Per-prompt times stay in their original compact representation
+// (1.2s, 800ms) since they're inline next to the bid. The aggregate
+// "Total Time" / "Time Taken" displays use the shared formatDurationMs
+// so they read identically to the row's Time column.
 function formatMs(ms) {
   if (!ms || ms <= 0) return ''
   if (ms < 1000) return ms + 'ms'
   return (ms / 1000).toFixed(1) + 's'
+}
+
+function formatTotalTime(ms) {
+  return formatDurationMs(ms, { empty: 'n/a' })
 }
 
 function parseSuits(hand) {

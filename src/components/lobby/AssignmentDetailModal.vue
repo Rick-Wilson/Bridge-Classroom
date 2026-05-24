@@ -62,8 +62,8 @@
                     <span v-if="row.attemptedCount > 0" class="accuracy-text" :class="accuracyClass(row)">{{ Math.round(row.correctCount / row.attemptedCount * 100) }}%</span>
                   </td>
                   <td class="col-duration">
-                    <span v-if="row.student.active_duration_sec > 0" class="duration-text">
-                      {{ formatDuration(row.student.active_duration_sec) }}
+                    <span v-if="row.student.active_duration_ms > 0" class="duration-text">
+                      {{ formatDurationMs(row.student.active_duration_ms) }}
                     </span>
                     <span v-else class="duration-empty">—</span>
                   </td>
@@ -121,6 +121,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAssignments } from '../../composables/useAssignments.js'
 import { useTeacherRole } from '../../composables/useTeacherRole.js'
 import { STATUS_COLORS } from '../../utils/studentProgressData.js'
+import { formatDurationMs } from '../../utils/formatDuration.js'
 import ObservationPopupManager from '../ObservationPopupManager.vue'
 
 const props = defineProps({
@@ -310,15 +311,6 @@ function formatTimestamp(ts) {
   return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function formatDuration(sec) {
-  if (sec == null || sec <= 0) return '—'
-  if (sec < 60) return `${sec}s`
-  const mins = Math.round(sec / 60)
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  const remMins = mins % 60
-  return remMins ? `${hours}h${remMins}m` : `${hours}h`
-}
 
 function accuracyClass(row) {
   if (row.attemptedCount === 0) return ''

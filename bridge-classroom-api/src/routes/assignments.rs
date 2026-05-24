@@ -209,7 +209,7 @@ pub async fn create_assignment(
             student_count: initial_student_count,
             student_count_attempted: 0,
             clean_rates: Vec::new(),
-            active_durations_sec: Vec::new(),
+            active_durations_ms: Vec::new(),
         },
     }))
 }
@@ -303,7 +303,7 @@ async fn list_student_assignments(
             student_count: stats.student_count,
             student_count_attempted: stats.student_count_attempted,
             clean_rates: stats.clean_rates,
-            active_durations_sec: stats.active_durations_sec,
+            active_durations_ms: stats.active_durations_ms,
         });
     }
 
@@ -371,7 +371,7 @@ async fn list_teacher_assignments(
             student_count: stats.student_count,
             student_count_attempted: stats.student_count_attempted,
             clean_rates: stats.clean_rates,
-            active_durations_sec: stats.active_durations_sec,
+            active_durations_ms: stats.active_durations_ms,
         });
     }
 
@@ -438,7 +438,7 @@ async fn list_classroom_assignments(
             student_count: stats.student_count,
             student_count_attempted: stats.student_count_attempted,
             clean_rates: stats.clean_rates,
-            active_durations_sec: stats.active_durations_sec,
+            active_durations_ms: stats.active_durations_ms,
         });
     }
 
@@ -454,7 +454,7 @@ struct AssignmentStats {
     student_count: i64,
     student_count_attempted: i64,
     clean_rates: Vec<f64>,
-    active_durations_sec: Vec<i64>,
+    active_durations_ms: Vec<i64>,
 }
 
 #[derive(sqlx::FromRow)]
@@ -569,11 +569,11 @@ async fn compute_assignment_stats(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    stats.active_durations_sec = duration_rows
+    stats.active_durations_ms = duration_rows
         .iter()
-        .map(|r| r.total_time_ms.unwrap_or(0) / 1000)
+        .map(|r| r.total_time_ms.unwrap_or(0))
         .collect();
-    stats.active_durations_sec.sort();
+    stats.active_durations_ms.sort();
 
     Ok(stats)
 }
@@ -714,7 +714,7 @@ pub async fn get_assignment(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         let duration_by_user: std::collections::HashMap<String, i64> = duration_rows
             .into_iter()
-            .map(|r| (r.user_id, r.total_time_ms.unwrap_or(0) / 1000))
+            .map(|r| (r.user_id, r.total_time_ms.unwrap_or(0)))
             .collect();
 
         for member in members {
@@ -726,7 +726,7 @@ pub async fn get_assignment(
             )
             .await?;
 
-            let active_duration_sec = duration_by_user
+            let active_duration_ms = duration_by_user
                 .get(&member.student_id)
                 .copied()
                 .unwrap_or(0);
@@ -738,7 +738,7 @@ pub async fn get_assignment(
                 attempted_boards: progress.1,
                 correct_boards: progress.2,
                 total_boards: progress.0,
-                active_duration_sec,
+                active_duration_ms,
             });
         }
     } else if let Some(ref sid) = row.student_id {
@@ -762,7 +762,7 @@ pub async fn get_assignment(
             .fetch_one(&state.db)
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-            let active_duration_sec = total_ms.unwrap_or(0) / 1000;
+            let active_duration_ms = total_ms.unwrap_or(0);
             student_progress.push(StudentAssignmentProgress {
                 student_id: s.student_id,
                 first_name: s.first_name,
@@ -770,7 +770,7 @@ pub async fn get_assignment(
                 attempted_boards: progress.1,
                 correct_boards: progress.2,
                 total_boards: progress.0,
-                active_duration_sec,
+                active_duration_ms,
             });
         }
     }

@@ -51,6 +51,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import { formatDurationMs } from '../../utils/formatDuration.js'
 
 const props = defineProps({
   assignment: { type: Object, required: true },
@@ -115,50 +116,39 @@ function rateX(v) {
   return v * chartWidth
 }
 
-const durationBox = computed(() => boxStats(props.assignment.active_durations_sec))
+const durationBox = computed(() => boxStats(props.assignment.active_durations_ms))
 
 // Duration axis scales to the longest student's duration (rounded up to
-// a clean upper bound so the boxplot is readable).
-const durationMaxSec = computed(() => {
+// a clean upper bound so the boxplot is readable). All in ms.
+const durationMaxMs = computed(() => {
   const b = durationBox.value
   if (!b) return 1
-  // Round up to the next nice number for the axis
   const max = b.max || 1
-  if (max < 60) return 60         // < 1 min → 1 min
-  if (max < 300) return 300       // < 5 min → 5 min
-  if (max < 600) return 600       // < 10 min → 10 min
-  if (max < 1800) return 1800     // < 30 min → 30 min
-  if (max < 3600) return 3600     // < 1 hr → 1 hr
-  return Math.ceil(max / 1800) * 1800
+  if (max < 60_000) return 60_000       // < 1 min → 1 min
+  if (max < 300_000) return 300_000     // < 5 min → 5 min
+  if (max < 600_000) return 600_000     // < 10 min → 10 min
+  if (max < 1_800_000) return 1_800_000 // < 30 min → 30 min
+  if (max < 3_600_000) return 3_600_000 // < 1 hr → 1 hr
+  return Math.ceil(max / 1_800_000) * 1_800_000
 })
 
 function durX(v) {
-  return (v / durationMaxSec.value) * chartWidth
-}
-
-function formatDuration(sec) {
-  if (sec == null) return '—'
-  if (sec < 60) return `${sec}s`
-  const mins = Math.round(sec / 60)
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  const remMins = mins % 60
-  return remMins ? `${hours}h${remMins}m` : `${hours}h`
+  return (v / durationMaxMs.value) * chartWidth
 }
 
 const durationMedianLabel = computed(() => {
   const box = durationBox.value
   if (!box) return '—'
-  return formatDuration(box.median)
+  return formatDurationMs(box.median)
 })
 
 const durationTooltip = computed(() => {
   const box = durationBox.value
   if (!box) return 'Per-student active time (no plays yet)'
-  return `Sum of consecutive-play gaps under 5 min, per student (n=${box.count}). ` +
-         `min ${formatDuration(box.min)} · Q1 ${formatDuration(box.q1)} · ` +
-         `median ${formatDuration(box.median)} · Q3 ${formatDuration(box.q3)} · ` +
-         `max ${formatDuration(box.max)}. Axis max ${formatDuration(durationMaxSec.value)}.`
+  return `Per-student active time on the assignment (n=${box.count}). ` +
+         `min ${formatDurationMs(box.min)} · Q1 ${formatDurationMs(box.q1)} · ` +
+         `median ${formatDurationMs(box.median)} · Q3 ${formatDurationMs(box.q3)} · ` +
+         `max ${formatDurationMs(box.max)}. Axis max ${formatDurationMs(durationMaxMs.value)}.`
 })
 </script>
 

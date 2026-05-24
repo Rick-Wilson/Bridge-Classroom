@@ -73,11 +73,14 @@ pub struct AssignmentInfo {
     /// Per-student clean-correct rate (0.0-1.0) for students who
     /// attempted, sorted ascending. clean_correct boards ÷ attempted boards.
     pub clean_rates: Vec<f64>,
-    /// Per-student active duration in seconds for students who
-    /// attempted, sorted ascending. Sum of gaps between consecutive
-    /// observation submissions, excluding gaps > 5 minutes (treated
-    /// as student-away-from-app idle time).
-    pub active_durations_sec: Vec<i64>,
+    /// Per-student active duration in milliseconds for students who
+    /// attempted, sorted ascending. Sum of per-play `time_taken_ms`
+    /// (the time the student spent on each board, summed from the
+    /// prompts[].time_ms in the encrypted blob and lifted into the
+    /// clear by the backfill — see issue #7). Full precision so
+    /// the frontend can format consistently with single-observation
+    /// displays.
+    pub active_durations_ms: Vec<i64>,
 }
 
 /// Per-student progress within a classroom assignment
@@ -90,9 +93,9 @@ pub struct StudentAssignmentProgress {
     pub correct_boards: i64,
     pub total_boards: i64,
     /// Total active time this student has spent on this assignment,
-    /// in seconds. Sum of `time_taken_ms` across their observations,
-    /// scaled to seconds. Issue #7.
-    pub active_duration_sec: i64,
+    /// in milliseconds. Sum of `time_taken_ms` across their
+    /// observations. Issue #7.
+    pub active_duration_ms: i64,
 }
 
 /// One column header in the assignment grid view (issue #7).
