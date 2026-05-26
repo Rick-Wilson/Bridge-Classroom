@@ -995,6 +995,31 @@ onMounted(async () => {
     await loadEmbeddedDeal()
     // eslint-disable-next-line no-console
     console.info('[embed-debug] loadEmbeddedDeal returned', { dealError: dealError.value, hasCurrentDeal: !!currentDeal.value, currentScenario: currentScenario.value })
+
+    // Post-mount snapshot: are we actually rendering anything visible 2 s later?
+    setTimeout(() => {
+      const bpApp = document.querySelector('.bp-app')
+      const bpStage = document.querySelector('.bp-stage')
+      const bpEmbeddedBidding = document.querySelector('.bp-embedded-bidding')
+      const bpTableWrap = document.querySelector('.bp-table-wrap')
+      const bpError = document.querySelector('.bp-error-box')
+      const bpEmpty = document.querySelector('.bp-empty')
+      // eslint-disable-next-line no-console
+      console.info('[embed-debug] post-mount-snapshot (t+2s)', {
+        href: window.location.href,
+        bodyChildren: document.body?.children?.length,
+        bodyHtml: document.body?.innerHTML?.length,
+        bpApp: bpApp ? { ...bpApp.getBoundingClientRect().toJSON(), display: getComputedStyle(bpApp).display } : null,
+        bpStage: bpStage ? bpStage.getBoundingClientRect().toJSON() : null,
+        bpEmbeddedBidding: bpEmbeddedBidding ? bpEmbeddedBidding.getBoundingClientRect().toJSON() : null,
+        bpTableWrap: bpTableWrap ? bpTableWrap.getBoundingClientRect().toJSON() : null,
+        bpError: bpError?.textContent,
+        bpEmpty: bpEmpty?.textContent,
+        currentDeal: currentDeal.value ? { hasHands: !!currentDeal.value.hands, dealer: currentDeal.value.dealer } : null,
+        dealError: dealError.value,
+        EMBEDDED,
+      })
+    }, 2000)
     return
   }
   try {
