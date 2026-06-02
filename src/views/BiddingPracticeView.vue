@@ -305,10 +305,10 @@
                   <thead>
                     <tr>
                       <th></th>
-                      <th>&clubs;</th>
+                      <th class="bp-black">&clubs;</th>
                       <th class="bp-red">&diams;</th>
                       <th class="bp-red">&hearts;</th>
-                      <th>&spades;</th>
+                      <th class="bp-black">&spades;</th>
                       <th>NT</th>
                     </tr>
                   </thead>
@@ -1870,6 +1870,16 @@ async function onUserBid(bid) {
 .bp-contract-meta { font-size: 13px; color: #666; }
 .bp-contract-actions { display: flex; gap: 8px; margin-top: 10px; }
 .bp-red { color: #d32f2f; }
+
+/* Suit colors in the contract panel.
+   - DD-table th has its own grey color rule; bump specificity so the
+     bp-red/bp-black overrides win.
+   - formatBid() emits <span class="red|black">…</span> for the final
+     contract; :deep() pierces scoped styles to colour those spans. */
+.bp-dd-table th.bp-red { color: #d32f2f; }
+.bp-dd-table th.bp-black { color: #1a1a1a; }
+.bp-contract :deep(.red) { color: #d32f2f; }
+.bp-contract :deep(.black) { color: #1a1a1a; }
 
 .bp-dd-label {
   font-size: 11px;
