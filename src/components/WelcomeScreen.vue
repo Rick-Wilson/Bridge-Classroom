@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useUserStore } from '../composables/useUserStore.js'
+import { useDataSync } from '../composables/useDataSync.js'
 import { logDiagnostic, flush as flushDiagnostics } from '../utils/diagnostics.js'
 import { API_URL } from '@/utils/apiUrl.js'
 
@@ -9,6 +10,7 @@ const emit = defineEmits(['userReady'])
 
 const appConfig = useAppConfig()
 const userStore = useUserStore()
+const dataSync = useDataSync()
 
 // View state: 'form' | 'returning' | 'switcher' | 'recovery-sent' | 'recovery-claiming'
 const viewState = ref('form')
@@ -311,6 +313,14 @@ async function handleSubmit() {
       dataConsent: dataConsent.value,
       apiUrl: API_URL
     })
+
+    // Persist the new account to the server immediately (creates the server
+    // user + uploads the recovery key) instead of waiting for a background
+    // sync trigger. Fire-and-forget: never block onboarding, and it's
+    // offline-safe (performSync no-ops when offline, leaving the background
+    // triggers as fallback). POST /api/users is idempotent by user_id, so
+    // this can't conflict with handleUserReady's own sync.
+    dataSync.forceSync().catch(() => {})
 
     emit('userReady', user)
   } catch (err) {
