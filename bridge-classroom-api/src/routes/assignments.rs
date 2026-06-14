@@ -36,23 +36,10 @@ struct AssignmentRow {
 }
 
 #[derive(sqlx::FromRow)]
-struct BoardRef {
-    deal_subfolder: String,
-    deal_number: i32,
-}
-
-#[derive(sqlx::FromRow)]
 struct StudentMemberRow {
     student_id: String,
     first_name: String,
     last_name: String,
-}
-
-#[derive(sqlx::FromRow)]
-struct ObservationHit {
-    deal_subfolder: String,
-    deal_number: i32,
-    correct: bool,
 }
 
 // ---- Endpoints ----
@@ -591,54 +578,46 @@ async fn compute_student_progress(
     exercise_id: &str,
     student_id: &str,
 ) -> Result<(i64, i64, i64), (StatusCode, String)> {
-    // Get boards for this exercise
-    let boards = sqlx::query_as::<_, BoardRef>(
-        "SELECT deal_subfolder, deal_number FROM exercise_boards WHERE exercise_id = ?",
+    // Read from the assignment_board_status rollup instead of querying
+    // observations per board. `attempted` = boards worked inside the
+    // assignment; `correct` = boards that ended correctly — clean_correct,
+    // close_correct, OR corrected. The `corrected` inclusion preserves the
+    // pre-rollup raw-boolean meaning exactly (a corrected board's final
+    // observation had correct=1), validated against historical counts.
+    let row: Option<(i64, i64, i64)> = sqlx::query_as(
+        r#"
+        SELECT
+          COUNT(*)                                                                AS total,
+          COALESCE(SUM(CASE WHEN status != 'not_attempted' THEN 1 ELSE 0 END), 0) AS attempted,
+          COALESCE(SUM(CASE WHEN status NOT IN ('not_attempted','failed') THEN 1 ELSE 0 END), 0) AS correct
+        FROM assignment_board_status
+        WHERE user_id = ? AND assignment_id = ?
+        "#,
     )
-    .bind(exercise_id)
-    .fetch_all(&state.db)
+    .bind(student_id)
+    .bind(assignment_id)
+    .fetch_optional(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let total = boards.len() as i64;
-    if total == 0 {
-        return Ok((0, 0, 0));
-    }
-
-    let mut attempted = std::collections::HashSet::new();
-    let mut correct = std::collections::HashSet::new();
-
-    for board in &boards {
-        let obs = sqlx::query_as::<_, ObservationHit>(
-            r#"
-            SELECT deal_subfolder, deal_number, correct
-            FROM observations
-            WHERE assignment_id  = ?
-              AND user_id        = ?
-              AND deal_subfolder = ?
-              AND deal_number    = ?
-            ORDER BY timestamp DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(assignment_id)
-        .bind(student_id)
-        .bind(&board.deal_subfolder)
-        .bind(board.deal_number)
-        .fetch_optional(&state.db)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-        if let Some(hit) = obs {
-            let key = format!("{}/{}", hit.deal_subfolder, hit.deal_number);
-            attempted.insert(key.clone());
-            if hit.correct {
-                correct.insert(key);
-            }
+    if let Some((total, attempted, correct)) = row {
+        if total > 0 {
+            return Ok((total, attempted, correct));
         }
     }
 
-    Ok((total, attempted.len() as i64, correct.len() as i64))
+    // Rollup not yet populated for this assignment (e.g. brand-new assignment
+    // with no observations). Fall back to the exercise board count so the
+    // "X of N" denominator is always the assignment size.
+    let total: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM exercise_boards WHERE exercise_id = ?",
+    )
+    .bind(exercise_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok((total, 0, 0))
 }
 
 /// GET /api/assignments/:id — Get assignment detail with per-student progress
