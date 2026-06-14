@@ -44,9 +44,6 @@
             </div>
           </div>
           <div class="card-right">
-            <span v-if="a.due_at && !isComplete(a)" class="due-badge" :class="dueClass(a)">
-              {{ dueBadgeText(a) }}
-            </span>
             <button
               class="action-btn"
               @click.stop="$emit('select-assignment', a)"
@@ -275,12 +272,6 @@ function isComplete(assignment) {
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-function getWeekStart(date) {
-  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  d.setDate(d.getDate() - d.getDay())
-  return d
-}
-
 function parseDueDate(due) {
   // Parse date-only strings (YYYY-MM-DD) as local dates, not UTC
   const parts = String(due).match(/^(\d{4})-(\d{2})-(\d{2})$/)
@@ -297,19 +288,12 @@ function formatDueDate(due) {
   if (diffDays === 0) return 'Today'
   if (diffDays === 1) return 'Tomorrow'
 
-  const thisWeekStart = getWeekStart(now)
-  const lastWeekStart = new Date(thisWeekStart)
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7)
-  const nextWeekStart = new Date(thisWeekStart)
-  nextWeekStart.setDate(nextWeekStart.getDate() + 7)
+  // Less than a week out → day of week ("Monday"). Past 7 days, the weekday
+  // becomes ambiguous, so fall through to a calendar date.
+  if (diffDays > 1 && diffDays < 7) return DAY_NAMES[dueDate.getDay()]
+  // Within the past week → "last Monday".
+  if (diffDays < 0 && diffDays > -7) return `last ${DAY_NAMES[dueDate.getDay()]}`
 
-  const dueDayTime = dueDay.getTime()
-  if (dueDayTime >= thisWeekStart.getTime() && dueDayTime < nextWeekStart.getTime()) {
-    return DAY_NAMES[dueDate.getDay()]
-  }
-  if (dueDayTime >= lastWeekStart.getTime() && dueDayTime < thisWeekStart.getTime()) {
-    return `last ${DAY_NAMES[dueDate.getDay()]}`
-  }
   if (dueDate.getFullYear() === now.getFullYear()) {
     return `${SHORT_MONTHS[dueDate.getMonth()]} ${dueDate.getDate()}`
   }
@@ -333,15 +317,6 @@ function dueText(assignment) {
     return isDuePast(assignment) ? 'Completed' : `Due ${dateStr} · Completed`
   }
   return 'Due ' + dateStr
-}
-
-function dueBadgeText(assignment) {
-  if (!assignment.due_at) return ''
-  const due = parseDueDate(assignment.due_at)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  if (due < today) return 'OVERDUE'
-  return ('Due ' + formatDueDate(assignment.due_at)).toUpperCase()
 }
 
 function dueClass(assignment) {
@@ -511,32 +486,6 @@ function dueClass(assignment) {
   align-items: flex-end;
   gap: 8px;
   flex-shrink: 0;
-}
-
-.due-badge {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  padding: 3px 10px;
-  border-radius: 10px;
-  background: #fef3c7;
-  color: #92400e;
-  white-space: nowrap;
-}
-
-.due-badge.overdue {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.due-badge.urgent {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.due-badge.soon {
-  background: #fef3c7;
-  color: #92400e;
 }
 
 .action-btn {
