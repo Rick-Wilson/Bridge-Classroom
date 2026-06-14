@@ -15,6 +15,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 mod config;
 mod db;
 mod models;
+mod obs_crypto;
 mod routes;
 mod student_summary;
 
@@ -151,6 +152,7 @@ async fn main() -> anyhow::Result<()> {
         // Admin routes
         .route("/api/admin/stats", get(routes::admin_stats))
         .route("/api/admin/health", get(routes::admin_health))
+        .route("/api/admin/merge-dryrun", get(routes::merge_dry_run))
         .route("/api/admin/users/search", get(routes::admin_search_user))
         .route("/api/admin/users/:id", patch(routes::admin_correct_name))
         .route("/api/admin/decrypt-observations", post(routes::admin_decrypt_observations))
