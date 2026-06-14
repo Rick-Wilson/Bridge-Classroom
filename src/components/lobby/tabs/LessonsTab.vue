@@ -22,6 +22,7 @@
 import { computed, onMounted, watch } from 'vue'
 import { useUserStore } from '../../../composables/useUserStore.js'
 import { useAssignments } from '../../../composables/useAssignments.js'
+import { useAccomplishments } from '../../../composables/useAccomplishments.js'
 import AssignmentPanel from '../AssignmentPanel.vue'
 import RecentLessons from '../RecentLessons.vue'
 import CollectionGrid from '../CollectionGrid.vue'
@@ -34,6 +35,7 @@ const emit = defineEmits(['select-collection', 'select-assignment', 'resume-less
 
 const userStore = useUserStore()
 const assignmentStore = useAssignments()
+const accomplishments = useAccomplishments()
 
 const isStudent = computed(() => (userStore.currentUser.value?.role || 'student') === 'student')
 const hasAssignments = computed(() => assignmentStore.studentAssignments.value.length > 0)
@@ -43,6 +45,10 @@ function fetchAssignmentsForCurrentUser() {
   const user = userStore.currentUser.value
   if (user && isStudent.value) {
     assignmentStore.fetchStudentAssignments(user.id)
+    // Load this user's observations too — the assignment mastery bars need
+    // them. In view-as mode this pulls the viewed student's clear-text
+    // observations so their per-board colors render.
+    accomplishments.loadAccomplishments(true)
   }
 }
 

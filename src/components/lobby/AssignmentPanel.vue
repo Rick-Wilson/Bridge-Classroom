@@ -173,22 +173,25 @@ const activeAssignments = computed(() => {
   })
 })
 
-// Fetch exercise boards and compute mastery for each assignment
-watch(() => props.assignments, async (assignments) => {
+// Fetch exercise boards and compute mastery for each assignment.
+// Re-runs when the assignment list OR the observation set changes — the
+// latter matters in view-as mode, where the viewed student's observations
+// load asynchronously after the assignments do.
+watch(() => [props.assignments, mastery.getObservations().length], async () => {
+  const assignments = props.assignments
   if (!assignments || assignments.length === 0) return
 
+  const nextMap = {}
   for (const a of assignments) {
-    if (masteryMap.value[a.id]) continue
-
     try {
       const boards = await assignmentStore.fetchExerciseBoards(a.exercise_id)
       if (!boards || boards.length === 0) continue
 
-      const allObs = mastery.getObservations()
-
-      // Only count observations made after the assignment was created
-      const cutoff = a.assigned_at
-      const filteredObs = cutoff ? allObs.filter(o => o.timestamp >= cutoff) : allObs
+      // Count only observations made INSIDE this assignment, matching the
+      // server's completion logic (which keys on assignment_id). Free-practice
+      // plays of the same deals carry a null assignment_id and must not count
+      // toward assignment results.
+      const filteredObs = mastery.getObservations().filter(o => o.assignment_id === a.id)
 
       const bySubfolder = {}
       for (const b of boards) {
@@ -210,14 +213,12 @@ watch(() => props.assignments, async (assignments) => {
         }
       }
 
-      masteryMap.value = {
-        ...masteryMap.value,
-        [a.id]: { ...buckets, total: boards.length }
-      }
+      nextMap[a.id] = { ...buckets, total: boards.length }
     } catch {
       // Mastery data unavailable — fallback to simple progress bar
     }
   }
+  masteryMap.value = nextMap
 }, { immediate: true })
 
 function getMastery(assignment) {
@@ -315,10 +316,22 @@ function formatDueDate(due) {
   return `${dueDate.getDate()}-${SHORT_MONTHS[dueDate.getMonth()]}-${dueDate.getFullYear()}`
 }
 
+function isDuePast(assignment) {
+  if (!assignment.due_at) return false
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return parseDueDate(assignment.due_at) < today
+}
+
 function dueText(assignment) {
   if (!assignment.due_at) return isComplete(assignment) ? 'Completed' : null
   const dateStr = formatDueDate(assignment.due_at)
-  if (isComplete(assignment)) return `Due ${dateStr} · Completed`
+  if (isComplete(assignment)) {
+    // Don't surface a past due date on finished work — "Due" reads as a
+    // stressor for something already done. Keep it only if not yet past
+    // (e.g. completed ahead of the deadline).
+    return isDuePast(assignment) ? 'Completed' : `Due ${dateStr} · Completed`
+  }
   return 'Due ' + dateStr
 }
 

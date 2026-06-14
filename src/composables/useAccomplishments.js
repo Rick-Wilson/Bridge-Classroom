@@ -128,15 +128,25 @@ async function loadAccomplishments(forceRefresh = false) {
   loading.value = true
   error.value = null
 
+  const viewingAs = userStore.isViewingAs.value
+  const realUser = userStore.realUser.value
+
   try {
-    // If viewing self, use existing student progress store
-    if (!selectedUserId.value || selectedUserId.value === currentUser.id) {
-      selectedUserId.value = currentUser.id
+    // Decrypt-from-self path only when we're genuinely the logged-in user.
+    // In view-as mode we hold no key for the viewed user, and an admin can
+    // also inspect a selected student — both must read the server's
+    // clear-text observation columns instead.
+    if (!viewingAs && (!selectedUserId.value || selectedUserId.value === realUser?.id)) {
+      selectedUserId.value = realUser.id
       await studentProgress.fetchProgress(forceRefresh)
       observations.value = studentProgress.decryptedObservations.value
     } else {
-      // Fetch another user's observations (requires grant access)
-      const response = await fetch(`${API_URL}/observations?user_id=${selectedUserId.value}&limit=10000`, {
+      // Fetch another user's clear-text observations (view-as target, or an
+      // explicitly selected student). The clear-text columns (correct,
+      // deal_subfolder, deal_number, assignment_id, timestamp) are enough to
+      // compute mastery; the encrypted blob is not needed here.
+      const targetId = viewingAs ? userStore.effectiveUserId.value : selectedUserId.value
+      const response = await fetch(`${API_URL}/observations?user_id=${targetId}&limit=10000`, {
         headers: { 'x-api-key': API_KEY }
       })
 
@@ -145,7 +155,6 @@ async function loadAccomplishments(forceRefresh = false) {
       }
 
       const data = await response.json()
-      // Note: These are metadata-only for other users (can't decrypt their content)
       observations.value = data.observations || []
     }
 
