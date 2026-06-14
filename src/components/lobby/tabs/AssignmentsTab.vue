@@ -89,14 +89,25 @@ function assignmentSubtitle(a) {
   return a.classroom_name || a.student_name || ''
 }
 
+// Parse date-only strings (YYYY-MM-DD) as LOCAL dates, not UTC. `new Date('2026-06-15')`
+// parses as UTC midnight, which renders as the previous day in western timezones —
+// the off-by-one that made "due Jun 15" show as "Jun 14". Mirrors parseDueDate in
+// AssignmentPanel.vue so the teacher and student views agree.
+function parseDueDate(due) {
+  const parts = String(due).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return parts ? new Date(+parts[1], +parts[2] - 1, +parts[3]) : new Date(due)
+}
+
 function isOverdue(a) {
   if (!a.due_at) return false
-  return new Date(a.due_at) < new Date()
+  // Due "Jun 15" means end of Jun 15: not overdue until the due calendar day has passed.
+  const diffDays = Math.ceil((parseDueDate(a.due_at) - new Date()) / (1000 * 60 * 60 * 24))
+  return diffDays < 0
 }
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return parseDueDate(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 function loadAssignments() {

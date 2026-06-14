@@ -11,10 +11,17 @@ const progress = computed(() => assignmentStore.assignmentProgress.value)
 const isComplete = computed(() => assignmentStore.isAssignmentComplete.value)
 const inAssignmentMode = computed(() => assignmentStore.inAssignmentMode.value)
 
+// Parse date-only strings (YYYY-MM-DD) as LOCAL dates, not UTC — `new Date('2026-06-15')`
+// is UTC midnight, which renders as the previous day in western timezones (off-by-one).
+function parseDueDate(due) {
+  const parts = String(due).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return parts ? new Date(+parts[1], +parts[2] - 1, +parts[3]) : new Date(due)
+}
+
 const daysUntilDue = computed(() => {
   if (!assignment.value?.dueDate) return null
 
-  const due = new Date(assignment.value.dueDate)
+  const due = parseDueDate(assignment.value.dueDate)
   const now = new Date()
   const diff = Math.ceil((due - now) / (1000 * 60 * 60 * 24))
 
