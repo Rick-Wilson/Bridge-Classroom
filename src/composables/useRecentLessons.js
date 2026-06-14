@@ -54,31 +54,24 @@ export function useRecentLessons() {
     // Touch the cache version so the computed re-runs after invalidation.
     boardStatusApi.cacheVersion.value
 
-    const isViewingAs = userStore.isViewingAs.value
     const boardCounts = mastery.boardCountCache.value
 
-    // Source the lesson list. Two paths so view-as picks up the impersonated
-    // user's server-side data rather than the admin's local observations.
-    let lessons
-    if (isViewingAs && userId) {
-      const entries = boardStatusApi.getCachedLessonEntries(userId) || []
-      lessons = entries
-        .filter(e => (e.attempted_boards || 0) > 0)
-        .map(e => {
-          const subfolder = e.deal_subfolder
-          const cached = boardCounts[subfolder]
-          let boardNumbers = cached
-          if (!boardNumbers) {
-            boardNumbers = []
-            for (let i = 1; i <= (e.total_boards || 0); i++) boardNumbers.push(i)
-          }
-          return { subfolder, boardNumbers, lastActivity: null }
-        })
-    } else {
-      const allObs = mastery.getObservations()
-      if (allObs.length === 0) return []
-      lessons = mastery.extractLessonsFromObservations(allObs)
-    }
+    // The lesson list comes from the server's /api/lesson-mastery rollup
+    // (derived from board_status) for both self and view-as — no client-side
+    // observation query. The cache is populated by ensureLessonData().
+    const entries = userId ? (boardStatusApi.getCachedLessonEntries(userId) || []) : []
+    const lessons = entries
+      .filter(e => (e.attempted_boards || 0) > 0)
+      .map(e => {
+        const subfolder = e.deal_subfolder
+        const cached = boardCounts[subfolder]
+        let boardNumbers = cached
+        if (!boardNumbers) {
+          boardNumbers = []
+          for (let i = 1; i <= (e.total_boards || 0); i++) boardNumbers.push(i)
+        }
+        return { subfolder, boardNumbers, lastActivity: null }
+      })
 
     if (lessons.length === 0) return []
 
@@ -159,16 +152,11 @@ export function useRecentLessons() {
   const hasRecentLessons = computed(() => recentLessons.value.length > 0)
 
   const totalStartedLessons = computed(() => {
-    if (userStore.isViewingAs.value) {
-      const userId = userStore.effectiveUserId.value
-      // Touch the cache version so this computed reacts to fetches.
-      boardStatusApi.cacheVersion.value
-      const entries = userId ? (boardStatusApi.getCachedLessonEntries(userId) || []) : []
-      return entries.filter(e => (e.attempted_boards || 0) > 0).length
-    }
-    const allObs = mastery.getObservations()
-    if (allObs.length === 0) return 0
-    return mastery.extractLessonsFromObservations(allObs).length
+    const userId = userStore.effectiveUserId.value
+    // Touch the cache version so this computed reacts to fetches.
+    boardStatusApi.cacheVersion.value
+    const entries = userId ? (boardStatusApi.getCachedLessonEntries(userId) || []) : []
+    return entries.filter(e => (e.attempted_boards || 0) > 0).length
   })
 
   /**
@@ -183,32 +171,19 @@ export function useRecentLessons() {
    */
   async function ensureLessonData() {
     const userId = userStore.effectiveUserId.value
-    const isViewingAs = userStore.isViewingAs.value
+    if (!userId) return
 
-    let subfolders
-    if (isViewingAs && userId) {
-      // Server-driven: lesson-mastery is the source of truth for which
-      // lessons the impersonated user has touched.
-      await boardStatusApi.fetchLessonMastery(userId, true)
-      const entries = boardStatusApi.getCachedLessonEntries(userId) || []
-      subfolders = entries
-        .filter(e => (e.attempted_boards || 0) > 0)
-        .map(e => e.deal_subfolder)
-    } else {
-      const allObs = mastery.getObservations()
-      const lessons = mastery.extractLessonsFromObservations(allObs)
-      subfolders = lessons.map(l => l.subfolder)
-    }
+    // lesson-mastery (derived from board_status) is the source of truth for
+    // which lessons the user has touched — for both self and view-as.
+    await boardStatusApi.fetchLessonMastery(userId, true)
+    const entries = boardStatusApi.getCachedLessonEntries(userId) || []
+    const subfolders = entries
+      .filter(e => (e.attempted_boards || 0) > 0)
+      .map(e => e.deal_subfolder)
     if (subfolders.length === 0) return
 
     await mastery.fetchMissingBoardCounts(subfolders)
-
-    if (userId) {
-      await Promise.all([
-        ...subfolders.map(sf => boardStatusApi.fetchBoardStatus(userId, sf)),
-        boardStatusApi.fetchLessonMastery(userId)
-      ])
-    }
+    await Promise.all(subfolders.map(sf => boardStatusApi.fetchBoardStatus(userId, sf)))
   }
 
   return {
