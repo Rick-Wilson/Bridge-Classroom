@@ -45,10 +45,18 @@
       <table class="student-table">
         <thead>
           <tr>
-            <th class="col-name">Student</th>
-            <th class="col-mastery">Mastery</th>
-            <th class="col-active">Last Active</th>
-            <th class="col-lessons">Recent Lessons</th>
+            <th class="col-name sortable" :class="sortClass('name')" :aria-sort="ariaSort('name')" @click="setSort('name')">
+              Student <span class="sort-arrow">{{ sortArrow('name') }}</span>
+            </th>
+            <th class="col-mastery sortable" :class="sortClass('mastery')" :aria-sort="ariaSort('mastery')" @click="setSort('mastery')">
+              Mastery <span class="sort-arrow">{{ sortArrow('mastery') }}</span>
+            </th>
+            <th class="col-active sortable" :class="sortClass('active')" :aria-sort="ariaSort('active')" @click="setSort('active')">
+              Last Active <span class="sort-arrow">{{ sortArrow('active') }}</span>
+            </th>
+            <th class="col-lessons sortable" :class="sortClass('lessons')" :aria-sort="ariaSort('lessons')" @click="setSort('lessons')">
+              Recent Lessons <span class="sort-arrow">{{ sortArrow('lessons') }}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -106,6 +114,11 @@ import { ref, computed, onMounted } from 'vue'
 const selectedFilter = ref('all')
 // Map of classroomId -> Set of student IDs.
 const classroomMembers = ref({})
+// Column sort state. Module-level (like selectedFilter) so it survives
+// navigating into a student detail and back. Default: Last Active, most
+// recent first — matches the prior implicit sort.
+const sortKey = ref('active')
+const sortDir = ref('desc')
 </script>
 
 <script setup>
@@ -180,15 +193,58 @@ const filteredStudents = computed(() => {
   return all.filter(s => memberSet.has(s.id))
 })
 
+// Value a student sorts by for a given column. Numbers sort numerically,
+// strings lexically. Mastery sorts by proficient (green) count.
+function sortValue(student, key) {
+  const s = summaries.value[student.id]
+  switch (key) {
+    case 'name': return studentName(student).toLowerCase()
+    case 'mastery': return s?.green || 0
+    case 'lessons': return recentLessons.value[student.id]?.length || 0
+    case 'active':
+    default: return s?.lastObservationTime || ''
+  }
+}
+
 const sortedStudents = computed(() => {
+  const key = sortKey.value
+  const dir = sortDir.value === 'asc' ? 1 : -1
   return [...filteredStudents.value].sort((a, b) => {
-    // Sort by most recent activity (most recent first), then alphabetically
-    const aTime = summaries.value[a.id]?.lastObservationTime || ''
-    const bTime = summaries.value[b.id]?.lastObservationTime || ''
-    if (bTime !== aTime) return bTime.localeCompare(aTime)
+    const av = sortValue(a, key)
+    const bv = sortValue(b, key)
+    let cmp
+    if (typeof av === 'number' && typeof bv === 'number') cmp = av - bv
+    else cmp = String(av).localeCompare(String(bv))
+    if (cmp !== 0) return cmp * dir
+    // Stable, intuitive tiebreaker: name A→Z
     return studentName(a).localeCompare(studentName(b))
   })
 })
+
+// New column starts at its natural direction (names A→Z; everything else
+// highest/most-recent first); clicking the active column toggles direction.
+function setSort(key) {
+  if (sortKey.value === key) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortKey.value = key
+    sortDir.value = key === 'name' ? 'asc' : 'desc'
+  }
+}
+
+function sortArrow(key) {
+  if (sortKey.value !== key) return ''
+  return sortDir.value === 'asc' ? '▲' : '▼'
+}
+
+function sortClass(key) {
+  return { 'sort-active': sortKey.value === key }
+}
+
+function ariaSort(key) {
+  if (sortKey.value !== key) return 'none'
+  return sortDir.value === 'asc' ? 'ascending' : 'descending'
+}
 
 const summaries = computed(() => {
   const result = {}
@@ -304,6 +360,26 @@ function initials(student) {
   color: #999;
   letter-spacing: 0.3px;
   font-weight: 600;
+}
+
+.student-table thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.student-table thead th.sortable:hover {
+  color: #667eea;
+}
+
+.student-table thead th.sort-active {
+  color: #667eea;
+}
+
+.sort-arrow {
+  font-size: 10px;
+  margin-left: 2px;
 }
 
 .student-row {
