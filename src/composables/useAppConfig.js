@@ -131,8 +131,8 @@ const COLLECTIONS = [
     name: 'David Bailey Scenarios',
     description: 'Bidding and play-of-the-hand lessons',
     icon: '♦',
-    tocUrl: 'https://raw.githubusercontent.com/ADavidBailey/Practice-Bidding-Scenarios/main/coaching-curated/toc.json',
-    baseUrl: 'https://raw.githubusercontent.com/ADavidBailey/Practice-Bidding-Scenarios/main/coaching-curated'
+    tocUrl: 'https://raw.githubusercontent.com/ADavidBailey/Practice-Bidding-Scenarios/main/coaching-non-rotated/toc.json',
+    baseUrl: 'https://raw.githubusercontent.com/ADavidBailey/Practice-Bidding-Scenarios/main/coaching-non-rotated'
   }
 ]
 
