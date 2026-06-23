@@ -214,6 +214,13 @@
               </button>
             </div>
 
+            <!-- Report a Problem — flags the current board in one step -->
+            <div class="report-problem-row">
+              <button class="report-problem-btn" @click="openReport" title="Report a problem with this board">
+                ⚑ Report a Problem
+              </button>
+            </div>
+
           </div>
         </div>
       </template>
@@ -255,6 +262,13 @@
       v-if="showBecomeTeacher"
       @close="showBecomeTeacher = false"
       @activated="handleTeacherActivated"
+    />
+
+    <!-- Report a Problem Modal -->
+    <ReportProblemModal
+      :visible="showReport"
+      :context="reportContext"
+      @close="showReport = false"
     />
 
     <!-- Page Footer -->
@@ -299,6 +313,7 @@ import BoardMasteryStrip from '../components/BoardMasteryStrip.vue'
 import IntroPdfViewer from '../components/IntroPdfViewer.vue'
 import LobbyView from './LobbyView.vue'
 import BecomeTeacherModal from '../components/BecomeTeacherModal.vue'
+import ReportProblemModal from '../components/ReportProblemModal.vue'
 import PageFooter from '../components/lobby/PageFooter.vue'
 
 // Router
@@ -329,6 +344,12 @@ function dismissWelcome() {
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 const showBecomeTeacher = ref(false)
+
+// Report-a-Problem modal. reportContext is a snapshot of the lesson/board state
+// captured at the moment the learner clicks the button (so it doesn't drift if
+// the auction advances behind the modal).
+const showReport = ref(false)
+const reportContext = ref({})
 
 // Local mastery override: force board circle statuses during/after play
 // { [boardNumber]: 'red'|'yellow'|'green' }
@@ -969,6 +990,53 @@ function getCollection(collectionId) {
   return appConfig.COLLECTIONS.find(c => c.id === collectionId)
 }
 
+// Reconstruct an "N:..." PBN string from parsed hands as a fallback when the
+// deal didn't carry its raw [Deal] string (older parses). N E S W order.
+function reconstructPbn(hands) {
+  if (!hands) return null
+  const parts = ['N', 'E', 'S', 'W'].map(seat => {
+    const h = hands[seat]
+    if (!h) return '...'
+    return [h.spades, h.hearts, h.diamonds, h.clubs].map(a => (a || []).join('')).join('.')
+  })
+  return 'N:' + parts.join(' ')
+}
+
+// Snapshot everything the report needs, then open the modal. The app already
+// has all of this while rendering the board.
+function openReport() {
+  const deal = currentDeal.value
+  if (!deal) return
+  const collection = getCollection(currentCollection.value)
+  const lessonId = currentLesson.value?.id || ''
+  const filename = lessonId.includes('/') ? lessonId.split('/').pop() : lessonId
+  const sourceUrl = collection && filename ? `${collection.baseUrl}/${filename}.pbn` : null
+  const role = userStore.currentUser.value?.role
+  const reporterTier = (role === 'teacher' || role === 'admin') ? 'reviewer' : 'learner'
+
+  reportContext.value = {
+    collection: currentCollection.value || null,
+    lesson_id: lessonId || null,
+    lesson_name: currentLesson.value?.name || null,
+    scenario: deal.event || lessonId || null,
+    deal_pbn: deal.dealString || reconstructPbn(deal.hands),
+    display_number: deal.displayNumber || (currentDealIndex.value + 1),
+    board_tag: deal.boardNumber != null ? String(deal.boardNumber) : null,
+    original_board: deal.originalBoard || null,
+    student_seat: practice.studentSeat.value || deal.studentSeat || null,
+    auction: [...practice.auctionState.displayedBids],
+    contract: deal.contract || null,
+    step_index: practice.currentStepIndex.value,
+    prompt: practice.currentStep.value?.text || null,
+    reporter_tier: reporterTier,
+    source_url: sourceUrl,
+    source_commit: null,
+    app_version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null,
+    app_commit: typeof __APP_COMMIT__ !== 'undefined' ? __APP_COMMIT__ : null
+  }
+  showReport.value = true
+}
+
 /**
  * Auto-load lesson from URL parameters
  * Fetches TOC, finds lesson, loads PBN file
@@ -1585,6 +1653,31 @@ body {
   padding: 10px 20px;
   background: #e3f2fd;
   border-radius: 4px;
+}
+
+/* Report a Problem button — unobtrusive, sits below the lesson controls */
+.report-problem-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.report-problem-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+  background: none;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.report-problem-btn:hover {
+  background: #fdecea;
+  color: #c62828;
 }
 
 /* Display mode styles */
