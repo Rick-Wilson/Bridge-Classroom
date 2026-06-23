@@ -1,8 +1,19 @@
 <template>
-  <div v-if="visible" class="rp-overlay" @click.self="close" @keydown.esc="close">
-    <div class="rp-modal" role="dialog" aria-modal="true" aria-labelledby="rp-title">
+  <div
+    v-if="visible"
+    ref="popoverEl"
+    class="rp-popover"
+    :style="{ top: pos.top + 'px', left: pos.left + 'px' }"
+    role="dialog"
+    aria-labelledby="rp-title"
+  >
+    <!-- Drag handle -->
+    <div class="rp-header" @mousedown="startDrag" title="Drag to move">
       <h2 id="rp-title" class="rp-title">Report a Problem</h2>
+      <button class="rp-x" @click="close" aria-label="Close" title="Close">×</button>
+    </div>
 
+    <div class="rp-body">
       <!-- Idle / editing -->
       <template v-if="state === 'idle' || state === 'submitting'">
         <p class="rp-sub">
@@ -17,6 +28,7 @@
           placeholder="e.g. The recommended bid here looks wrong…"
           :disabled="state === 'submitting'"
           @keydown.enter.exact.prevent="submit"
+          @keydown.esc="close"
         ></textarea>
         <div class="rp-hint">Press <kbd>Enter</kbd> to send · <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</div>
         <div class="rp-actions">
@@ -49,13 +61,15 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, onUnmounted } from 'vue'
 import { useReportProblem } from '../composables/useReportProblem.js'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
-  // Snapshot of lesson/board state captured when the modal was opened.
-  context: { type: Object, default: () => ({}) }
+  // Snapshot of lesson/board state captured when the popup was opened.
+  context: { type: Object, default: () => ({}) },
+  // The Report button's bounding rect, so we can open just below it.
+  anchor: { type: Object, default: null }
 })
 const emit = defineEmits(['close'])
 
@@ -66,22 +80,79 @@ const state = ref('idle')  // idle | submitting | done | error
 const errorMessage = ref('')
 const canRetry = ref(false)
 const noteInput = ref(null)
+const popoverEl = ref(null)
+const pos = ref({ top: 100, left: 100 })
 
 let autoCloseTimer = null
 
-// Reset and focus whenever the modal opens.
+// Reset, position, and focus whenever the popup opens.
 watch(() => props.visible, (open) => {
   if (open) {
     note.value = ''
     state.value = 'idle'
     errorMessage.value = ''
     canRetry.value = false
+    place()
+    window.addEventListener('keydown', onKeydown)
     nextTick(() => noteInput.value?.focus())
-  } else if (autoCloseTimer) {
-    clearTimeout(autoCloseTimer)
-    autoCloseTimer = null
+  } else {
+    cleanup()
   }
 })
+
+// Open right below the button, right-aligned to it, clamped to the viewport.
+function place() {
+  const a = props.anchor
+  nextTick(() => {
+    const el = popoverEl.value
+    const w = el?.offsetWidth || 360
+    const h = el?.offsetHeight || 280
+    const gap = 8
+    let left, top
+    if (a) {
+      left = a.right - w
+      top = a.bottom + gap
+    } else {
+      left = window.innerWidth - w - 24
+      top = 100
+    }
+    pos.value = clamp(left, top, w, h)
+  })
+}
+
+function clamp(left, top, w, h) {
+  const m = 8
+  return {
+    left: Math.max(m, Math.min(left, window.innerWidth - w - m)),
+    top: Math.max(m, Math.min(top, window.innerHeight - h - m))
+  }
+}
+
+// --- Dragging (grab the header) ---
+let drag = null
+function startDrag(e) {
+  if (e.target.closest('.rp-x')) return  // don't drag when hitting the close button
+  drag = { mx: e.clientX, my: e.clientY, top: pos.value.top, left: pos.value.left }
+  window.addEventListener('mousemove', onDrag)
+  window.addEventListener('mouseup', endDrag)
+  e.preventDefault()  // avoid selecting text while dragging
+}
+function onDrag(e) {
+  if (!drag) return
+  const el = popoverEl.value
+  const w = el?.offsetWidth || 360
+  const h = el?.offsetHeight || 280
+  pos.value = clamp(drag.left + (e.clientX - drag.mx), drag.top + (e.clientY - drag.my), w, h)
+}
+function endDrag() {
+  drag = null
+  window.removeEventListener('mousemove', onDrag)
+  window.removeEventListener('mouseup', endDrag)
+}
+
+function onKeydown(e) {
+  if (e.key === 'Escape') close()
+}
 
 async function submit() {
   const trimmed = note.value.trim()
@@ -113,47 +184,71 @@ function retry() {
 }
 
 function close() {
-  if (autoCloseTimer) {
-    clearTimeout(autoCloseTimer)
-    autoCloseTimer = null
-  }
+  cleanup()
   emit('close')
 }
+
+function cleanup() {
+  if (autoCloseTimer) { clearTimeout(autoCloseTimer); autoCloseTimer = null }
+  endDrag()
+  window.removeEventListener('keydown', onKeydown)
+}
+
+onUnmounted(cleanup)
 </script>
 
 <style scoped>
-.rp-overlay {
+.rp-popover {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 2000;
-  padding: 20px;
+  width: 360px;
+  max-width: calc(100vw - 16px);
+  background: #fff;
+  border: 1px solid var(--card-border, #ddd);
+  border-radius: var(--radius-card, 8px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
 }
 
-.rp-modal {
-  background: #fff;
-  border-radius: var(--radius-card, 8px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-  padding: 24px;
-  width: 100%;
-  max-width: 480px;
+.rp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 10px 16px;
+  background: var(--green-dark, #2d6a4f);
+  cursor: move;
+  user-select: none;
 }
 
 .rp-title {
   font-family: var(--font-heading, 'Source Serif 4', serif);
+  font-size: 18px;
+  color: #fff;
+  margin: 0;
+}
+
+.rp-x {
+  border: none;
+  background: transparent;
+  color: #fff;
   font-size: 22px;
-  color: var(--green-dark, #2d6a4f);
-  margin-bottom: 8px;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+.rp-x:hover { opacity: 1; }
+
+.rp-body {
+  padding: 16px;
 }
 
 .rp-sub {
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.5;
   color: var(--text-secondary, #555);
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .rp-textarea {
@@ -161,7 +256,7 @@ function close() {
   font-family: inherit;
   font-size: 16px;
   line-height: 1.5;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid var(--card-border, #ccc);
   border-radius: var(--radius-button, 6px);
   resize: vertical;
@@ -191,11 +286,11 @@ function close() {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 16px;
 }
 
 .rp-btn {
-  padding: 10px 18px;
+  padding: 9px 16px;
   font-size: 15px;
   font-weight: 600;
   border: none;

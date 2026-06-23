@@ -264,10 +264,11 @@
       @activated="handleTeacherActivated"
     />
 
-    <!-- Report a Problem Modal -->
+    <!-- Report a Problem popup (draggable, opens below the button) -->
     <ReportProblemModal
       :visible="showReport"
       :context="reportContext"
+      :anchor="reportAnchor"
       @close="showReport = false"
     />
 
@@ -350,6 +351,7 @@ const showBecomeTeacher = ref(false)
 // the auction advances behind the modal).
 const showReport = ref(false)
 const reportContext = ref({})
+const reportAnchor = ref(null)  // the button's rect, so the popup opens just below it
 
 // Local mastery override: force board circle statuses during/after play
 // { [boardNumber]: 'red'|'yellow'|'green' }
@@ -1004,9 +1006,15 @@ function reconstructPbn(hands) {
 
 // Snapshot everything the report needs, then open the modal. The app already
 // has all of this while rendering the board.
-function openReport() {
+function openReport(e) {
   const deal = currentDeal.value
   if (!deal) return
+  // Remember where the button is so the popup opens just below it.
+  const btn = e?.currentTarget
+  if (btn?.getBoundingClientRect) {
+    const r = btn.getBoundingClientRect()
+    reportAnchor.value = { top: r.top, bottom: r.bottom, left: r.left, right: r.right }
+  }
   const collection = getCollection(currentCollection.value)
   const lessonId = currentLesson.value?.id || ''
   const filename = lessonId.includes('/') ? lessonId.split('/').pop() : lessonId
@@ -1664,13 +1672,13 @@ body {
 }
 
 .report-problem-btn {
-  padding: 6px 12px;
-  font-size: 13px;
-  font-weight: 500;
+  padding: 9px 18px;
+  font-size: 15px;
+  font-weight: 600;
   color: #888;
   background: none;
   border: none;
-  border-radius: 16px;
+  border-radius: 18px;
   cursor: pointer;
   transition: all 0.2s;
 }
