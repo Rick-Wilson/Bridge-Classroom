@@ -6,7 +6,7 @@
   />
 
   <!-- Main App (shown when user is authenticated) -->
-  <div v-else class="app" @click.capture="dismissWelcome">
+  <div v-else class="app" :class="{ 'left-aligned': showScenarioChat && scenarioChat }" @click.capture="dismissWelcome">
     <!-- View-as banner — shown when admin is rendering the app as another user -->
     <div v-if="isViewingAs" class="view-as-banner">
       <span class="view-as-text">
@@ -24,6 +24,9 @@
         </button>
         <button class="accomplishments-btn" @click="showAccomplishments = true" title="View Accomplishments">
           Accomplishments
+        </button>
+        <button v-if="deals.length && scenarioChat" class="scenario-info-btn" @click="showScenarioChat = true" title="Show this scenario's description">
+          &#8505; Description
         </button>
         <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + getCollection(currentCollection)?.name">
           {{ getCollection(currentCollection)?.name }}
@@ -279,6 +282,16 @@
       @close="showReport = false"
     />
 
+    <!-- Scenario chat — sizable, draggable popup of the .btn @chat. Opens on the
+         right, in the space freed by left-aligning the table during practice. -->
+    <ScenarioChatPopup
+      :visible="showScenarioChat && !!scenarioChat"
+      :title="scenarioChat?.title || ''"
+      :text="scenarioChat?.text || ''"
+      side="right"
+      @close="showScenarioChat = false"
+    />
+
     <!-- Page Footer -->
     <PageFooter />
   </div>
@@ -319,6 +332,7 @@ import AccomplishmentsView from '../components/AccomplishmentsView.vue'
 import LessonBrowser from '../components/LessonBrowser.vue'
 import BoardMasteryStrip from '../components/BoardMasteryStrip.vue'
 import IntroPdfViewer from '../components/IntroPdfViewer.vue'
+import ScenarioChatPopup from '../components/ScenarioChatPopup.vue'
 import LobbyView from './LobbyView.vue'
 import BecomeTeacherModal from '../components/BecomeTeacherModal.vue'
 import ReportProblemModal from '../components/ReportProblemModal.vue'
@@ -359,6 +373,11 @@ const showBecomeTeacher = ref(false)
 const showReport = ref(false)
 const reportContext = ref({})
 const reportAnchor = ref(null)  // the button's rect, so the popup opens just below it
+
+// Scenario-chat popup: the .btn @chat for the open David Bailey scenario,
+// auto-shown when a lesson opens and reopenable from the header. { title, text } or null.
+const scenarioChat = ref(null)
+const showScenarioChat = ref(false)
 
 // Local mastery override: force board circle statuses during/after play
 // { [boardNumber]: 'red'|'yellow'|'green' }
@@ -1070,6 +1089,38 @@ function openReport(e) {
   showReport.value = true
 }
 
+// Pull the scenario "chat" out of a .btn — the /*@chat ... @chat*/ block.
+function extractChat(btnText) {
+  const m = btnText.match(/\/\*@chat\s*([\s\S]*?)@chat\*\//)
+  return m ? m[1].trim() : null
+}
+
+// Fetch the open scenario's .btn @chat and show the popup. Only the David Bailey
+// scenarios (pbs-coaching) have a PBS .btn; other collections / assignments no-op.
+async function loadScenarioChat(lessonId) {
+  showScenarioChat.value = false
+  scenarioChat.value = null
+  if (!lessonId) return
+  const collection = getCollection(currentCollection.value)
+  if (!collection || collection.id !== 'pbs-coaching') return
+  const filename = lessonId.includes('/') ? lessonId.split('/').pop() : lessonId
+  const btnBase = collection.baseUrl.replace(/\/coaching-non-rotated$/, '')
+  try {
+    const resp = await fetch(`${btnBase}/btn/${filename}.btn`)
+    if (!resp.ok) return
+    const chat = extractChat(await resp.text())
+    if (chat) {
+      scenarioChat.value = { title: currentLesson.value?.name || filename.replace(/_/g, ' '), text: chat }
+      showScenarioChat.value = true
+    }
+  } catch {
+    /* no popup if the .btn can't be fetched */
+  }
+}
+
+// Auto-show the scenario chat whenever a new lesson opens.
+watch(() => currentLesson.value?.id, (id) => loadScenarioChat(id))
+
 /**
  * Auto-load lesson from URL parameters
  * Fetches TOC, finds lesson, loads PBN file
@@ -1198,6 +1249,13 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Only while the description is open: left-align the table so the wide-screen
+   white space gathers on the right for the popup. Centered again when it closes. */
+.app.left-aligned {
+  margin-left: 24px;
+  margin-right: auto;
 }
 
 .view-as-banner {
@@ -1343,6 +1401,23 @@ body {
 .accomplishments-btn:hover {
   background: #c8e6c9;
   color: #2e7d32;
+}
+
+.scenario-info-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #e8f0fb;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2d6a4f;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.scenario-info-btn:hover {
+  background: #d7e6f7;
+  color: #1b4332;
 }
 
 .lessons-btn {
