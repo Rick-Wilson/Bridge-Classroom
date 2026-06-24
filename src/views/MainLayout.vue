@@ -6,7 +6,7 @@
   />
 
   <!-- Main App (shown when user is authenticated) -->
-  <div v-else class="app" :class="{ 'left-aligned': deals.length }" @click.capture="dismissWelcome">
+  <div v-else class="app" :class="{ 'left-aligned': showScenarioChat && scenarioChat }" @click.capture="dismissWelcome">
     <!-- View-as banner — shown when admin is rendering the app as another user -->
     <div v-if="isViewingAs" class="view-as-banner">
       <span class="view-as-text">
@@ -1150,8 +1150,8 @@ body {
   flex-direction: column;
 }
 
-/* During practice, left-align the table so all the wide-screen white space
-   gathers on the right — a clean home for the scenario-description popup. */
+/* Only while the description is open: left-align the table so the wide-screen
+   white space gathers on the right for the popup. Centered again when it closes. */
 .app.left-aligned {
   margin-left: 24px;
   margin-right: auto;
