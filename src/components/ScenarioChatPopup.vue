@@ -53,8 +53,9 @@ const html = computed(() =>
 // Position centered-ish on open; wire Esc.
 watch(() => props.visible, (open) => {
   if (open) {
+    // Open near the left edge so it doesn't cover the deal/bidding area.
     const w = popoverEl.value?.offsetWidth || 720
-    pos.value = clamp((window.innerWidth - w) / 2, 80, w, popoverEl.value?.offsetHeight || 440)
+    pos.value = clamp(16, 80, w, popoverEl.value?.offsetHeight || 440)
     window.addEventListener('keydown', onKeydown)
   } else {
     cleanup()
