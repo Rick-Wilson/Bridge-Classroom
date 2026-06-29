@@ -28,7 +28,7 @@
 ### 1. Frontend (Vue.js App)
 - **URL**: https://bridge-classroom.com
 - **Hosting**: GitHub Pages
-- **Repo**: Rick-Wilson/Bridge-Classroom
+- **Repo**: bridge-craftwork/Bridge-Classroom
 - **Build**: Vite (`npm run build`)
 - **Deploy**: GitHub Actions (`.github/workflows/deploy.yml`)
 
@@ -46,9 +46,15 @@
 
 | Type | Name | Target | Proxy Status |
 |------|------|--------|--------------|
-| CNAME | @ | rick-wilson.github.io | DNS only (grey) |
-| CNAME | www | rick-wilson.github.io | DNS only (grey) |
+| CNAME | @ | rick-wilson.github.io | Proxied (orange) |
+| CNAME | www | bridge-classroom.com | Proxied (orange) |
 | CNAME | api | f1fae255-82da-4016-ab0e-de93365574e1.cfargotunnel.com | Proxied (orange) |
+
+> Note: the `@` CNAME still targets `rick-wilson.github.io` even though the
+> repo moved to `bridge-craftwork`. This is fine — GitHub Pages routes by the
+> `Host` header (`bridge-classroom.com`), and `rick-wilson.github.io` resolves
+> to the same shared Pages IPs as `bridge-craftwork.github.io`. It can
+> optionally be updated to `bridge-craftwork.github.io`; not required.
 
 **Note**: GitHub Pages requires "DNS only" (grey cloud) for SSL to work properly.
 
