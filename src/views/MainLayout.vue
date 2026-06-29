@@ -6,7 +6,7 @@
   />
 
   <!-- Main App (shown when user is authenticated) -->
-  <div v-else class="app" @click.capture="dismissWelcome">
+  <div v-else class="app" :class="{ 'left-aligned': showScenarioChat && scenarioChat }" @click.capture="dismissWelcome">
     <!-- View-as banner — shown when admin is rendering the app as another user -->
     <div v-if="isViewingAs" class="view-as-banner">
       <span class="view-as-text">
@@ -24,6 +24,9 @@
         </button>
         <button class="accomplishments-btn" @click="showAccomplishments = true" title="View Accomplishments">
           Accomplishments
+        </button>
+        <button v-if="deals.length && scenarioChat" class="scenario-info-btn" @click="showScenarioChat = true" title="Show this scenario's description">
+          &#8505; Description
         </button>
         <button v-if="deals.length && currentCollection" class="lessons-btn" @click="returnToLessons" :title="'Back to ' + getCollection(currentCollection)?.name">
           {{ getCollection(currentCollection)?.name }}
@@ -155,51 +158,68 @@
                 <template v-for="(step, idx) in practice.steps.value.slice(0, practice.currentStepIndex.value)" :key="'prev-' + idx">
                   <template v-if="idx >= practice.commentaryStartIndex.value">
                     <span class="narrative-text previous" v-html="colorizeSuits(flowText(step.text))"></span>
-                    <span v-if="step.type === 'bid' && step.explanationText"
+                    <span v-if="step.type === 'bid' && step.explanationText && (wasStepWrong(idx) || step.fadeFollow == null)"
                       :class="['narrative-text', idx === practice.currentStepIndex.value - 1 && practice.isBidStep.value && !practice.bidAnswered.value ? 'current' : 'previous']"
                       v-html="colorizeSuits(flowText(step.explanationText))"></span>
+                    <span v-else-if="step.type === 'bid' && !wasStepWrong(idx)"
+                      class="narrative-text previous affirmation"
+                      v-html="bidLabel(step.bid) + ' — ' + affirmationFor(idx)"></span>
+                    <span v-if="step.type === 'bid' && !wasStepWrong(idx) && step.fadeFollow"
+                      class="narrative-text previous"
+                      v-html="colorizeSuits(flowText(step.fadeFollow))"></span>
                   </template>
                 </template>
                 <!-- Current step text (black) -->
                 <span v-if="practice.currentStep.value" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.text))"></span>
-                <!-- Bid explanation shown after bid is answered -->
-                <span v-if="practice.bidAnswered.value && practice.currentStep.value?.explanationText" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.explanationText))"></span>
+                <!-- After a bid: full explanation when wrong (the teaching); brief affirmation when correct. -->
+                <span v-if="practice.bidAnswered.value && practice.currentStep.value?.type === 'bid' && practice.currentStep.value?.explanationText && (practice.auctionState.wrongBid || practice.currentStep.value?.fadeFollow == null)" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.explanationText))"></span>
+                <span v-else-if="practice.bidAnswered.value && !practice.auctionState.wrongBid && practice.currentStep.value?.type === 'bid'" class="narrative-text current affirmation" v-html="bidLabel(practice.currentStep.value.bid) + ' — ' + affirmationFor(practice.currentStepIndex.value)"></span>
+                <span v-if="practice.bidAnswered.value && !practice.auctionState.wrongBid && practice.currentStep.value?.fadeFollow" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.fadeFollow))"></span>
+                <!-- Board-level cheer when the whole auction was bid correctly. -->
+                <span v-if="boardCelebration" class="narrative-text current celebration">{{ boardCelebration }}</span>
               </div>
 
               <!-- Controls based on current step type -->
               <div class="commentary-controls">
-                <!-- Bidding box for bid steps -->
-                <div v-if="practice.hasBidPrompt.value" class="bidding-box-wrapper">
-                  <BiddingBox
-                    :lastBid="practice.lastContractBid.value"
-                    :canDouble="practice.canDouble.value"
-                    :canRedouble="practice.canRedouble.value"
-                    @bid="onBid"
-                  />
+                <div class="controls-main">
+                  <!-- Bidding box for bid steps -->
+                  <div v-if="practice.hasBidPrompt.value" class="bidding-box-wrapper">
+                    <BiddingBox
+                      :lastBid="practice.lastContractBid.value"
+                      :canDouble="practice.canDouble.value"
+                      :canRedouble="practice.canRedouble.value"
+                      @bid="onBid"
+                    />
+                  </div>
+                  <!-- Card choice prompt -->
+                  <div v-else-if="practice.hasCardChoice.value" class="card-choice-prompt">
+                    Click on the card you would choose
+                  </div>
+                  <!-- Back button (left of Next) -->
+                  <button
+                    v-if="practice.canGoBack.value"
+                    class="instruction-btn secondary"
+                    @click="onStepBack"
+                  >
+                    ← Back
+                  </button>
+                  <!-- Next/Rotate button for non-bid, non-card-choice steps (including bid explanation dismissal) -->
+                  <button
+                    v-if="!practice.isComplete.value && (practice.bidAnswered.value || (!practice.hasBidPrompt.value && !practice.hasCardChoice.value && practice.currentStep.value && practice.currentStep.value.type !== 'end'))"
+                    class="instruction-btn primary"
+                    @click="practice.advance()"
+                  >
+                    {{ practice.currentStep.value?.type === 'rotate' ? 'Rotate' : 'Next' }} →
+                  </button>
+                  <!-- Next Deal button when complete -->
+                  <button v-if="practice.isComplete.value && currentDealIndex < deals.length - 1" class="next-deal-btn" @click="nextDeal">
+                    Next Deal →
+                  </button>
                 </div>
-                <!-- Card choice prompt -->
-                <div v-else-if="practice.hasCardChoice.value" class="card-choice-prompt">
-                  Click on the card you would choose
-                </div>
-                <!-- Back button (left of Next) -->
-                <button
-                  v-if="practice.canGoBack.value"
-                  class="instruction-btn secondary"
-                  @click="onStepBack"
-                >
-                  ← Back
-                </button>
-                <!-- Next/Rotate button for non-bid, non-card-choice steps (including bid explanation dismissal) -->
-                <button
-                  v-if="!practice.isComplete.value && (practice.bidAnswered.value || (!practice.hasBidPrompt.value && !practice.hasCardChoice.value && practice.currentStep.value && practice.currentStep.value.type !== 'end'))"
-                  class="instruction-btn primary"
-                  @click="practice.advance()"
-                >
-                  {{ practice.currentStep.value?.type === 'rotate' ? 'Rotate' : 'Next' }} →
-                </button>
-                <!-- Next Deal button when complete -->
-                <button v-if="practice.isComplete.value && currentDealIndex < deals.length - 1" class="next-deal-btn" @click="nextDeal">
-                  Next Deal →
+                <!-- Report a Problem — kept beside the bidding controls so long
+                     coaching text can't push it off-screen. Opt-in per collection. -->
+                <button v-if="reportEnabled" class="report-problem-btn" @click="openReport" title="Report a problem with this board">
+                  ⚑ Report a Problem
                 </button>
               </div>
             </div>
@@ -211,6 +231,13 @@
             <div v-if="!practice.hasSteps.value && practice.isComplete.value && currentDealIndex < deals.length - 1" class="completion-controls">
               <button class="next-deal-btn" @click="nextDeal">
                 Next Deal →
+              </button>
+            </div>
+
+            <!-- Report a Problem fallback for display-only boards (no controls row) -->
+            <div v-if="!practice.hasSteps.value && reportEnabled" class="report-problem-row">
+              <button class="report-problem-btn" @click="openReport" title="Report a problem with this board">
+                ⚑ Report a Problem
               </button>
             </div>
 
@@ -257,6 +284,24 @@
       @activated="handleTeacherActivated"
     />
 
+    <!-- Report a Problem popup (draggable, opens below the button) -->
+    <ReportProblemModal
+      :visible="showReport"
+      :context="reportContext"
+      :anchor="reportAnchor"
+      @close="showReport = false"
+    />
+
+    <!-- Scenario chat — sizable, draggable popup of the .btn @chat. Opens on the
+         right, in the space freed by left-aligning the table during practice. -->
+    <ScenarioChatPopup
+      :visible="showScenarioChat && !!scenarioChat"
+      :title="scenarioChat?.title || ''"
+      :text="scenarioChat?.text || ''"
+      side="right"
+      @close="showScenarioChat = false"
+    />
+
     <!-- Page Footer -->
     <PageFooter />
   </div>
@@ -266,7 +311,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { parsePbn, getDealTitle } from '../utils/pbnParser.js'
-import { stripControlDirectives, colorizeSuits, flowText } from '../utils/cardFormatting.js'
+import { stripControlDirectives, colorizeSuits, flowText, formatBid } from '../utils/cardFormatting.js'
 import { useDealPractice } from '../composables/useDealPractice.js'
 import { useAppConfig } from '../composables/useAppConfig.js'
 import { useUserStore } from '../composables/useUserStore.js'
@@ -297,8 +342,10 @@ import AccomplishmentsView from '../components/AccomplishmentsView.vue'
 import LessonBrowser from '../components/LessonBrowser.vue'
 import BoardMasteryStrip from '../components/BoardMasteryStrip.vue'
 import IntroPdfViewer from '../components/IntroPdfViewer.vue'
+import ScenarioChatPopup from '../components/ScenarioChatPopup.vue'
 import LobbyView from './LobbyView.vue'
 import BecomeTeacherModal from '../components/BecomeTeacherModal.vue'
+import ReportProblemModal from '../components/ReportProblemModal.vue'
 import PageFooter from '../components/lobby/PageFooter.vue'
 
 // Router
@@ -316,6 +363,53 @@ const assignmentsApi = useAssignments()
 // Unified practice state - tag-driven, no modes
 const practice = useDealPractice()
 
+// --- Coaching feedback fade (branch: coaching-feedback-fade) ----------------
+// In the bidding scrollback we distinguish three cases:
+//   • partner's calls          → always explained (the student needs them)
+//   • the student's WRONG call → the full explanation (the teaching)
+//   • the student's RIGHT call → a brief, varied, gender-neutral affirmation
+// Judgement boards ([ACCEPT]) are a later slice.
+const AFFIRMATIONS = [
+  'Correct.',
+  'Nicely done.',
+  "That's it.",
+  'Exactly right.',
+  'Spot on.',
+  'Well judged.',
+  'Right on the money.',
+  'Good — that is the call.',
+]
+
+// A stable affirmation for a given step so it varies through a board without
+// flickering on re-render.
+function affirmationFor(idx) {
+  const i = ((idx % AFFIRMATIONS.length) + AFFIRMATIONS.length) % AFFIRMATIONS.length
+  return AFFIRMATIONS[i]
+}
+
+// The call itself, with a colored suit symbol, to prefix the nod: "1♥ — Correct."
+function bidLabel(bid) {
+  return bid ? formatBid(bid).html : ''
+}
+
+// Did the student answer this bid step wrong? (wrong → show its explanation)
+function wasStepWrong(idx) {
+  return !!practice.boardState.wrongStepIndices[idx]
+}
+
+// Was this bid step the student's own call (vs partner's auto-played call)?
+function isStudentBidStep(idx) {
+  return !!practice.boardState.studentBidStepIndices[idx]
+}
+
+// Board-level cheer when EVERY call on the board was right (shown at completion).
+const CELEBRATIONS = ['Bravo!', 'Perfect!', 'Beautifully bid!', 'Flawless — every call!', 'Nailed the whole auction!']
+const boardCelebration = computed(() => {
+  if (!practice.isComplete.value || practice.boardState.boardHadWrong) return ''
+  return CELEBRATIONS[practice.steps.value.length % CELEBRATIONS.length]
+})
+// ---------------------------------------------------------------------------
+
 // UI state
 const showSettings = ref(false)
 const showProgress = ref(false)
@@ -329,6 +423,18 @@ function dismissWelcome() {
 const currentCollection = ref(null)
 const currentLesson = ref(null)  // { id, name, category }
 const showBecomeTeacher = ref(false)
+
+// Report-a-Problem modal. reportContext is a snapshot of the lesson/board state
+// captured at the moment the learner clicks the button (so it doesn't drift if
+// the auction advances behind the modal).
+const showReport = ref(false)
+const reportContext = ref({})
+const reportAnchor = ref(null)  // the button's rect, so the popup opens just below it
+
+// Scenario-chat popup: the .btn @chat for the open David Bailey scenario,
+// auto-shown when a lesson opens and reopenable from the header. { title, text } or null.
+const scenarioChat = ref(null)
+const showScenarioChat = ref(false)
 
 // Local mastery override: force board circle statuses during/after play
 // { [boardNumber]: 'red'|'yellow'|'green' }
@@ -354,21 +460,39 @@ function scrollToCurrentElement(container, selector = '.current') {
   }
 }
 
-// Auto-scroll commentary when step changes
-watch(() => practice.currentStepIndex.value, () => {
+// Cap the coaching text so the bidding controls stay on screen. The scrollable
+// text area fills the gap between its top and (window bottom − controls height);
+// as coaching grows, older text scrolls out the top instead of pushing the bid
+// box below the window.
+function fitCommentaryHeight() {
+  const el = commentaryContainer.value
+  if (!el) return
+  const top = el.getBoundingClientRect().top
+  const controls = el.parentElement?.querySelector('.commentary-controls')
+  const controlsH = controls ? controls.offsetHeight : 0
+  const avail = window.innerHeight - top - controlsH - 20
+  el.style.maxHeight = Math.max(120, avail) + 'px'
+}
+
+// Re-fit, then scroll the current step to the top (older text slides out the top).
+function refreshCommentary() {
   nextTick(() => {
+    fitCommentaryHeight()
     scrollToCurrentElement(commentaryContainer.value, '.narrative-text.current')
   })
-})
+}
 
-// Auto-scroll commentary when deal completes
-watch(() => practice.isComplete.value, (isComplete) => {
-  if (isComplete) {
-    nextTick(() => {
-      scrollToCurrentElement(commentaryContainer.value, '.narrative-text.current')
-    })
-  }
+// Recompute on step change, bid prompt toggling, completion, and deal change.
+watch(() => practice.currentStepIndex.value, refreshCommentary)
+watch(() => practice.hasBidPrompt.value, refreshCommentary)
+watch(() => practice.isComplete.value, refreshCommentary)
+watch(() => practice.currentDeal.value, refreshCommentary)
+
+onMounted(() => {
+  refreshCommentary()
+  window.addEventListener('resize', fitCommentaryHeight)
 })
+onUnmounted(() => window.removeEventListener('resize', fitCommentaryHeight))
 
 
 // User state
@@ -969,6 +1093,96 @@ function getCollection(collectionId) {
   return appConfig.COLLECTIONS.find(c => c.id === collectionId)
 }
 
+// "Report a Problem" is opt-in per collection (useAppConfig: report:true). It
+// shows only for a collection that owns its content and report endpoint — so a
+// report files an issue in the right repo. Off for Baker Bridge (Rick's content).
+const reportEnabled = computed(() => getCollection(currentCollection.value)?.report === true)
+
+// Reconstruct an "N:..." PBN string from parsed hands as a fallback when the
+// deal didn't carry its raw [Deal] string (older parses). N E S W order.
+function reconstructPbn(hands) {
+  if (!hands) return null
+  const parts = ['N', 'E', 'S', 'W'].map(seat => {
+    const h = hands[seat]
+    if (!h) return '...'
+    return [h.spades, h.hearts, h.diamonds, h.clubs].map(a => (a || []).join('')).join('.')
+  })
+  return 'N:' + parts.join(' ')
+}
+
+// Snapshot everything the report needs, then open the modal. The app already
+// has all of this while rendering the board.
+function openReport(e) {
+  const deal = currentDeal.value
+  if (!deal) return
+  // Remember where the button is so the popup opens just below it.
+  const btn = e?.currentTarget
+  if (btn?.getBoundingClientRect) {
+    const r = btn.getBoundingClientRect()
+    reportAnchor.value = { top: r.top, bottom: r.bottom, left: r.left, right: r.right }
+  }
+  const collection = getCollection(currentCollection.value)
+  const lessonId = currentLesson.value?.id || ''
+  const filename = lessonId.includes('/') ? lessonId.split('/').pop() : lessonId
+  const sourceUrl = collection && filename ? `${collection.baseUrl}/${filename}.pbn` : null
+  const role = userStore.currentUser.value?.role
+  const reporterTier = (role === 'teacher' || role === 'admin') ? 'reviewer' : 'learner'
+
+  reportContext.value = {
+    collection: currentCollection.value || null,
+    lesson_id: lessonId || null,
+    lesson_name: currentLesson.value?.name || null,
+    scenario: deal.event || lessonId || null,
+    deal_pbn: deal.dealString || reconstructPbn(deal.hands),
+    display_number: deal.displayNumber || (currentDealIndex.value + 1),
+    board_tag: deal.boardNumber != null ? String(deal.boardNumber) : null,
+    original_board: deal.originalBoard || null,
+    student_seat: practice.studentSeat.value || deal.studentSeat || null,
+    auction: [...practice.auctionState.displayedBids],
+    contract: deal.contract || null,
+    step_index: practice.currentStepIndex.value,
+    prompt: practice.currentStep.value?.text || null,
+    reporter_tier: reporterTier,
+    source_url: sourceUrl,
+    source_commit: null,
+    app_version: typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : null,
+    app_commit: typeof __APP_COMMIT__ !== 'undefined' ? __APP_COMMIT__ : null
+  }
+  showReport.value = true
+}
+
+// Pull the scenario "chat" out of a .btn — the /*@chat ... @chat*/ block.
+function extractChat(btnText) {
+  const m = btnText.match(/\/\*@chat\s*([\s\S]*?)@chat\*\//)
+  return m ? m[1].trim() : null
+}
+
+// Fetch the open scenario's .btn @chat and show the popup. Only the David Bailey
+// scenarios (pbs-coaching) have a PBS .btn; other collections / assignments no-op.
+async function loadScenarioChat(lessonId) {
+  showScenarioChat.value = false
+  scenarioChat.value = null
+  if (!lessonId) return
+  const collection = getCollection(currentCollection.value)
+  if (!collection || collection.id !== 'pbs-coaching') return
+  const filename = lessonId.includes('/') ? lessonId.split('/').pop() : lessonId
+  const btnBase = collection.baseUrl.replace(/\/coaching-non-rotated$/, '')
+  try {
+    const resp = await fetch(`${btnBase}/btn/${filename}.btn`)
+    if (!resp.ok) return
+    const chat = extractChat(await resp.text())
+    if (chat) {
+      scenarioChat.value = { title: currentLesson.value?.name || filename.replace(/_/g, ' '), text: chat }
+      showScenarioChat.value = true
+    }
+  } catch {
+    /* no popup if the .btn can't be fetched */
+  }
+}
+
+// Auto-show the scenario chat whenever a new lesson opens.
+watch(() => currentLesson.value?.id, (id) => loadScenarioChat(id))
+
 /**
  * Auto-load lesson from URL parameters
  * Fetches TOC, finds lesson, loads PBN file
@@ -1097,6 +1311,13 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* Only while the description is open: left-align the table so the wide-screen
+   white space gathers on the right for the popup. Centered again when it closes. */
+.app.left-aligned {
+  margin-left: 24px;
+  margin-right: auto;
 }
 
 .view-as-banner {
@@ -1242,6 +1463,23 @@ body {
 .accomplishments-btn:hover {
   background: #c8e6c9;
   color: #2e7d32;
+}
+
+.scenario-info-btn {
+  padding: 6px 12px;
+  border-radius: 16px;
+  background: #e8f0fb;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2d6a4f;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.scenario-info-btn:hover {
+  background: #d7e6f7;
+  color: #1b4332;
 }
 
 .lessons-btn {
@@ -1475,6 +1713,20 @@ body {
   color: #333;
 }
 
+/* Brief affirmation shown on a correct bid (coaching-feedback-fade). */
+.narrative-text.affirmation {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+/* Board-level cheer when every call was correct (coaching-feedback-fade). */
+.narrative-text.celebration {
+  color: #2e7d32;
+  font-weight: 700;
+  font-size: 1.25em;
+  margin-top: 4px;
+}
+
 .bidding-box-wrapper {
   display: flex;
   flex-direction: column;
@@ -1537,12 +1789,27 @@ body {
   justify-content: center;
 }
 
+.commentary-text-container {
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
 .commentary-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* Left zone: bidding box / Back / Next, takes the remaining width. */
+.controls-main {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
-  margin-top: 10px;
 }
 
 .commentary-controls .bidding-box-wrapper,
@@ -1585,6 +1852,33 @@ body {
   padding: 10px 20px;
   background: #e3f2fd;
   border-radius: 4px;
+}
+
+/* Report a Problem button — unobtrusive, sits below the lesson controls */
+.report-problem-row {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.report-problem-btn {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: 9px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #888;
+  background: none;
+  border: none;
+  border-radius: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.report-problem-btn:hover {
+  background: #fdecea;
+  color: #c62828;
 }
 
 /* Display mode styles */

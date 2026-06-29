@@ -99,7 +99,13 @@ export function parsePbn(pbnContent) {
             currentDeal.studentSeat = tagValue
             break
           case 'Deal':
+            // Keep the raw PBN string too — it's the stable key for a board
+            // (board numbers drift on re-curation), used by the Report button.
+            currentDeal.dealString = tagValue
             currentDeal.hands = parseDealString(tagValue)
+            break
+          case 'OriginalBoard':
+            currentDeal.originalBoard = tagValue
             break
           case 'Auction':
             currentDeal.auctionDealer = tagValue
@@ -200,12 +206,32 @@ function parseUnifiedSteps(commentaryParts) {
       const promptStep = parseStepContent(promptText, 'bid')
       const explStep = parseStepContent(explanationText, 'bid')
 
+      // Coaching feedback fade: the generator wraps the student's OWN justification
+      // in ⟦ ⟧; any text OUTSIDE the brackets is partner/opponent context that must
+      // always show. On a correct call the engine shows a brief affirmation + that
+      // follow; on a wrong call it shows the whole thing. Un-bracketed (legacy)
+      // content leaves fadeFollow null and the explanation always shows.
+      let explFull = explStep.text
+      let fadeFollow = null
+      if (explFull.indexOf('⟦') !== -1) {
+        fadeFollow = explFull.replace(/⟦[^⟧]*⟧/g, ' ').replace(/\s+/g, ' ').trim()
+        explFull = explFull.replace(/[⟦⟧]/g, '').replace(/\s+/g, ' ').trim()
+      }
+
+      // [ACCEPT] may sit in the prompt or the explanation chunk — merge both.
+      const acceptedBids = [...new Set([
+        ...(promptStep.acceptedBids || []),
+        ...(explStep.acceptedBids || []),
+      ])]
+
       steps.push({
         ...promptStep,
         type: 'bid',
         bid: cleanBid,
-        explanationText: explStep.text,
+        explanationText: explFull,
+        fadeFollow,
         showSeatsAfter: explStep.showSeats,
+        acceptedBids,
       })
 
     } else if (nextMatch || rotateMatch) {
@@ -313,6 +339,20 @@ function parseStepContent(text, action) {
   // Check for [clear-commentary] - clear previous commentary display
   const clearCommentary = /\[clear-commentary\]/i.test(text)
 
+  // Extract [ACCEPT call ...] tags - extra call(s) the bid quiz scores as correct
+  // alongside the recorded one (judgment boards with >1 defensible call). One tag
+  // may list several space-separated calls, e.g. [ACCEPT 4S Pass]; multiple tags
+  // accumulate. Stored as raw PBN tokens; makeBid normalizes at compare time.
+  const acceptedBids = []
+  const acceptPattern = /\[ACCEPT\s+([^\]]+)\]/gi
+  let acceptMatch
+  while ((acceptMatch = acceptPattern.exec(text)) !== null) {
+    for (const tok of acceptMatch[1].split(/\s+/)) {
+      const call = tok.replace(/!/g, '').trim()
+      if (call) acceptedBids.push(call)
+    }
+  }
+
   // Extract [showcards ...] tags - shows specific cards from hidden hands
   let showcards = null
   const showcardsMatch = text.match(/\[showcards\s+([^\]]+)\]/i)
@@ -339,6 +379,7 @@ function parseStepContent(text, action) {
     .replace(/\[SHOW_LEAD\]/gi, '')
     .replace(/\[showcards\s+[^\]]*\]/gi, '')
     .replace(/\[choose-card\s+[^\]]*\]/gi, '')
+    .replace(/\[ACCEPT\s+[^\]]*\]/gi, '')
     .replace(/\[clear-commentary\]/gi, '')
     // Strip deal title lines (e.g., "Stayman 1", "Entries 2") - matches "Word(s) Number" at start of line
     .replace(/^[A-Z][a-zA-Z-]*(?:\s+[A-Z][a-zA-Z-]*)?\s+\d+\s*$/gim, '')
@@ -354,7 +395,8 @@ function parseStepContent(text, action) {
     showLead,     // true if [SHOW_LEAD] tag present
     clearCommentary, // true if [clear-commentary] tag present - clear previous text
     showcards,    // null = no change, object = { seat: [cards] } to show
-    chooseCard    // null = no card choice, object = { card } or { cards, anyOf: true }
+    chooseCard,   // null = no card choice, object = { card } or { cards, anyOf: true }
+    acceptedBids  // array of extra calls scored correct alongside the recorded one
   }
 }
 
@@ -364,12 +406,14 @@ function parseStepContent(text, action) {
 function createEmptyDeal() {
   return {
     boardNumber: 0,
+    originalBoard: null,  // [OriginalBoard] tag — bba/ source board (drifts on re-curation)
     dealer: 'N',
     vulnerable: 'None',
     contract: '',
     declarer: '',
     studentSeat: 'S',
     hands: { N: null, E: null, S: null, W: null },
+    dealString: '',       // raw [Deal] PBN string — stable key for the Report button
     auction: [],
     auctionDealer: '',
     result: '',

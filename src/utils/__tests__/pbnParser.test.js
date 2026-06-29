@@ -286,5 +286,77 @@ Pass
       expect(prompts[0].text).toContain('♠')
       expect(prompts[0].explanationText).toContain('♠')
     })
+
+    it('extracts [ACCEPT] calls from the explanation and strips the marker', () => {
+      const commentary = [
+        'Title\n\nClose choice [BID 3N] Either game is sound. [ACCEPT 4S]'
+      ]
+      const prompts = parsePrompts(commentary)
+
+      expect(prompts[0].acceptedBids).toEqual(['4S'])
+      // Marker must not leak into displayed text
+      expect(prompts[0].explanationText).not.toContain('ACCEPT')
+      expect(prompts[0].explanationText).not.toContain('[')
+    })
+
+    it('accepts multiple calls in one [ACCEPT] tag', () => {
+      const commentary = [
+        'Title\n\nMiddling hand [BID 2N] A raise or a sign-off both work. [ACCEPT 3N Pass]'
+      ]
+      const prompts = parsePrompts(commentary)
+
+      expect(prompts[0].acceptedBids).toEqual(['3N', 'Pass'])
+    })
+
+    it('extracts [ACCEPT] from the prompt side of the bid too', () => {
+      const commentary = [
+        'Title\n\nClose call [ACCEPT 4S] [BID 3N] Either game is sound.'
+      ]
+      const prompts = parsePrompts(commentary)
+
+      expect(prompts[0].acceptedBids).toEqual(['4S'])
+      expect(prompts[0].text).not.toContain('ACCEPT')
+    })
+
+    it('leaves acceptedBids empty for bids without [ACCEPT] (non-disruption)', () => {
+      const commentary = [
+        'Title\n\nOnly one call [BID 1\\H] Standard opening.'
+      ]
+      const prompts = parsePrompts(commentary)
+
+      expect(prompts[0].acceptedBids).toEqual([])
+    })
+
+    // Real regenerated content (coaching-non-rotated/Basic_Major.pbn board 3):
+    // [ACCEPT Pass] sits inside the ⟦⟧ fade brackets on the student's own 5D call.
+    it('parses [ACCEPT] from a real folded coaching board', () => {
+      const pbn = `
+[Event "Basic_Major"]
+[Board "3"]
+[Dealer "S"]
+[Vulnerable "NS"]
+[Deal "N:KQ4.84.JT865.K54 AJT2.9.72.AJT932 97.AKJ76.AKQ3.87 8653.QT532.94.Q6"]
+[Student "S"]
+[Auction "S"]
+1H    Pass  1N    2C
+2D    Pass  3D    Pass
+5D    Pass  Pass  Pass
+{[show S]A judgment hand.
+[BID 1H] ⟦You open 1\\H.⟧ Partner responds 1NT.
+[BID 2D] ⟦You bid 2\\D.⟧ Partner raises to 3\\D.
+[BID 5D] ⟦You stretch to 5\\D, a pushy call; passing 3\\D was steadier. [ACCEPT Pass]⟧
+[show NS]5\\D is a level too high.}
+`
+      const deal = parsePbn(pbn)[0]
+      const bidSteps = deal.steps.filter(s => s.type === 'bid')
+      const byBid = Object.fromEntries(bidSteps.map(s => [s.bid, s]))
+
+      // Only the 5D judgment call carries the accept; the textbook calls don't.
+      expect(byBid['5D'].acceptedBids).toEqual(['Pass'])
+      expect(byBid['1H'].acceptedBids).toEqual([])
+      expect(byBid['2D'].acceptedBids).toEqual([])
+      // Marker is stripped from what the student reads.
+      expect(byBid['5D'].text + byBid['5D'].explanationText).not.toContain('ACCEPT')
+    })
   })
 })

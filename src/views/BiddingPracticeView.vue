@@ -103,6 +103,7 @@
               </label>
               <button v-if="!EMBEDDED" class="bp-btn" @click="newDeal" :disabled="auctionLoading || selectedScenarios.size === 0">Next deal &rarr;</button>
               <button class="bp-btn" @click="resetAuction" :disabled="auctionLoading">Restart this deal</button>
+              <button v-if="!EMBEDDED && scenarioChat" class="bp-btn" @click="showScenarioChat = true" title="Show the scenario description">&#8505; Description</button>
             </div>
           </div>
 
@@ -339,6 +340,14 @@
         </template>
       </main>
     </div>
+
+    <!-- Scenario chat — sizable, draggable popup of the .btn @chat -->
+    <ScenarioChatPopup
+      :visible="showScenarioChat && !!scenarioChat"
+      :title="scenarioChat?.title || ''"
+      :text="scenarioChat?.text || ''"
+      @close="showScenarioChat = false"
+    />
   </div>
 </template>
 
@@ -349,6 +358,7 @@ import HandDisplay from '../components/HandDisplay.vue'
 import BiddingBox from '../components/BiddingBox.vue'
 import AuctionTable from '../components/AuctionTable.vue'
 import TrickArea from '../components/TrickArea.vue'
+import ScenarioChatPopup from '../components/ScenarioChatPopup.vue'
 import { formatBid } from '../utils/cardFormatting.js'
 import { useCardPlay } from '../composables/useCardPlay.js'
 import { getBot, listBots } from '../utils/cardplayBots.js'
@@ -442,6 +452,11 @@ const dealIndex = ref(0)
 const currentDeal = ref(null)
 const dealError = ref('')
 const dealErrorHint = ref('')
+
+// Scenario-chat popup: the .btn @chat for the open scenario, shown auto-on-open
+// and reopenable from the scenario bar. { title, text } or null.
+const scenarioChat = ref(null)
+const showScenarioChat = ref(false)
 
 // Persist the rotate-randomly preference across reloads.
 const ROTATE_KEY = 'bp.rotateDeals'
@@ -1096,9 +1111,9 @@ function ensureBtnMetadataForSection(section) {
 async function fetchBtnMetadata(file) {
   try {
     const resp = await fetch(`${CONFIG.PBS_RAW_BASE}/btn/${file}.btn`)
-    if (!resp.ok) return { bbaWorks: true } // assume supported on fetch failure
+    if (!resp.ok) return { bbaWorks: true, chat: null } // assume supported on fetch failure
     const text = await resp.text()
-    const meta = { bbaWorks: true }
+    const meta = { bbaWorks: true, chat: extractChat(text) }
     // Metadata lives in leading "# key: value" comment lines.
     for (const raw of text.split('\n').slice(0, 40)) {
       if (!raw.startsWith('#')) continue
@@ -1110,7 +1125,29 @@ async function fetchBtnMetadata(file) {
     }
     return meta
   } catch {
-    return { bbaWorks: true }
+    return { bbaWorks: true, chat: null }
+  }
+}
+
+// Pull the scenario "chat" out of a .btn — the /*@chat ... @chat*/ block.
+function extractChat(btnText) {
+  const m = btnText.match(/\/\*@chat\s*([\s\S]*?)@chat\*\//)
+  return m ? m[1].trim() : null
+}
+
+// Show the scenario's @chat popup (fetch the .btn if not cached yet).
+async function showChatForScenario(file) {
+  let meta = btnMetadata.value[file]
+  if (!meta || meta._loading || meta.chat === undefined) {
+    meta = await fetchBtnMetadata(file)
+    btnMetadata.value = { ...btnMetadata.value, [file]: meta }
+  }
+  if (meta?.chat) {
+    scenarioChat.value = { title: prettifyLabel(file), text: meta.chat }
+    showScenarioChat.value = true
+  } else {
+    scenarioChat.value = null
+    showScenarioChat.value = false
   }
 }
 
@@ -1158,6 +1195,7 @@ async function clearSelection() {
 
 // Fetch + cache the PBN for a scenario, then load a random deal from it.
 async function loadFromScenario(file) {
+  const isNewScenario = file !== currentScenario.value
   currentScenario.value = file
   currentScenarioLabel.value = prettifyLabel(file)
   dealError.value = ''
@@ -1176,6 +1214,9 @@ async function loadFromScenario(file) {
   }
   dealsForScenario.value = deals
   await loadDealAt(Math.floor(Math.random() * deals.length))
+  // Auto-show the scenario chat when a NEW scenario is opened (not on every
+  // "next deal" within the same scenario, and not in embedded single-deal mode).
+  if (isNewScenario && !EMBEDDED) showChatForScenario(file)
 }
 
 // For BBA-supported scenarios, prefer /bba-filtered/ — those PBNs apply

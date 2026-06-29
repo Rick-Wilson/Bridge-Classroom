@@ -44,6 +44,7 @@ export function useDealPractice() {
     correctCount: 0,
     wrongCount: 0,
     wrongStepIndices: {},  // tracks which step indices had wrong answers (for back-up-fix)
+    studentBidStepIndices: {},  // step indices the student bid (vs partner's auto-played calls)
     promptHistory: [],     // accumulates per-prompt details for the observation
     observationId: null    // stable UUID for upsert — generated per board attempt
   })
@@ -489,8 +490,17 @@ export function useDealPractice() {
     if (!isBidStep.value) return false
 
     const expectedBid = currentDeal.value.auction[auctionState.currentBidIndex]
-    const isCorrect = normalizeBid(bid) === normalizeBid(expectedBid)
+    // Judgment boards may mark extra defensible calls via [ACCEPT ...]; accept
+    // those alongside the recorded call. The auction still advances on the
+    // recorded call (expectedBid) — acceptedBids only affects scoring.
+    const acceptedBids = currentStep.value?.acceptedBids || []
+    const isCorrect = normalizeBid(bid) === normalizeBid(expectedBid) ||
+      acceptedBids.some(a => normalizeBid(a) === normalizeBid(bid))
     const stepIdx = currentStepIndex.value
+
+    // This step is the student's own bid (vs partner's auto-played calls) —
+    // drives the feedback fade in the scrollback.
+    boardState.studentBidStepIndices[stepIdx] = true
 
     // Track wrong steps
     if (!isCorrect) {
@@ -835,6 +845,7 @@ export function useDealPractice() {
     // Reset board scoring
     boardState.boardHadWrong = false
     boardState.wrongStepIndices = {}
+    boardState.studentBidStepIndices = {}
     boardState.promptHistory = []
     boardState.observationId = crypto.randomUUID()
 
