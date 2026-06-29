@@ -57,4 +57,30 @@ describe('useDealPractice — [ACCEPT] scoring', () => {
     dp.loadDeal(parsePbn(PLAIN_PBN)[0])
     expect(dp.makeBid('3NT')).toBe(true)
   })
+
+  // B7: an accepted alternative is its own tier — reverted + flagged, not penalized.
+  it('flags an accepted alternative (orange tier), not wrong', () => {
+    dp.loadDeal(parsePbn(ACCEPT_PBN)[0])
+    dp.makeBid('4S')
+    expect(dp.auctionState.altBid).toBe('4S')
+    expect(dp.auctionState.altRecordedBid).toBe('3NT')   // reverts to the recorded call
+    expect(dp.auctionState.wrongBid).toBe(null)          // not the wrong tier
+    expect(dp.boardState.boardHadWrong).toBe(false)      // not penalized
+    expect(dp.boardState.altStepIndices[0]).toBe(true)   // tracked (suppresses the cheer)
+  })
+
+  it('the exact recorded call is not flagged as an alternative', () => {
+    dp.loadDeal(parsePbn(ACCEPT_PBN)[0])
+    dp.makeBid('3NT')
+    expect(dp.auctionState.altBid).toBe(null)
+    expect(Object.keys(dp.boardState.altStepIndices)).toHaveLength(0)
+  })
+
+  it('a wrong call is the wrong tier, not the alternative tier', () => {
+    dp.loadDeal(parsePbn(ACCEPT_PBN)[0])
+    dp.makeBid('4H')
+    expect(dp.auctionState.wrongBid).toBe('4H')
+    expect(dp.auctionState.altBid).toBe(null)
+    expect(dp.boardState.boardHadWrong).toBe(true)
+  })
 })

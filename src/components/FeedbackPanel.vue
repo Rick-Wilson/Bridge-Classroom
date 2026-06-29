@@ -2,6 +2,7 @@
   <div v-if="visible" class="feedback-panel" :class="type">
     <div class="feedback-header">
       <span v-if="type === 'wrong'" class="icon">✗</span>
+      <span v-else-if="type === 'alternative'" class="icon">≈</span>
       <span v-else-if="type === 'correct'" class="icon">✓</span>
       <span class="title">{{ title }}</span>
     </div>
@@ -10,11 +11,11 @@
     <div v-if="wrongBid" class="feedback-content">
       <div class="bid-comparison">
         <div class="bid-item your-bid">
-          <span class="label">Your bid:</span>
+          <span class="label">{{ yourBidLabel }}</span>
           <span class="bid" v-html="formatBidHtml(wrongBid)"></span>
         </div>
         <div class="bid-item correct-bid">
-          <span class="label">Correct bid:</span>
+          <span class="label">{{ correctBidLabel }}</span>
           <span class="bid" v-html="formatBidHtml(correctBid)"></span>
         </div>
       </div>
@@ -56,8 +57,8 @@ const props = defineProps({
   },
   type: {
     type: String,
-    default: 'wrong', // 'wrong', 'correct', 'info'
-    validator: (v) => ['wrong', 'correct', 'info'].includes(v)
+    default: 'wrong', // 'wrong', 'alternative', 'correct', 'info'
+    validator: (v) => ['wrong', 'alternative', 'correct', 'info'].includes(v)
   },
   wrongBid: {
     type: String,
@@ -89,9 +90,15 @@ defineEmits(['continue'])
 
 const title = computed(() => {
   if (props.type === 'wrong') return 'Incorrect'
+  if (props.type === 'alternative') return 'Acceptable alternative'
   if (props.type === 'correct') return 'Correct!'
   return 'Information'
 })
+
+// On an accepted alternative, the recorded call isn't "more correct" — it's just
+// the one the lesson follows — so label the two sides accordingly.
+const yourBidLabel = computed(() => props.type === 'alternative' ? 'Your call:' : 'Your bid:')
+const correctBidLabel = computed(() => props.type === 'alternative' ? 'Recorded call:' : 'Correct bid:')
 
 function formatBidHtml(bid) {
   return formatBid(bid).html
@@ -113,6 +120,10 @@ function formatCardHtml(code) {
 
 .feedback-panel.wrong {
   border-left: 4px solid #d32f2f;
+}
+
+.feedback-panel.alternative {
+  border-left: 4px solid #ed6c02;
 }
 
 .feedback-panel.correct {
@@ -137,6 +148,10 @@ function formatCardHtml(code) {
 
 .wrong .icon {
   color: #d32f2f;
+}
+
+.alternative .icon {
+  color: #ed6c02;
 }
 
 .correct .icon {
@@ -188,6 +203,16 @@ function formatCardHtml(code) {
 .your-bid .bid {
   color: #d32f2f;
   text-decoration: line-through;
+}
+
+/* Accepted alternative: the struck-out call is orange (not wrong-red), and the
+   recorded call is neutral (not "correct-green"). */
+.alternative .your-bid .bid {
+  color: #ed6c02;
+}
+
+.alternative .correct-bid .bid {
+  color: #1a1a1a;
 }
 
 .correct-bid .bid {

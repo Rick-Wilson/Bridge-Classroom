@@ -142,6 +142,16 @@
               :showContinue="false"
             />
 
+            <!-- Accepted-alternative panel (orange) - the student chose a defensible
+                 call that isn't the recorded one ([ACCEPT]). -->
+            <FeedbackPanel
+              :visible="!!practice.auctionState.altBid"
+              type="alternative"
+              :wrongBid="practice.auctionState.altBid"
+              :correctBid="practice.auctionState.altRecordedBid"
+              :showContinue="false"
+            />
+
             <!-- Card choice feedback panel - shown after wrong card selection -->
             <FeedbackPanel
               :visible="!!practice.cardChoiceState.wrongCard"
@@ -158,13 +168,13 @@
                 <template v-for="(step, idx) in practice.steps.value.slice(0, practice.currentStepIndex.value)" :key="'prev-' + idx">
                   <template v-if="idx >= practice.commentaryStartIndex.value">
                     <span class="narrative-text previous" v-html="colorizeSuits(flowText(step.text))"></span>
-                    <span v-if="step.type === 'bid' && step.explanationText && (wasStepWrong(idx) || step.fadeFollow == null)"
+                    <span v-if="step.type === 'bid' && step.explanationText && (wasStepWrong(idx) || wasStepAlternative(idx) || step.fadeFollow == null)"
                       :class="['narrative-text', idx === practice.currentStepIndex.value - 1 && practice.isBidStep.value && !practice.bidAnswered.value ? 'current' : 'previous']"
                       v-html="colorizeSuits(flowText(step.explanationText))"></span>
-                    <span v-else-if="step.type === 'bid' && !wasStepWrong(idx)"
+                    <span v-else-if="step.type === 'bid' && !wasStepWrong(idx) && !wasStepAlternative(idx)"
                       class="narrative-text previous affirmation"
                       v-html="bidLabel(step.bid) + ' — ' + affirmationFor(idx)"></span>
-                    <span v-if="step.type === 'bid' && !wasStepWrong(idx) && step.fadeFollow"
+                    <span v-if="step.type === 'bid' && !wasStepWrong(idx) && !wasStepAlternative(idx) && step.fadeFollow"
                       class="narrative-text previous"
                       v-html="colorizeSuits(flowText(step.fadeFollow))"></span>
                   </template>
@@ -172,9 +182,9 @@
                 <!-- Current step text (black) -->
                 <span v-if="practice.currentStep.value" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.text))"></span>
                 <!-- After a bid: full explanation when wrong (the teaching); brief affirmation when correct. -->
-                <span v-if="practice.bidAnswered.value && practice.currentStep.value?.type === 'bid' && practice.currentStep.value?.explanationText && (practice.auctionState.wrongBid || practice.currentStep.value?.fadeFollow == null)" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.explanationText))"></span>
-                <span v-else-if="practice.bidAnswered.value && !practice.auctionState.wrongBid && practice.currentStep.value?.type === 'bid'" class="narrative-text current affirmation" v-html="bidLabel(practice.currentStep.value.bid) + ' — ' + affirmationFor(practice.currentStepIndex.value)"></span>
-                <span v-if="practice.bidAnswered.value && !practice.auctionState.wrongBid && practice.currentStep.value?.fadeFollow" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.fadeFollow))"></span>
+                <span v-if="practice.bidAnswered.value && practice.currentStep.value?.type === 'bid' && practice.currentStep.value?.explanationText && (practice.auctionState.wrongBid || practice.auctionState.altBid || practice.currentStep.value?.fadeFollow == null)" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.explanationText))"></span>
+                <span v-else-if="practice.bidAnswered.value && !practice.auctionState.wrongBid && !practice.auctionState.altBid && practice.currentStep.value?.type === 'bid'" class="narrative-text current affirmation" v-html="bidLabel(practice.currentStep.value.bid) + ' — ' + affirmationFor(practice.currentStepIndex.value)"></span>
+                <span v-if="practice.bidAnswered.value && !practice.auctionState.wrongBid && !practice.auctionState.altBid && practice.currentStep.value?.fadeFollow" class="narrative-text current" v-html="colorizeSuits(flowText(practice.currentStep.value.fadeFollow))"></span>
                 <!-- Board-level cheer when the whole auction was bid correctly. -->
                 <span v-if="boardCelebration" class="narrative-text current celebration">{{ boardCelebration }}</span>
               </div>
@@ -397,6 +407,12 @@ function wasStepWrong(idx) {
   return !!practice.boardState.wrongStepIndices[idx]
 }
 
+// Did the student choose an accepted alternative here? (also shows the explanation,
+// and withholds the perfect-board cheer.)
+function wasStepAlternative(idx) {
+  return !!practice.boardState.altStepIndices[idx]
+}
+
 // Was this bid step the student's own call (vs partner's auto-played call)?
 function isStudentBidStep(idx) {
   return !!practice.boardState.studentBidStepIndices[idx]
@@ -409,6 +425,8 @@ const CELEBRATIONS = ['Bravo!', 'Perfect!', 'Beautifully bid!', 'Flawless — ev
 const CELEBRATIONS_PLAY = ['Bravo!', 'Perfect!', 'Beautifully played!', 'Flawless — every card!', 'Nailed it!']
 const boardCelebration = computed(() => {
   if (!practice.isComplete.value || practice.boardState.boardHadWrong) return ''
+  // An accepted alternative isn't a flawless board — withhold the perfect-board cheer.
+  if (Object.keys(practice.boardState.altStepIndices).length > 0) return ''
   const set = practice.hasBidSteps.value ? CELEBRATIONS : CELEBRATIONS_PLAY
   return set[practice.steps.value.length % set.length]
 })

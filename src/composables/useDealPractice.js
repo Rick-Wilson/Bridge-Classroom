@@ -28,6 +28,12 @@ export function useDealPractice() {
     correctBid: null,
     wrongBidIndex: -1,
     correctBidIndex: -1,
+    // Accepted-alternative ([ACCEPT]) tier: the student picked a defensible call
+    // that isn't the recorded one. Not wrong — but, like a wrong call, it's
+    // reverted to the recorded call and flagged (orange), never left standing.
+    altBid: null,
+    altRecordedBid: null,
+    altBidIndex: -1,
     auctionComplete: false
   })
 
@@ -44,6 +50,7 @@ export function useDealPractice() {
     correctCount: 0,
     wrongCount: 0,
     wrongStepIndices: {},  // tracks which step indices had wrong answers (for back-up-fix)
+    altStepIndices: {},    // step indices where the student chose an accepted alternative
     studentBidStepIndices: {},  // step indices the student bid (vs partner's auto-played calls)
     promptHistory: [],     // accumulates per-prompt details for the observation
     observationId: null    // stable UUID for upsert — generated per board attempt
@@ -494,13 +501,21 @@ export function useDealPractice() {
     // those alongside the recorded call. The auction still advances on the
     // recorded call (expectedBid) — acceptedBids only affects scoring.
     const acceptedBids = currentStep.value?.acceptedBids || []
-    const isCorrect = normalizeBid(bid) === normalizeBid(expectedBid) ||
-      acceptedBids.some(a => normalizeBid(a) === normalizeBid(bid))
+    const isExact = normalizeBid(bid) === normalizeBid(expectedBid)
+    // An accepted alternative is a defensible call that isn't the recorded one.
+    // It's not wrong, but it's reverted to the recorded call and flagged (orange).
+    const isAlternative = !isExact && acceptedBids.some(a => normalizeBid(a) === normalizeBid(bid))
+    const isCorrect = isExact || isAlternative
     const stepIdx = currentStepIndex.value
 
     // This step is the student's own bid (vs partner's auto-played calls) —
     // drives the feedback fade in the scrollback.
     boardState.studentBidStepIndices[stepIdx] = true
+
+    // Track alternative steps (so the cheer is withheld and the scrollback shows
+    // the explanation rather than a plain affirmation).
+    if (isAlternative) boardState.altStepIndices[stepIdx] = true
+    else if (stepIdx in boardState.altStepIndices) delete boardState.altStepIndices[stepIdx]
 
     // Track wrong steps
     if (!isCorrect) {
@@ -536,6 +551,16 @@ export function useDealPractice() {
     auctionState.currentBidIndex++
     promptStartTime.value = null
     currentAttemptNumber.value = 1
+
+    // Reset the alternative flag each turn; set it only for an accepted alternative.
+    auctionState.altBid = null
+    auctionState.altRecordedBid = null
+    auctionState.altBidIndex = -1
+    if (isAlternative) {
+      auctionState.altBid = bid
+      auctionState.altRecordedBid = expectedBid
+      auctionState.altBidIndex = bidPosition
+    }
 
     if (isCorrect) {
       auctionState.wrongBid = null
