@@ -14,9 +14,11 @@
       </span>
       <button class="stop-viewing-btn" @click="handleStopViewing">Stop viewing</button>
     </div>
-    <header class="app-header" :class="{ 'has-greeting': showWelcome }">
+    <header class="app-header" :class="{ 'has-greeting': showWelcome && !deals.length }">
       <h1><a href="/" style="color:inherit;text-decoration:none">{{ deals.length ? dealTitle : appTitle }}</a></h1>
-      <span v-if="showWelcome" class="welcome-greeting">Welcome back, {{ firstName }}</span>
+      <!-- Greeting only on the lobby — on a lesson the long title + many header
+           buttons leave no room for a centered greeting. -->
+      <span v-if="showWelcome && !deals.length" class="welcome-greeting">Welcome back, {{ firstName }}</span>
       <div class="header-right">
         <SyncStatus />
         <button class="progress-btn" @click="showProgress = true" title="View Progress">
