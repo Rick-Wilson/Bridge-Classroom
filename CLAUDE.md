@@ -3,7 +3,10 @@
 ## Git Configuration
 
 - Use SSH for all git operations (not HTTPS)
-- Remote: git@github.com:Rick-Wilson/Bridge-Classroom.git
+- Remote: git@github.com:bridge-craftwork/Bridge-Classroom.git
+  - Repo was transferred from the personal `Rick-Wilson` account into the
+    `bridge-craftwork` org on 2026-06-29 (all bridge repos were consolidated
+    there). Old `Rick-Wilson/Bridge-Classroom` URLs still redirect.
 
 ## Project Context
 
@@ -45,7 +48,7 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Discord**: https://discord.gg/GqyyU3sVS4
 - **Patreon**: https://patreon.com/BridgeCraftwork
 - **Email support**: bridge-craftwork@gmail.com
-- **GitHub**: https://github.com/Rick-Wilson/Bridge-Classroom
+- **GitHub**: https://github.com/bridge-craftwork/Bridge-Classroom (org-owned since 2026-06-29; old `Rick-Wilson/...` redirects)
 - **Game Analysis webapp**: https://game-analysis.bridge-classroom.com
 - **Frontend (dual deploy from same source)**: every push to `main` rebuilds both domains identically.
   - `bridge-classroom.com` → `.github/workflows/deploy.yml` → GitHub Pages.
@@ -96,6 +99,43 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
   - Deploy command: `npx wrangler deploy`
   - Production branch: `main`
 - See `documentation/cloudflare-setup.md` for the broader Cloudflare/DNS picture (largely focused on `.com`/GitHub Pages).
+
+### Frontend deploy notes & gotchas (org transfer, 2026-06-29)
+
+The repo moved from `Rick-Wilson` to the `bridge-craftwork` org. The two deploy
+pipelines survived, but several things bit and are worth remembering:
+
+- **`.com` GitHub Pages is owned by `bridge-craftwork/Bridge-Classroom`.** Pages
+  source is **GitHub Actions** (`build_type: workflow`), not branch-based.
+  Custom domain is `bridge-classroom.com`.
+- **Org-level domain verification strips the custom domain from other accounts.**
+  Verifying `bridge-classroom.com` under the `bridge-craftwork` org immediately
+  detached it from the (then personal-account-owned) repo's Pages, 404-ing `.com`.
+  A verified org domain cannot be used by a Pages site in any other account. The
+  fix was to serve `.com` from an org-owned repo (i.e. complete the transfer).
+- **The committed CNAME file does NOT re-attach the domain for Actions-based
+  Pages.** `public/CNAME` only sets the domain for *branch*-based Pages. For the
+  Actions deploy the custom domain must be set in repo settings / via
+  `PUT /repos/bridge-craftwork/Bridge-Classroom/pages -f cname=bridge-classroom.com`.
+- **"Enforce HTTPS" is unavailable on GitHub — and that's expected/fine.** The
+  domain is Cloudflare-proxied (orange cloud), so GitHub can't run its cert
+  challenge. Cloudflare terminates TLS with its own valid cert and already
+  301-redirects http→https. Leave GitHub's box unchecked; HTTPS is handled at the
+  Cloudflare edge. Keep Cloudflare SSL/TLS mode on **Full** (not Flexible, not
+  Full-strict — strict breaks because GitHub's origin cert won't match the
+  custom domain).
+- **DNS CNAME target does not need to change on transfer.** `bridge-classroom.com`
+  is a proxied CNAME → `rick-wilson.github.io`; it still serves because GitHub
+  Pages routes by `Host` header and `rick-wilson.github.io` resolves to the same
+  shared Pages IPs as `bridge-craftwork.github.io`. Updating it to
+  `bridge-craftwork.github.io` is optional hygiene.
+- **`.org` Cloudflare Worker GitHub App must be (re)installed on the org.** After
+  transfer the Worker's Git build connection broke ("internal issue with your
+  Git installation"). Fix: disconnect, then reconnect, authorizing the
+  "Cloudflare Workers and Pages" GitHub App for the `bridge-craftwork` org with
+  access to `Bridge-Classroom`. The live `.org` Worker keeps serving its edge
+  build throughout — only auto-builds pause until relinked. Manual deploy
+  fallback: `npm run build && bash scripts/build-site.sh && npx wrangler deploy`.
 
 ### Directory Conventions
 
