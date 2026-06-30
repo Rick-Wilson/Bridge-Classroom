@@ -6,7 +6,7 @@
   />
 
   <!-- Main App (shown when user is authenticated) -->
-  <div v-else class="app" @click.capture="dismissWelcome">
+  <div v-else class="app" :class="{ 'intro-open': showIntroPdf }" @click.capture="dismissWelcome">
     <!-- View-as banner — shown when admin is rendering the app as another user -->
     <div v-if="isViewingAs" class="view-as-banner">
       <span class="view-as-text">
@@ -1296,6 +1296,23 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+/* While the Lesson Introduction is docked at the left edge, go full-width and
+   reserve a left gutter the width of the viewer, so the practice content (board
+   selector, table, bidding) reflows entirely to the right of the Intro instead
+   of hiding behind it. Only on screens wide enough to hold the gutter plus the
+   practice layout — narrower screens keep the centered layout (the Intro floats
+   over it and can be moved or closed). */
+@media (min-width: 1200px) {
+  .app.intro-open {
+    max-width: none;
+    margin: 0;
+  }
+  .app.intro-open .practice-layout {
+    padding-left: 568px;
+    justify-content: start;
+  }
 }
 
 .view-as-banner {

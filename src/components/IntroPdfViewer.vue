@@ -16,7 +16,7 @@
       <div v-if="interacting" class="interaction-overlay"></div>
       <div v-if="loading" class="viewer-loading">Loading PDF...</div>
       <div v-else-if="error" class="viewer-error">{{ error }}</div>
-      <iframe v-else-if="iframeSrc" :src="iframeSrc" class="viewer-iframe"></iframe>
+      <iframe v-else-if="iframeSrc" :key="reloadKey" :src="iframeSrc" class="viewer-iframe"></iframe>
     </div>
     <div class="resize-handle" @pointerdown="startResize">&#8943;</div>
   </div>
@@ -41,7 +41,12 @@ defineEmits(['close'])
 const pos = reactive({ x: 8, y: 80 })
 const size = reactive({ w: 550, h: 700 })
 const interacting = ref(false)
+const resizing = ref(false)
 const dragOffset = reactive({ x: 0, y: 0 })
+// The embedded PDF viewer fits the page to width only at load, not on resize.
+// Bumping this key recreates the iframe after a resize so it re-fits to the new
+// width — making the text grow/shrink with the window, a proportional size dial.
+const reloadKey = ref(0)
 
 // PDF blob state
 const blobUrl = ref(null)
@@ -120,6 +125,7 @@ function onDrag(e) {
 // Resize logic
 function startResize(e) {
   interacting.value = true
+  resizing.value = true
   dragOffset.x = e.clientX
   dragOffset.y = e.clientY
   dragOffset.startW = size.w
@@ -138,6 +144,11 @@ function stopInteraction() {
   document.removeEventListener('pointermove', onDrag)
   document.removeEventListener('pointermove', onResize)
   document.removeEventListener('pointerup', stopInteraction)
+  // Re-fit the PDF to the new width after a resize (see reloadKey).
+  if (resizing.value) {
+    resizing.value = false
+    reloadKey.value++
+  }
 }
 </script>
 
