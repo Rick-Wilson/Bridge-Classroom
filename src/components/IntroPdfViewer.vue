@@ -48,9 +48,11 @@ const blobUrl = ref(null)
 const loading = ref(false)
 const error = ref(null)
 
-// Hide sidebar and toolbar in the browser PDF viewer
+// Hide sidebar/toolbar and fit the page to the viewer width. The intro PDFs are
+// a narrow, content-height page, so fit-width scales them up to fill the viewer —
+// large text that grows/shrinks as the user resizes the window.
 const iframeSrc = computed(() =>
-  blobUrl.value ? blobUrl.value + '#navpanes=0&toolbar=0' : null
+  blobUrl.value ? blobUrl.value + '#toolbar=0&navpanes=0&zoom=page-width' : null
 )
 
 // Fetch PDF as blob and create object URL with correct MIME type
