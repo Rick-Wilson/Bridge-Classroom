@@ -6,7 +6,7 @@
   />
 
   <!-- Main App (shown when user is authenticated) -->
-  <div v-else class="app" :class="{ 'intro-open': showIntroPdf }" @click.capture="dismissWelcome">
+  <div v-else class="app" :class="{ 'intro-open': showIntroPdf }" :style="{ '--intro-gutter': introGutter }" @click.capture="dismissWelcome">
     <!-- View-as banner — shown when admin is rendering the app as another user -->
     <div v-if="isViewingAs" class="view-as-banner">
       <span class="view-as-text">
@@ -284,6 +284,7 @@
       :visible="showIntroPdf"
       :url="introPdfUrl || ''"
       @close="showIntroPdf = false"
+      @geometry="introGeometry = $event"
     />
 
     <!-- Become a Teacher Modal -->
@@ -457,6 +458,15 @@ const introUrl = ref(null)
 const showIntroPdf = ref(false)
 const showRegistrationToast = ref(false)
 const introPdfUrl = ref(null)
+// Live {x,w} of the floating intro viewer (or null). The practice layout reserves
+// a left gutter matching its actual right edge — only while it's docked near the
+// left edge; dragged elsewhere, no gutter (it floats over the content).
+const introGeometry = ref(null)
+const introGutter = computed(() => {
+  const g = introGeometry.value
+  if (!g || g.x > 120) return null
+  return `${Math.round(g.x + g.w + 16)}px`
+})
 
 // Auto-scroll to show current element (keep its first line visible)
 function scrollToCurrentElement(container, selector = '.current') {
@@ -1309,8 +1319,10 @@ body {
     max-width: none;
     margin: 0;
   }
+  /* Gutter tracks the viewer's real right edge (--intro-gutter); falls back to a
+     sensible default if geometry hasn't reported yet. */
   .app.intro-open .practice-layout {
-    padding-left: 568px;
+    padding-left: var(--intro-gutter, 568px);
     justify-content: start;
   }
 }

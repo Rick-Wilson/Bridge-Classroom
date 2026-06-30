@@ -36,10 +36,18 @@ const props = defineProps({
   }
 })
 
-defineEmits(['close'])
+const emit = defineEmits(['close', 'geometry'])
 
 const pos = reactive({ x: 8, y: 80 })
 const size = reactive({ w: 550, h: 700 })
+
+// Report position+size so the layout can reserve a gutter that matches the
+// viewer's actual right edge (it's draggable and resizable). Emits live.
+watch(
+  () => [props.visible, pos.x, size.w],
+  () => emit('geometry', props.visible ? { x: pos.x, w: size.w } : null),
+  { immediate: true }
+)
 const interacting = ref(false)
 const resizing = ref(false)
 const dragOffset = reactive({ x: 0, y: 0 })
