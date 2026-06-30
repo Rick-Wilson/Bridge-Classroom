@@ -16,7 +16,7 @@
       <div v-if="interacting" class="interaction-overlay"></div>
       <div v-if="loading" class="viewer-loading">Loading PDF...</div>
       <div v-else-if="error" class="viewer-error">{{ error }}</div>
-      <iframe v-else-if="iframeSrc" :key="reloadKey" :src="iframeSrc" class="viewer-iframe"></iframe>
+      <iframe v-else-if="iframeSrc" :src="iframeSrc" class="viewer-iframe" :style="iframeStyle"></iframe>
     </div>
     <div class="resize-handle" @pointerdown="startResize">&#8943;</div>
   </div>
@@ -49,23 +49,36 @@ watch(
   { immediate: true }
 )
 const interacting = ref(false)
-const resizing = ref(false)
 const dragOffset = reactive({ x: 0, y: 0 })
-// The embedded PDF viewer fits the page to width only at load, not on resize.
-// Bumping this key recreates the iframe after a resize so it re-fits to the new
-// width — making the text grow/shrink with the window, a proportional size dial.
-const reloadKey = ref(0)
+
+// Proportional text. The embedded PDF viewer only fits-to-width at load and won't
+// re-fit on resize, and #zoom=page-width won't enlarge past 100%. So we render the
+// page at a fixed high zoom (#zoom=200 → crisp 2x raster) into an iframe sized to
+// the page's natural width × 2, then CSS-scale that iframe down to the viewer body.
+// Scaling DOWN from the 2x render stays sharp, and the scale tracks the window
+// size live — so dragging the box bigger enlarges the text smoothly. The page
+// width is read from the PDF (pageWidthPx) so it works for any page size.
+const ZOOM = 2
+const TITLEBAR = 40
+const pageWidthPx = ref(528) // 5.5in @96dpi; updated per-PDF from its MediaBox
+const baseW = computed(() => pageWidthPx.value * ZOOM)
+const pdfScale = computed(() => size.w / baseW.value)
+const iframeStyle = computed(() => ({
+  width: baseW.value + 'px',
+  height: ((size.h - TITLEBAR) / pdfScale.value) + 'px',
+  transform: `scale(${pdfScale.value})`,
+  transformOrigin: '0 0'
+}))
 
 // PDF blob state
 const blobUrl = ref(null)
 const loading = ref(false)
 const error = ref(null)
 
-// Hide sidebar/toolbar and fit the page to the viewer width. The intro PDFs are
-// a narrow, content-height page, so fit-width scales them up to fill the viewer —
-// large text that grows/shrinks as the user resizes the window.
+// Hide sidebar/toolbar; render at a fixed 2x zoom (ZOOM). The iframe is then
+// CSS-scaled to the viewer (see iframeStyle).
 const iframeSrc = computed(() =>
-  blobUrl.value ? blobUrl.value + '#toolbar=0&navpanes=0&zoom=page-width' : null
+  blobUrl.value ? blobUrl.value + '#toolbar=0&navpanes=0&zoom=200' : null
 )
 
 // Fetch PDF as blob and create object URL with correct MIME type
@@ -79,8 +92,13 @@ async function fetchPdf(url) {
   try {
     const response = await fetch(url)
     if (!response.ok) throw new Error('Failed to load PDF')
-    const blob = await response.blob()
-    const pdfBlob = new Blob([blob], { type: 'application/pdf' })
+    const buf = await response.arrayBuffer()
+    // Read the page width from the PDF's MediaBox so the CSS scaling matches the
+    // actual page (pbs intros are 5.5in; Baker's are Letter 8.5in).
+    const head = new TextDecoder('latin1').decode(new Uint8Array(buf))
+    const m = head.match(/\/MediaBox\s*\[\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/)
+    pageWidthPx.value = m ? (parseFloat(m[3]) - parseFloat(m[1])) * 96 / 72 : 528
+    const pdfBlob = new Blob([buf], { type: 'application/pdf' })
     blobUrl.value = URL.createObjectURL(pdfBlob)
   } catch (err) {
     error.value = 'Could not load PDF'
@@ -133,7 +151,6 @@ function onDrag(e) {
 // Resize logic
 function startResize(e) {
   interacting.value = true
-  resizing.value = true
   dragOffset.x = e.clientX
   dragOffset.y = e.clientY
   dragOffset.startW = size.w
@@ -152,11 +169,6 @@ function stopInteraction() {
   document.removeEventListener('pointermove', onDrag)
   document.removeEventListener('pointermove', onResize)
   document.removeEventListener('pointerup', stopInteraction)
-  // Re-fit the PDF to the new width after a resize (see reloadKey).
-  if (resizing.value) {
-    resizing.value = false
-    reloadKey.value++
-  }
 }
 </script>
 
@@ -235,9 +247,11 @@ function stopInteraction() {
 }
 
 .viewer-iframe {
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
   border: none;
+  /* width/height/transform are set inline (CSS-scaled to the viewer body). */
 }
 
 .viewer-loading,
