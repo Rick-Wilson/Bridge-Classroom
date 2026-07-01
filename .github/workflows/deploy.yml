@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy site (.com Pages + .org Worker)
 
 on:
   push:
@@ -19,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      # Mapped to an env var so the deploy step can be conditioned on the
+      # secret's presence (secrets can't be referenced directly in `if:`).
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +39,24 @@ jobs:
 
       - name: Restructure for new site layout
         run: bash scripts/build-site.sh
+
+      # Deploy the Cloudflare Worker (.org) from this same run, using the dist/
+      # built above. This makes one build the single source of truth for BOTH
+      # domains and inherits the workflow's `cancel-in-progress` concurrency, so
+      # rapid successive merges always converge on the newest commit — fixing the
+      # class of bug where Cloudflare's own git builder skipped a build (leaving
+      # .org drifted behind .com). Disable the dashboard Git auto-build so this
+      # is the only path that deploys the Worker.
+      #
+      # Self-gating: no-op until CLOUDFLARE_API_TOKEN is set, so this can be
+      # merged before the secret exists without breaking the .com Pages deploy.
+      - name: Deploy Worker (.org)
+        if: env.CF_API_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
