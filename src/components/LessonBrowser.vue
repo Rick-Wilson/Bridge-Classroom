@@ -433,10 +433,14 @@ async function selectLesson(lesson, category) {
 .group-name {
   flex: 1;
   font-weight: 700;
-  color: #2a2a3a;
+  color: #1565c0;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-size: 14px;
+}
+
+.group-header .expand-icon {
+  color: #1565c0;
 }
 
 /* Indent the category rows nested under a group */
