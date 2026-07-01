@@ -1,8 +1,19 @@
-name: Deploy to GitHub Pages
+name: Deploy site (.com Pages + .org Worker)
 
 on:
   push:
     branches: [main]
+    # Skip deploys for pushes that touch ONLY non-build files. A push that also
+    # changes any build input still deploys (paths-ignore skips only when EVERY
+    # changed file matches). Do NOT add build inputs here — notably `docs/**` is
+    # the static landing pages that build-site.sh copies into dist/ (published),
+    # unlike `documentation/**` which is not. `workflow_dispatch` below stays as
+    # a manual deploy trigger.
+    paths-ignore:
+      - '**/*.md'
+      - 'documentation/**'
+      - 'mockups/**'
+      - 'LICENSE'
   workflow_dispatch:
 
 permissions:
@@ -10,11 +21,15 @@ permissions:
   pages: write
   id-token: write
 
+# One in-flight run per workflow; a newer push cancels the older. This is the
+# "latest-wins" guarantee that keeps BOTH domains from drifting when pushes land
+# close together (the failure mode Cloudflare's own Git builder had for .org).
 concurrency:
-  group: pages
+  group: deploy-site
   cancel-in-progress: true
 
 jobs:
+  # ── .com — GitHub Pages ────────────────────────────────────────────────
   build:
     runs-on: ubuntu-latest
     env:
@@ -55,3 +70,51 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # ── .org — Cloudflare Worker ───────────────────────────────────────────
+  # Independent job (NOT a step in build) so a Cloudflare failure never blocks
+  # the .com Pages deploy, and vice versa. Both are triggered by the same push
+  # and share the workflow's cancel-in-progress concurrency, so they still stay
+  # in lockstep on the newest commit — without coupling their success/failure.
+  #
+  # This replaces Cloudflare's own Git build integration, which had no
+  # latest-wins concurrency and could skip a build that landed during a prior
+  # one (leaving .org drifted behind .com, 2026-07-01). Keep the Cloudflare
+  # dashboard Git auto-build DISABLED so this is the only Worker deploy path.
+  deploy-worker:
+    runs-on: ubuntu-latest
+    env:
+      # Mapped to an env var so the deploy step can be conditioned on the
+      # secret's presence (secrets can't be referenced directly in `if:`).
+      # Self-gating: no-op until CLOUDFLARE_API_TOKEN is set, so this workflow
+      # is safe to merge before the secret exists.
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        if: env.CF_API_TOKEN != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: env.CF_API_TOKEN != ''
+        run: npm ci
+
+      - name: Build SPA
+        if: env.CF_API_TOKEN != ''
+        run: npm run build
+
+      - name: Restructure for new site layout
+        if: env.CF_API_TOKEN != ''
+        run: bash scripts/build-site.sh
+
+      - name: Deploy Worker (.org)
+        if: env.CF_API_TOKEN != ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy

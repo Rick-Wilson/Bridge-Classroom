@@ -56,10 +56,12 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
 - **Email support**: bridge-craftwork@gmail.com
 - **GitHub**: https://github.com/bridge-craftwork/Bridge-Classroom (org-owned since 2026-06-29; old `Rick-Wilson/...` redirects)
 - **Game Analysis webapp**: https://game-analysis.bridge-classroom.com
-- **Frontend (dual deploy from same source)**: every push to `main` rebuilds both domains identically.
-  - `bridge-classroom.com` → `.github/workflows/deploy.yml` → GitHub Pages.
-  - `bridge-classroom.org` → Cloudflare Worker `bridge-classroom` (Workers Static Assets, dashboard-configured to track `main`).
-  - Both run `npm ci && npm run build && bash scripts/build-site.sh`, publish `dist/`.
+- **Frontend (dual deploy from same source)**: every push to `main` rebuilds both domains identically **from one GitHub Actions run** (`.github/workflows/deploy.yml`):
+  - `bridge-classroom.com` → GitHub Pages (`actions/deploy-pages`).
+  - `bridge-classroom.org` → Cloudflare Worker `bridge-classroom` (Workers Static Assets) via the `Deploy Worker (.org)` step (`cloudflare/wrangler-action` → `wrangler deploy`).
+  - **Why one workflow, not two builders:** previously `.org` used Cloudflare's own Git build integration, which has no "latest-wins" concurrency — when two pushes landed close together it could build the first and silently skip the second, drifting `.org` behind `.com` (happened 2026-07-01). GitHub Actions' `concurrency: cancel-in-progress` guarantees the newest commit wins for both domains. **Keep the Cloudflare dashboard Git auto-build DISABLED** so this is the only Worker deploy path.
+  - Requires repo secrets `CLOUDFLARE_API_TOKEN` (Workers Scripts: Read+Write, account-scoped) and `CLOUDFLARE_ACCOUNT_ID`. The Worker deploy step self-gates on the token being present, so the `.com` deploy still works if it's ever missing.
+  - Both build `npm ci && npm run build && bash scripts/build-site.sh`, publish `dist/`.
   - Worker config: `wrangler.jsonc` at repo root, `assets.directory: "./dist"`, `name: "bridge-classroom"`, `compatibility_flags: ["nodejs_compat"]`.
 - **Backend API**: Rust server running locally on Mac at port 3000
 - **Tunnel**: Cloudflare Tunnel routes https://api.bridge-classroom.com → localhost:3000
@@ -106,14 +108,17 @@ If something needs to be shown or hidden, the PBN says so explicitly. The app do
      pages and assets from `docs/` into `dist/`. Idempotent. Logs
      `==== build-site.sh: START / DONE ====` markers so failures are
      obvious in deploy logs.
-  4. Publish `dist/`. GitHub Actions uploads via `actions/upload-pages-artifact`;
-     Cloudflare invokes `npx wrangler deploy` which reads the root
-     `wrangler.jsonc` and uploads `./dist` as static assets.
-- **Cloudflare Worker dashboard config** (Workers & Pages → bridge-classroom → Settings → Build):
-  - Path: *(blank — repo root)*
-  - Build command: `npm ci && npm run build && bash scripts/build-site.sh`
-  - Deploy command: `npx wrangler deploy`
-  - Production branch: `main`
+  4. Publish `dist/`. The **one** GitHub Actions run uploads to Pages (`.com`) via
+     `actions/upload-pages-artifact` **and** deploys the Worker (`.org`) via the
+     `Deploy Worker (.org)` step (`wrangler deploy`, reading root `wrangler.jsonc`,
+     uploading `./dist` as static assets).
+- **Cloudflare Worker dashboard config** — **superseded 2026-07-01.** The Worker
+  is now deployed from GitHub Actions (above), and the dashboard Git build should
+  stay **disabled**. (Historical, if you ever re-enable it: Workers & Pages →
+  bridge-classroom → Settings → Build — Path *(blank)*, Build
+  `npm ci && npm run build && bash scripts/build-site.sh`, Deploy
+  `npx wrangler deploy`, Production branch `main`. But don't — two builders is
+  exactly what caused the `.org` drift.)
 - See `documentation/cloudflare-setup.md` for the broader Cloudflare/DNS picture (largely focused on `.com`/GitHub Pages).
 
 ### Frontend deploy notes & gotchas (org transfer, 2026-06-29)

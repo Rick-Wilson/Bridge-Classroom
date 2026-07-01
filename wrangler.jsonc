@@ -3,11 +3,13 @@
   // bridge-classroom.org. The matching .com deploy is GitHub Pages and uses
   // the same dist/ output produced by `npm run build && bash scripts/build-site.sh`.
   //
-  // Dashboard build configuration this expects:
-  //   Path:           (blank — repo root)
-  //   Build command:  npm ci && npm run build && bash scripts/build-site.sh
-  //   Deploy command: npx wrangler deploy
-  //   Production branch: main
+  // DEPLOY: this Worker is deployed by the GitHub Actions workflow
+  // `.github/workflows/deploy.yml` (the `Deploy Worker (.org)` step runs
+  // `wrangler deploy` against the freshly built dist/), NOT by Cloudflare's own
+  // Git build integration. Both domains deploy from that one workflow run so
+  // they can never drift. The dashboard Git auto-build should stay DISABLED to
+  // avoid a second, uncoordinated builder. Manual fallback (needs an authed
+  // CLI): `npm run build && bash scripts/build-site.sh && npx wrangler deploy`.
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "bridge-classroom",
   "compatibility_date": "2026-05-04",
