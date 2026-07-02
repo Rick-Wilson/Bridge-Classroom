@@ -56,6 +56,9 @@ describe('useRemoteTable', () => {
     expect(table.hiddenSeats.value).toEqual(['N', 'E', 'W'])
     expect(table.handCounts.value.N).toBe(13)
     expect(table.isYourBid.value).toBe(true)
+    // Own seat chip seeded from welcome (the server broadcasts the join's
+    // seat_update before this connection subscribes, so we'd never see it).
+    expect(table.seats.value.S).toEqual({ kind: 'human', name: 'Alice', connected: true })
   })
 
   it('folds bid_made events and derives the contract at auction end', () => {

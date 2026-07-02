@@ -345,6 +345,17 @@ function handleMessage(msg) {
       yourName.value = msg.name
       role.value = msg.role
       yourSeat.value = msg.seat || null
+      // PROTOCOL GAP WORKAROUND: the server broadcasts the seat_update for a
+      // join BEFORE the joining connection subscribes to the room, so the
+      // joiner never sees its own seating (or who else is already seated).
+      // Seed our own chip from the welcome; other humans show as "Bot" until
+      // the next seat_update reaches us. Real fix: seats in the snapshot.
+      if (msg.seat && !seats.value[msg.seat]) {
+        seats.value = {
+          ...seats.value,
+          [msg.seat]: { kind: 'human', name: msg.name, connected: true },
+        }
+      }
       break
     case 'snapshot':
       applySnapshot(msg.state)
