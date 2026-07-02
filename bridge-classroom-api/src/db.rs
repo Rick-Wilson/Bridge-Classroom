@@ -820,6 +820,101 @@ async fn run_migrations(pool: &Pool<Sqlite>) -> Result<(), DbError> {
     .await
     .map_err(|e| DbError::Migration(e.to_string()))?;
 
+    // ===============================================================
+    // Multiplayer table sessions (plan: multiplayer bridge tables,
+    // phases 2-3). The Mac API is the system of record for session
+    // metadata; live table state lives in bridge-table-service memory.
+    // ===============================================================
+
+    // Persistent join-URL codes on users. `host_code` backs the teacher's
+    // evergreen /play/:hostCode URL; `invite_code` backs a player's social
+    // /table/:inviteCode URL. SQLite can't add a UNIQUE column via ALTER
+    // TABLE, so uniqueness is enforced with partial unique indexes below.
+    add_column_if_missing(pool, "users", "host_code", "TEXT").await?;
+    add_column_if_missing(pool, "users", "invite_code", "TEXT").await?;
+
+    sqlx::query(
+        r#"CREATE UNIQUE INDEX IF NOT EXISTS idx_users_host_code
+           ON users(host_code) WHERE host_code IS NOT NULL"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE UNIQUE INDEX IF NOT EXISTS idx_users_invite_code
+           ON users(invite_code) WHERE invite_code IS NOT NULL"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- Table sessions ----
+    // One row per multiplayer session. Boards are NOT stored here — session
+    // creation streams the raw PBN straight to the table service, which
+    // parses it (bridge-encodings) and holds it in memory (v1: no result
+    // persistence). seat_policy is the JSON blob the service interprets,
+    // e.g. {"mode":"manual"} or
+    // {"mode":"auto","pattern":"one_per_seat","seats":["S"]}.
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS table_sessions (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL CHECK (kind IN ('teacher_set', 'adhoc')),
+            owner_user_id TEXT NOT NULL REFERENCES users(id),
+            classroom_id TEXT REFERENCES classrooms(id),
+            exercise_id TEXT REFERENCES exercises(id),
+            status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+            seat_policy TEXT NOT NULL,
+            table_count INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            closed_at TEXT
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // Hot lookup: "the owner's open session" (join-URL resolution enforces
+    // at most one open session per owner at create time).
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_table_sessions_owner_status
+           ON table_sessions(owner_user_id, status)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    // ---- Guest users ----
+    // Shark-style type-a-name guests. One row per minted guest identity so
+    // the display name survives the ticket and can be linked to a real
+    // account later (linked_user_id, via the merge.rs machinery — later
+    // phase). No FK on session_id: guests may join demo/dev sessions that
+    // have no table_sessions row.
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS guest_users (
+            id TEXT PRIMARY KEY,
+            display_name TEXT NOT NULL,
+            session_id TEXT NOT NULL,
+            linked_user_id TEXT REFERENCES users(id),
+            created_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
+    sqlx::query(
+        r#"CREATE INDEX IF NOT EXISTS idx_guest_users_session
+           ON guest_users(session_id)"#,
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| DbError::Migration(e.to_string()))?;
+
     // ---- schema_meta — gates one-shot data migrations ----
     // Each row records that a named migration has run. Used to keep
     // the v2 backfill (in a follow-up commit) from re-running on every

@@ -9,8 +9,10 @@
 //! - Registered users: `{ user_id, session_id }` — role comes from the DB
 //!   (so a caller can't self-assign "teacher" in the request body).
 //! - Guests (Shark-style type-a-name entry): `{ guest_name, session_id }` —
-//!   gets a fresh `guest-<uuid>` subject and role "guest". Guest→account
-//!   linking comes later; ids are session-scoped by construction.
+//!   gets a fresh `guest-<uuid>` subject and role "guest", persisted as a
+//!   `guest_users` row (display name + session) so the identity outlives
+//!   the ticket and can be linked to a real account later
+//!   (`linked_user_id`, via the merge machinery).
 
 use axum::{
     extract::State,
@@ -114,6 +116,23 @@ pub async fn mint_table_ticket(
                 return Err((StatusCode::BAD_REQUEST, "invalid guest name".to_string()));
             }
             let sub = format!("guest-{}", uuid::Uuid::new_v4());
+            // Persist the guest identity (display name + session) so it
+            // outlives the ticket and can be linked to a real account later
+            // (guest_users.linked_user_id, via the merge machinery).
+            sqlx::query(
+                "INSERT INTO guest_users (id, display_name, session_id, created_at)
+                 VALUES (?, ?, ?, ?)",
+            )
+            .bind(&sub)
+            .bind(name)
+            .bind(&req.session_id)
+            .bind(chrono::Utc::now().to_rfc3339())
+            .execute(&state.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("guest_users insert failed: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, e.to_string())
+            })?;
             (sub, name.to_string(), "guest".to_string())
         }
         _ => {

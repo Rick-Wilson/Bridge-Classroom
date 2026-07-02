@@ -44,7 +44,14 @@ pub struct Config {
     /// HMAC secret for minting table-service join tickets (optional).
     /// Shared with bridge-table-service, which verifies tickets offline.
     /// When unset, POST /api/table-tickets degrades gracefully (503).
+    /// Doubles as the X-Service-Secret for the table service's admin
+    /// endpoints (session create/close).
     pub table_ticket_secret: Option<String>,
+
+    /// Base URL of bridge-table-service, used for the session-create /
+    /// session-close admin calls. The Mac↔droplet seam is deliberately
+    /// thin: this plus the ticket mint are the only integration points.
+    pub table_service_url: String,
 }
 
 impl Config {
@@ -96,6 +103,11 @@ impl Config {
             .ok()
             .filter(|s| !s.trim().is_empty());
 
+        let table_service_url = env::var("TABLE_SERVICE_URL")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(|| "https://tables.bridge-craftwork.com".to_string());
+
         Ok(Config {
             database_url,
             api_key,
@@ -110,6 +122,7 @@ impl Config {
             github_issues_token,
             github_issues_repo,
             table_ticket_secret,
+            table_service_url,
         })
     }
 

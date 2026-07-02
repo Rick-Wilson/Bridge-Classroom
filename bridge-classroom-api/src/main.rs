@@ -96,6 +96,20 @@ async fn main() -> anyhow::Result<()> {
         .route("/api/report", post(routes::create_report))
         // Multiplayer table join tickets (verified offline by bridge-table-service)
         .route("/api/table-tickets", post(routes::mint_table_ticket))
+        // Multiplayer table sessions (metadata here; live state in bridge-table-service)
+        .route("/api/table-sessions", post(routes::create_table_session))
+        .route(
+            "/api/table-sessions/:id",
+            get(routes::get_table_session).delete(routes::close_table_session),
+        )
+        // Public join-URL resolution (persistent per-user codes → open session)
+        .route("/api/play/:host_code", get(routes::resolve_host_code))
+        .route("/api/table/:invite_code", get(routes::resolve_invite_code))
+        .route("/api/users/:user_id/host-code", post(routes::generate_host_code))
+        .route(
+            "/api/users/:user_id/invite-code",
+            post(routes::generate_invite_code),
+        )
         // Recovery routes
         .route("/api/recovery/request", post(routes::request_recovery))
         .route("/api/recovery/claim", post(routes::claim_recovery))
