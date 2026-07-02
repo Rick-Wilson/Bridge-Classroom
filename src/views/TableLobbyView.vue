@@ -259,7 +259,11 @@ async function resolveAndRoute() {
 function enterIdentify(myEpoch) {
   // Teachers/admins get the console, not a seat: the table service seats a
   // teacher-role ticket as the see-all session controller regardless.
-  if (currentUser.value && sessionInfo.value?.id &&
+  // Exception: "demo" is the standing dev room, not a session — the service
+  // has no teacher connection (no lobby frames) for it and seats everyone as
+  // a player, so the console would hang at "Connecting…" forever. Teachers
+  // take a seat there like anyone else.
+  if (currentUser.value && sessionInfo.value?.id && sessionInfo.value.id !== 'demo' &&
       (currentUser.value.role === 'teacher' || currentUser.value.role === 'admin')) {
     router.replace(`/tables/console/${sessionInfo.value.id}`)
     return
