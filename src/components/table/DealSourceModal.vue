@@ -20,7 +20,7 @@
 
       <!-- Quick -->
       <div v-if="tab === 'quick'" class="dsm-body">
-        <button class="dsm-big" :disabled="busy" @click="deal({ source: 'random' })">
+        <button class="dsm-big" :disabled="busy" @click="dealVia({ kind: 'random' })">
           🎲 Random deal
           <span class="dsm-sub">uniform shuffle · dealer &amp; vulnerability rotate</span>
         </button>
@@ -93,18 +93,14 @@
 // handed over as single-board PBN — the server has one door for all
 // client-supplied deals.
 import { ref, watch } from 'vue'
-import {
-  fetchScenarioMenu,
-  fetchScenarioDeals,
-  fetchScenarioScript,
-  dealToMinimalPbn,
-  randomItem,
-} from '../../utils/pbsScenarios.js'
+import { fetchScenarioMenu } from '../../utils/pbsScenarios.js'
 import { useRemoteTable } from '../../composables/useRemoteTable.js'
+import { useDealSource } from '../../composables/useDealSource.js'
 
 const emit = defineEmits(['close'])
 
 const table = useRemoteTable()
+const dealSource = useDealSource()
 
 const tabs = [
   { id: 'quick', label: 'Quick' },
@@ -157,27 +153,24 @@ const SCRIPT_KEY = 'bridgeTableDealViaScript'
 const useScript = ref(localStorage.getItem(SCRIPT_KEY) === '1')
 watch(useScript, (v) => localStorage.setItem(SCRIPT_KEY, v ? '1' : '0'))
 
-async function dealFromScenario(item) {
+// Picking here SETS the sticky source (the header's "Next deal" repeats
+// it) and deals immediately.
+async function dealVia(descriptor) {
   busy.value = true
   error.value = ''
-  try {
-    if (useScript.value) {
-      const script = await fetchScenarioScript(item.file)
-      deal({ source: 'script', script, rotate: rotation() })
-      return
-    }
-    const deals = await fetchScenarioDeals(item.file)
-    const pick = randomItem(deals)
-    deal({ source: 'pbn', pbn: dealToMinimalPbn(pick), rotate: rotation() })
-  } catch (err) {
-    error.value = err.message
-  } finally {
-    busy.value = false
-  }
+  dealSource.setSource(descriptor)
+  const ok = await dealSource.nextDeal(rotation())
+  busy.value = false
+  if (ok) emit('close')
+  else error.value = dealSource.dealError.value || 'Deal failed.'
+}
+
+function dealFromScenario(item) {
+  dealVia({ kind: 'scenario', file: item.file, label: item.label, useScript: useScript.value })
 }
 
 function dealFromPaste() {
-  deal({ source: 'pbn', pbn: pastedPbn.value, rotate: rotation() })
+  dealVia({ kind: 'pbn', text: pastedPbn.value })
 }
 </script>
 

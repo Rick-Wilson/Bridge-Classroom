@@ -179,13 +179,22 @@ const dummySeat = computed(() => (declarer.value ? partnerOf(declarer.value) : n
 
 const hiddenSeats = computed(() => SEAT_ORDER.filter(s => !hands.value[s]))
 
-// The seat whose cards this viewer may click: your own seat on your turn,
-// or dummy's when you're declarer and dummy is on turn.
+// The seat whose cards this viewer may click: your own seat on your turn;
+// dummy's when you're declarer and dummy is on turn; and the DECLARER's
+// when you're a human dummy for a bot declarer (the human plays the hand —
+// the server enforces the same controller chain).
 const clickableSeat = computed(() => {
   if (phase.value !== 'play' || !yourSeat.value || !nextToAct.value) return null
   if (nextToAct.value === yourSeat.value) return yourSeat.value
   if (declarer.value === yourSeat.value && nextToAct.value === dummySeat.value) {
     return dummySeat.value
+  }
+  if (
+    dummySeat.value === yourSeat.value &&
+    nextToAct.value === declarer.value &&
+    seats.value[declarer.value]?.kind === 'empty'
+  ) {
+    return declarer.value
   }
   return null
 })

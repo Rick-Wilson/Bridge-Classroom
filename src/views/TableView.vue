@@ -53,12 +53,21 @@
           </button>
           <button
             v-if="canDeal"
-            class="tv-btn tv-btn-primary"
+            class="tv-btn"
             :disabled="connectionStatus !== 'connected'"
-            title="Choose the next deal: random, replay, a bidding scenario, or pasted PBN"
+            title="Choose where deals come from: random, a bidding scenario, or pasted PBN"
             @click="dealModalOpen = true"
           >
-            New deal
+            Deal source…
+          </button>
+          <button
+            v-if="canDeal"
+            class="tv-btn tv-btn-primary"
+            :disabled="connectionStatus !== 'connected' || dealSource.dealing.value"
+            :title="'Deal the next board from: ' + dealSource.label()"
+            @click="onNextDeal"
+          >
+            Next deal
           </button>
         </div>
       </div>
@@ -164,7 +173,9 @@
               Tricks <strong>NS {{ tricksTaken.NS }} · EW {{ tricksTaken.EW }}</strong>
             </div>
             <div v-if="clickableSeat" class="tv-status-line tv-your-turn">
-              Your turn — play from {{ clickableSeat === yourSeat ? 'your hand' : 'dummy' }}.
+              Your turn — play from
+              {{ clickableSeat === yourSeat ? 'your hand'
+                : clickableSeat === dummySeat ? 'dummy' : "declarer's hand" }}.
             </div>
             <div v-else-if="nextToAct" class="tv-status-line">
               Waiting for {{ turnLabel }}…
@@ -235,6 +246,7 @@ import AuctionTable from '../components/AuctionTable.vue'
 import TrickArea from '../components/TrickArea.vue'
 import TableDiagnostics from '../components/table/TableDiagnostics.vue'
 import DealSourceModal from '../components/table/DealSourceModal.vue'
+import { useDealSource } from '../composables/useDealSource.js'
 import { useRemoteTable } from '../composables/useRemoteTable.js'
 import { SUIT_SYMBOLS } from '../utils/cardFormatting.js'
 
@@ -248,8 +260,16 @@ const showDiagnostics = computed(() => route.query.debug !== undefined)
 
 // Deal-source picker (roadmap Phase 2). Demo room only — session boards
 // belong to the teacher console's round flow (the server enforces this
-// too); any seated player at the demo table may re-deal.
+// too); any seated player at the demo table may re-deal. "Deal source…"
+// opens the picker; "Next deal" repeats the sticky source.
 const dealModalOpen = ref(false)
+const dealSource = useDealSource()
+
+function onNextDeal() {
+  const rotate =
+    localStorage.getItem('bridgeTableRotateDeals') === '1' ? Math.floor(Math.random() * 4) : 0
+  dealSource.nextDeal(rotate)
+}
 
 defineEmits(['exit'])
 
@@ -315,6 +335,12 @@ const displayHiddenSeats = computed(() => {
     if (!hands.value[s]) return true
     if (s === yourSeat.value) return false
     if (s === dummySeat.value && dummyPublic.value) return false
+    // The dummy legitimately sees declarer's hand after the opening lead
+    // (play-along / plays-the-hand-for-a-bot-declarer) — mirror the
+    // server's redaction rule.
+    if (s === declarer.value && yourSeat.value === dummySeat.value && dummyPublic.value) {
+      return false
+    }
     return true
   })
 })
