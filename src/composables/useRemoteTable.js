@@ -28,10 +28,13 @@ const socket = useTableSocket()
 
 // ── Module-level singleton state ───────────────────────────────────────
 
+const sessionId = ref(null)
 const tableId = ref(null)
 const yourName = ref('')
 const role = ref('')
 const yourSeat = ref(null)
+// True for teacher connections (see-all, never seated).
+const seeAll = ref(false)
 // Server-confirmed bot backend for empty seats ('' until the welcome says).
 const botMode = ref('')
 
@@ -51,6 +54,19 @@ const tricksTaken = ref({ NS: 0, EW: 0 })
 // { N: {kind:'human',name,connected} | {kind:'empty'}, ... } — empty seats
 // are played by the server's bots.
 const seats = ref({})
+
+// ── Session round state (teacher-gated boards; absent on the demo room) ──
+// Seats that have sent ready_next_board on the current board.
+const readySeats = ref([])
+// { open, total } from the boards_open event (null until the teacher opens
+// a round while we're connected — the server doesn't send it on join).
+const boardsOpen = ref(null)
+// Result banner from the board_complete event:
+// { boardNo, passedOut, contract: {text, declarer, declarerTricks, made}|null,
+//   tricks: {ns, ew} } — cleared when the board advances.
+const boardComplete = ref(null)
+// The teacher closed the session (or it no longer exists on the service).
+const sessionClosed = ref(false)
 
 const errorMessage = ref('')
 const undoBy = ref('')
@@ -349,27 +365,35 @@ function handleCardPlayed(ev) {
 function handleMessage(msg) {
   switch (msg.t) {
     case 'welcome':
-      tableId.value = msg.table_id
+      // A welcome can RE-ARRIVE mid-connection: the teacher reseated (or
+      // booted) us and the connection re-resolved its table/seat. Reset all
+      // board-scoped state — the fresh snapshot that always follows a
+      // welcome repopulates it for the (possibly different) table.
+      resetBoardState()
+      sessionId.value = msg.session_id || null
+      tableId.value = msg.table_id || null
       yourName.value = msg.name
       role.value = msg.role
+      seeAll.value = !!msg.see_all
       yourSeat.value = msg.seat || null
       botMode.value = msg.bot_mode || ''
-      // PROTOCOL GAP WORKAROUND: the server broadcasts the seat_update for a
-      // join BEFORE the joining connection subscribes to the room, so the
-      // joiner never sees its own seating (or who else is already seated).
-      // Seed our own chip from the welcome; other humans show as "Bot" until
-      // the next seat_update reaches us. Real fix: seats in the snapshot.
-      if (msg.seat && !seats.value[msg.seat]) {
-        seats.value = {
-          ...seats.value,
-          [msg.seat]: { kind: 'human', name: msg.name, connected: true },
-        }
-      }
+      // Seed our own chip from the welcome (the join's seat_update broadcast
+      // happens before this connection subscribes). The snapshot's seats map
+      // replaces this a frame later.
+      seats.value = msg.seat
+        ? { [msg.seat]: { kind: 'human', name: msg.name, connected: true } }
+        : {}
       break
     case 'snapshot':
+      if (msg.table_id) tableId.value = msg.table_id
       applySnapshot(msg.state)
+      if (msg.seats) seats.value = msg.seats
       break
     case 'event':
+      // Kibitz-switching (teacher console) can interleave one table's late
+      // events with another's snapshot; drop frames for a table we're no
+      // longer viewing. session_closed has no table_id and must pass.
+      if (msg.table_id && tableId.value && msg.table_id !== tableId.value) break
       switch (msg.kind) {
         case 'seat_update':
           seats.value = msg.seats || {}
@@ -379,6 +403,44 @@ function handleMessage(msg) {
           break
         case 'card_played':
           handleCardPlayed(msg)
+          break
+        case 'ready_update':
+          readySeats.value = msg.ready || []
+          break
+        case 'boards_open':
+          boardsOpen.value = { open: msg.open, total: msg.total }
+          break
+        case 'board_advanced': {
+          // Fresh board: clear board-scoped state but keep the seats map
+          // (occupants don't change on advance). The per-viewer snapshot the
+          // server broadcasts right after this repopulates hands/auction.
+          const keptSeats = seats.value
+          resetBoardState()
+          seats.value = keptSeats
+          board.value = { number: msg.board_no, dealer: null, vulnerable: 'None' }
+          break
+        }
+        case 'board_complete':
+          boardComplete.value = {
+            boardNo: msg.board_no,
+            passedOut: !!msg.passed_out,
+            contract: msg.contract
+              ? {
+                  text: msg.contract.text,
+                  declarer: msg.contract.declarer,
+                  declarerTricks: msg.contract.declarer_tricks,
+                  made: msg.contract.made,
+                }
+              : null,
+            tricks: { NS: msg.tricks?.ns ?? 0, EW: msg.tricks?.ew ?? 0 },
+          }
+          phase.value = 'complete'
+          break
+        case 'session_closed':
+          sessionClosed.value = true
+          // The server hangs up after this; don't reconnect into a session
+          // that no longer exists.
+          socket.disconnect()
           break
         case 'undo':
           // A per-viewer snapshot follows (undo can re-hide information);
@@ -394,6 +456,13 @@ function handleMessage(msg) {
       }
       break
     case 'error':
+      if (msg.code === 'unknown_session') {
+        // Reconnected into a session the service no longer has (closed, or
+        // the service restarted). Same UX as an explicit close.
+        sessionClosed.value = true
+        socket.disconnect()
+        break
+      }
       showError(msg.msg || msg.code || 'Server rejected the request')
       break
     default:
@@ -442,12 +511,18 @@ function sendUndo() {
   return { ok, reason: ok ? '' : 'not connected' }
 }
 
-function resetTableState() {
-  tableId.value = null
-  yourName.value = ''
-  role.value = ''
-  yourSeat.value = null
-  botMode.value = ''
+// Session rounds: signal this seat is done with the current board. The
+// server broadcasts ready_update (which includes us) and advances the table
+// once every connected human is ready and the next board is open.
+function sendReady() {
+  if (!yourSeat.value) return { ok: false, reason: 'not seated' }
+  const ok = socket.send({ t: 'ready_next_board' })
+  return { ok, reason: ok ? '' : 'not connected' }
+}
+
+// Board-scoped state: everything a fresh board (or a reseat to another
+// table) invalidates. Identity/session refs survive.
+function resetBoardState() {
   seq.value = 0
   board.value = null
   phase.value = null
@@ -460,10 +535,25 @@ function resetTableState() {
   currentTrick.plays = []
   clearTrickLinger()
   tricksTaken.value = { NS: 0, EW: 0 }
+  readySeats.value = []
+  boardComplete.value = null
+  dummyResyncRequested = false
+}
+
+function resetTableState() {
+  resetBoardState()
+  sessionId.value = null
+  tableId.value = null
+  yourName.value = ''
+  role.value = ''
+  yourSeat.value = null
+  seeAll.value = false
+  botMode.value = ''
   seats.value = {}
+  boardsOpen.value = null
+  sessionClosed.value = false
   errorMessage.value = ''
   undoBy.value = ''
-  dummyResyncRequested = false
 }
 
 // ── Exported reactive surface ──────────────────────────────────────────
@@ -474,10 +564,12 @@ export function useRemoteTable() {
     connectionStatus: socket.status,
     connectionError: socket.lastError,
     // identity
+    sessionId,
     tableId,
     yourName,
     role,
     yourSeat,
+    seeAll,
     botMode,
     // table state
     seq,
@@ -497,6 +589,11 @@ export function useRemoteTable() {
     lastFinishedTrick,
     tricksTaken,
     seats,
+    // session rounds
+    readySeats,
+    boardsOpen,
+    boardComplete,
+    sessionClosed,
     // derived
     hiddenSeats,
     clickableSeat,
@@ -514,6 +611,7 @@ export function useRemoteTable() {
     sendBid,
     sendCard,
     sendUndo,
+    sendReady,
     // exposed for unit tests (message folding without a live socket)
     _handleMessage: handleMessage,
     _resetTableState: resetTableState,

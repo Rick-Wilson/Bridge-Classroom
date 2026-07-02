@@ -202,6 +202,132 @@ describe('useRemoteTable', () => {
     expect(toServerCall('XX')).toBe('XX')
   })
 
+  it('applies the seats map that travels with every snapshot', () => {
+    const msg = snapshotMsg()
+    msg.seats = {
+      N: { kind: 'empty' },
+      E: { kind: 'empty' },
+      S: { kind: 'human', name: 'Alice', connected: true },
+      W: { kind: 'human', name: 'Bob', connected: false },
+    }
+    table._handleMessage(msg)
+    expect(table.seats.value.S.name).toBe('Alice')
+    expect(table.seats.value.W.connected).toBe(false)
+    expect(table.seats.value.N.kind).toBe('empty')
+    expect(table.tableId.value).toBe('demo')
+  })
+
+  it('folds ready_update and boards_open events', () => {
+    table._handleMessage({ t: 'welcome', session_id: 's1', table_id: 's1-t1', name: 'A', role: 'guest', seat: 'S' })
+    table._handleMessage({ t: 'event', table_id: 's1-t1', seq: 0, kind: 'ready_update', ready: ['S', 'N'] })
+    expect(table.readySeats.value).toEqual(['S', 'N'])
+    table._handleMessage({ t: 'event', table_id: 's1-t1', kind: 'boards_open', open: 2, total: 6 })
+    expect(table.boardsOpen.value).toEqual({ open: 2, total: 6 })
+    expect(table.sessionId.value).toBe('s1')
+  })
+
+  it('folds board_complete into a result banner (contract and passed out)', () => {
+    table._handleMessage(snapshotMsg())
+    table._handleMessage({
+      t: 'event', kind: 'board_complete', seq: 58, board_no: 1,
+      passed_out: false,
+      contract: { text: '4S', declarer: 'S', declarer_tricks: 11, made: 1 },
+      tricks: { ns: 11, ew: 2 },
+    })
+    expect(table.phase.value).toBe('complete')
+    expect(table.boardComplete.value).toEqual({
+      boardNo: 1,
+      passedOut: false,
+      contract: { text: '4S', declarer: 'S', declarerTricks: 11, made: 1 },
+      tricks: { NS: 11, EW: 2 },
+    })
+
+    table._handleMessage({
+      t: 'event', kind: 'board_complete', seq: 4, board_no: 2,
+      passed_out: true, contract: null, tricks: { ns: 0, ew: 0 },
+    })
+    expect(table.boardComplete.value.passedOut).toBe(true)
+    expect(table.boardComplete.value.contract).toBeNull()
+  })
+
+  it('resets board state on board_advanced, keeping seats, then applies the fresh snapshot', () => {
+    table._handleMessage({ t: 'welcome', session_id: 's1', table_id: 's1-t1', name: 'A', role: 'guest', seat: 'S' })
+    const snap = snapshotMsg({ seq: 4, auction: ['1S', 'Pass', 'Pass', 'Pass'] })
+    snap.table_id = 's1-t1'
+    snap.seats = { S: { kind: 'human', name: 'A', connected: true }, N: { kind: 'empty' }, E: { kind: 'empty' }, W: { kind: 'empty' } }
+    table._handleMessage(snap)
+    table._handleMessage({ t: 'event', table_id: 's1-t1', kind: 'ready_update', ready: ['S'] })
+    table._handleMessage({
+      t: 'event', table_id: 's1-t1', seq: 0, kind: 'board_advanced',
+      board_no: 2, board_index: 1, forced: false,
+    })
+
+    // Board-scoped state cleared; seats survive.
+    expect(table.auction.value).toEqual([])
+    expect(table.readySeats.value).toEqual([])
+    expect(table.boardComplete.value).toBeNull()
+    expect(table.seq.value).toBe(0)
+    expect(table.boardNumber.value).toBe(2)
+    expect(table.seats.value.S.name).toBe('A')
+
+    // The per-viewer snapshot that follows repopulates the new board.
+    const fresh = snapshotMsg({ board: { number: 2, dealer: 'E', vulnerable: 'NS' } })
+    fresh.table_id = 's1-t1'
+    table._handleMessage(fresh)
+    expect(table.boardNumber.value).toBe(2)
+    expect(table.dealer.value).toBe('E')
+    expect(table.phase.value).toBe('bidding')
+  })
+
+  it('resets state on a mid-connection re-welcome (teacher reseat)', () => {
+    table._handleMessage({ t: 'welcome', session_id: 's1', table_id: 's1-t1', name: 'A', role: 'guest', seat: 'S' })
+    table._handleMessage(snapshotMsg({ seq: 3, auction: ['1S', 'Pass', '2S'] }))
+    expect(table.auction.value.length).toBe(3)
+
+    // Teacher moved us to table 2, North: fresh welcome + snapshot follow.
+    table._handleMessage({ t: 'welcome', session_id: 's1', table_id: 's1-t2', name: 'A', role: 'guest', seat: 'N' })
+    expect(table.tableId.value).toBe('s1-t2')
+    expect(table.yourSeat.value).toBe('N')
+    expect(table.auction.value).toEqual([])
+    expect(table.board.value).toBeNull()
+    // Old table's seats map must not leak; own chip re-seeded.
+    expect(table.seats.value).toEqual({ N: { kind: 'human', name: 'A', connected: true } })
+
+    const snap = snapshotMsg({
+      seq: 0,
+      board: { number: 1, dealer: 'N', vulnerable: 'None' },
+      next_to_act: 'N',
+      your_seat: 'N',
+    })
+    snap.table_id = 's1-t2'
+    table._handleMessage(snap)
+    expect(table.boardNumber.value).toBe(1)
+    expect(table.yourSeat.value).toBe('N')
+  })
+
+  it('drops events for a table other than the one being viewed', () => {
+    table._handleMessage({ t: 'welcome', session_id: 's1', table_id: 's1-t1', name: 'A', role: 'guest', seat: 'S' })
+    table._handleMessage(snapshotMsg())
+    table._handleMessage({
+      t: 'event', table_id: 's1-t2', kind: 'bid_made', seq: 1, call: '7NT', next_to_act: 'N',
+    })
+    expect(table.auction.value).toEqual([])
+  })
+
+  it('marks the session closed on session_closed and on unknown_session errors', () => {
+    table._handleMessage({ t: 'welcome', session_id: 's1', table_id: 's1-t1', name: 'A', role: 'guest', seat: 'S' })
+    expect(table.sessionClosed.value).toBe(false)
+    table._handleMessage({ t: 'event', table_id: 's1-t1', kind: 'session_closed' })
+    expect(table.sessionClosed.value).toBe(true)
+
+    table._resetTableState()
+    expect(table.sessionClosed.value).toBe(false)
+    table._handleMessage({ t: 'error', code: 'unknown_session', msg: 'no such session' })
+    expect(table.sessionClosed.value).toBe(true)
+    // Not surfaced as a transient error toast — it's a terminal state.
+    expect(table.errorMessage.value).toBe('')
+  })
+
   it('surfaces error frames and undo attribution as transient messages', () => {
     vi.useFakeTimers()
     table._handleMessage({ t: 'error', code: 'rejected', msg: 'not your turn' })
