@@ -4,7 +4,9 @@ import ConventionCardView from '../views/ConventionCardView.vue'
 
 const JoinClassroomView = () => import('../views/JoinClassroomView.vue')
 const BiddingPracticeView = () => import('../views/BiddingPracticeView.vue')
-const TableView = () => import('../views/TableView.vue')
+const TableLobbyView = () => import('../views/TableLobbyView.vue')
+const TableSessionNewView = () => import('../views/TableSessionNewView.vue')
+const TeacherConsoleView = () => import('../views/TeacherConsoleView.vue')
 
 const routes = [
   {
@@ -23,11 +25,30 @@ const routes = [
     component: ConventionCardView
   },
   {
-    // Multiplayer table (bridge-table-service). Guests join with just a
-    // name; logged-in users are seated under their account.
-    path: '/table/:sessionId?',
+    // Multiplayer tables: teacher's evergreen class URL. Bare /play shows
+    // the remembered-tables picker (auto-connects if exactly one is live).
+    path: '/play/:hostCode?',
+    name: 'play',
+    component: TableLobbyView
+  },
+  {
+    // Multiplayer tables: player's evergreen social URL. Unknown codes fall
+    // back to a direct session-id join (keeps #/table/demo working).
+    path: '/table/:inviteCode?',
     name: 'table',
-    component: TableView
+    component: TableLobbyView
+  },
+  {
+    // Teacher: create a table session (paste PBN, tables, seat policy).
+    path: '/tables/new',
+    name: 'tables-new',
+    component: TableSessionNewView
+  },
+  {
+    // Teacher: live console for an open session (grid, seating, rounds).
+    path: '/tables/console/:sessionId',
+    name: 'tables-console',
+    component: TeacherConsoleView
   },
   {
     // Catch-all: the main app layout handles lobby/collection/practice

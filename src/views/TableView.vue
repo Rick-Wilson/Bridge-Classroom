@@ -1,46 +1,16 @@
 <template>
   <div class="tv-page">
-    <!-- ── Join gate ─────────────────────────────────────────────── -->
-    <div v-if="!hasJoined" class="tv-join-card">
-      <h2>Join table</h2>
-      <p class="tv-join-session">Session: <strong>{{ sessionId }}</strong></p>
-
-      <template v-if="currentUser">
-        <p>Sit down as <strong>{{ currentUser.firstName }} {{ currentUser.lastName }}</strong>.</p>
-        <button class="tv-btn tv-btn-primary" :disabled="joining" @click="joinAsUser">
-          {{ joining ? 'Connecting…' : 'Take a seat' }}
-        </button>
-      </template>
-      <template v-else>
-        <p>Enter your name to take a seat — no account needed.</p>
-        <form class="tv-guest-form" @submit.prevent="joinAsGuest">
-          <input
-            v-model="guestName"
-            class="tv-guest-input"
-            type="text"
-            maxlength="60"
-            placeholder="Your name"
-            autocomplete="name"
-          >
-          <button class="tv-btn tv-btn-primary" type="submit" :disabled="!guestName.trim() || joining">
-            {{ joining ? 'Connecting…' : 'Take a seat' }}
-          </button>
-        </form>
-      </template>
-
-      <p v-if="connectionStatus === 'unavailable'" class="tv-error-text">
-        Multiplayer tables aren't set up yet. Please try again later.
-      </p>
-      <p v-else-if="connectionStatus === 'error'" class="tv-error-text">
-        Couldn't connect: {{ connectionError }}
-      </p>
+    <!-- Session closed overlay: terminal — the parent owns navigation. -->
+    <div v-if="sessionClosed" class="tv-closed-card">
+      <h2>Session ended</h2>
+      <p>The teacher has ended this table session. Thanks for playing!</p>
+      <button class="tv-btn tv-btn-primary" @click="$emit('exit')">Back to the lobby</button>
     </div>
 
-    <!-- ── Table ─────────────────────────────────────────────────── -->
     <template v-else>
       <div class="tv-header">
         <div class="tv-header-left">
-          <span class="tv-title">Table {{ tableId || sessionId }}</span>
+          <span class="tv-title">{{ tableTitle }}</span>
           <span v-if="boardNumber !== null" class="tv-tag">Board {{ boardNumber }}</span>
           <span v-if="dealer" class="tv-tag">Dealer {{ dealer }}</span>
           <span class="tv-tag" :class="{ 'tv-tag-vul': vulnerable !== 'None' }">
@@ -95,6 +65,11 @@
             :title="seats[seat].connected ? 'connected' : 'disconnected'"
           ></span>
           <span
+            v-if="readySeats.includes(seat)"
+            class="tv-seat-ready"
+            title="Ready for the next board"
+          >✓</span>
+          <span
             v-if="handCounts[seat] && phase === 'play'"
             class="tv-seat-count"
             :title="`${handCounts[seat]} card${handCounts[seat] === 1 ? '' : 's'} left in this hand`"
@@ -104,7 +79,7 @@
         </div>
       </div>
 
-      <p v-if="!yourSeat" class="tv-kibitz-note">
+      <p v-if="!yourSeat && !seeAll" class="tv-kibitz-note">
         The table is full — you're kibitzing.
       </p>
 
@@ -179,8 +154,9 @@
 
           <div v-if="phase === 'complete'" class="tv-card">
             <h3>Result</h3>
-            <div class="tv-status-line">
-              <template v-if="contract">
+            <div class="tv-status-line tv-result-line">
+              <span v-if="resultBanner" v-html="resultBanner"></span>
+              <template v-else-if="contract">
                 <span v-html="contractHtml"></span> by {{ declarer }} —
                 declarer took {{ declarerTricks }} trick{{ declarerTricks === 1 ? '' : 's' }}.
               </template>
@@ -189,6 +165,23 @@
             <div class="tv-status-line">
               Tricks <strong>NS {{ tricksTaken.NS }} · EW {{ tricksTaken.EW }}</strong>
             </div>
+
+            <!-- Session rounds: ready-up gate (session tables only) -->
+            <template v-if="sessionId && yourSeat">
+              <button
+                class="tv-btn tv-btn-primary tv-ready-btn"
+                :disabled="iAmReady || connectionStatus !== 'connected'"
+                @click="onReady"
+              >
+                {{ iAmReady ? 'Ready ✓' : 'Ready for next board' }}
+              </button>
+              <div v-if="readySeats.length" class="tv-status-line tv-ready-line">
+                Ready: {{ readyNames }}
+              </div>
+              <div v-if="iAmReady" class="tv-status-line tv-ready-wait">
+                Waiting for the others — or for the teacher to open the next board.
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -205,42 +198,39 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRoute } from 'vue-router'
+// TableView — the table surface for one seat (or kibitz view) of a live
+// table. Pure presentation over the useRemoteTable singleton: the PARENT
+// (TableLobbyView, TeacherConsoleView) owns the socket lifecycle — joining,
+// identity, and leave() — so this component works identically for players,
+// guests, and the teacher's kibitz panel (where yourSeat is null and every
+// interaction is naturally disabled).
+import { computed } from 'vue'
 import BridgeTable from '../components/BridgeTable.vue'
 import BiddingBox from '../components/BiddingBox.vue'
 import AuctionTable from '../components/AuctionTable.vue'
 import TrickArea from '../components/TrickArea.vue'
 import { useRemoteTable } from '../composables/useRemoteTable.js'
-import { useUserStore } from '../composables/useUserStore.js'
 import { SUIT_SYMBOLS } from '../utils/cardFormatting.js'
 
 const SEAT_ORDER = ['N', 'E', 'S', 'W']
-const GUEST_NAME_KEY = 'bridgeTableGuestName'
 const SEAT_NAMES = { N: 'North', E: 'East', S: 'South', W: 'West' }
 
-const route = useRoute()
-const userStore = useUserStore()
+defineEmits(['exit'])
+
 const table = useRemoteTable()
 
 const {
-  connectionStatus, connectionError,
-  tableId, yourSeat, botMode,
+  connectionStatus,
+  sessionId, tableId, yourSeat, seeAll, botMode,
   seq, boardNumber, dealer, vulnerable, phase,
   auction, contract, declarer,
   nextToAct, hands, handCounts,
   currentTrick, lastFinishedTrick, tricksTaken, seats,
+  readySeats, boardComplete, sessionClosed,
   hiddenSeats, clickableSeat,
   isYourBid, lastSuitBid, canDouble, canRedouble,
   errorMessage, undoBy,
 } = table
-
-const sessionId = computed(() => route.params.sessionId || 'demo')
-const currentUser = userStore.currentUser
-
-const hasJoined = ref(false)
-const joining = ref(false)
-const guestName = ref(localStorage.getItem(GUEST_NAME_KEY) || '')
 
 const connectionLabel = computed(() => ({
   connected: 'Connected',
@@ -252,17 +242,26 @@ const connectionLabel = computed(() => ({
   idle: 'Offline',
 }[connectionStatus.value] || connectionStatus.value))
 
+// "abc123-t2" → "Table 2"; the demo room and odd ids show as-is.
+const tableTitle = computed(() => {
+  const id = tableId.value
+  if (!id) return 'Table'
+  const m = id.match(/-t(\d+)$/)
+  return m ? `Table ${m[1]}` : `Table ${id}`
+})
+
 // "4SX" → "4♠X" with suit coloring; "3N" → "3NT".
-const contractHtml = computed(() => {
-  const text = contract.value?.text
-  if (!text) return ''
+function formatContract(text) {
   const m = text.match(/^(\d)([CDHSN])(X{0,2})$/)
   if (!m) return text
   const [, level, strain, dbl] = m
   if (strain === 'N') return `${level}NT${dbl}`
   const color = strain === 'H' || strain === 'D' ? '#d32f2f' : '#1a1a1a'
   return `${level}<span style="color:${color}">${SUIT_SYMBOLS[strain]}</span>${dbl}`
-})
+}
+
+const contractHtml = computed(() =>
+  contract.value?.text ? formatContract(contract.value.text) : '')
 
 const declarerTricks = computed(() => {
   if (!declarer.value) return 0
@@ -270,6 +269,31 @@ const declarerTricks = computed(() => {
     ? tricksTaken.value.NS
     : tricksTaken.value.EW
 })
+
+// The authoritative result from the board_complete event (contract,
+// made/down or passed out); falls back to the derived line when a viewer
+// joined after the event fired.
+const resultBanner = computed(() => {
+  const r = boardComplete.value
+  if (!r) return ''
+  if (r.passedOut) return 'Passed out.'
+  const c = r.contract
+  if (!c) return ''
+  const made = c.made
+  const outcome = made > 0
+    ? `made with ${made} overtrick${made === 1 ? '' : 's'}`
+    : made === 0
+      ? 'made exactly'
+      : `down ${-made}`
+  return `${formatContract(c.text)} by ${c.declarer} — ${outcome} ` +
+    `(${c.declarerTricks} trick${c.declarerTricks === 1 ? '' : 's'}).`
+})
+
+const iAmReady = computed(() =>
+  !!yourSeat.value && readySeats.value.includes(yourSeat.value))
+
+const readyNames = computed(() =>
+  readySeats.value.map(s => SEAT_NAMES[s] || s).join(', '))
 
 // Empty seats are played by the server's bots.
 function seatLabel(seat) {
@@ -293,27 +317,6 @@ const botThinking = computed(() => {
   return !occ || occ.kind === 'empty'
 })
 
-async function doJoin(opts) {
-  joining.value = true
-  // ?bot=random selects the server's bot backend for empty seats; the
-  // welcome frame's bot_mode confirms what's actually active.
-  const bot = typeof route.query.bot === 'string' && route.query.bot ? route.query.bot : null
-  const ok = await table.join({ sessionId: sessionId.value, bot, ...opts })
-  joining.value = false
-  if (ok) hasJoined.value = true
-}
-
-function joinAsUser() {
-  doJoin({ userId: currentUser.value.id })
-}
-
-function joinAsGuest() {
-  const name = guestName.value.trim()
-  if (!name) return
-  localStorage.setItem(GUEST_NAME_KEY, name)
-  doJoin({ guestName: name })
-}
-
 function onBid(call) {
   table.sendBid(call)
 }
@@ -326,17 +329,9 @@ function onUndo() {
   table.sendUndo()
 }
 
-onMounted(() => {
-  // /table is a standalone route (no MainLayout), so make sure the user
-  // store has loaded from localStorage. initialize() is idempotent.
-  userStore.initialize()
-  // Logged-in users join automatically; guests type a name first.
-  if (currentUser.value) joinAsUser()
-})
-
-onBeforeUnmount(() => {
-  table.leave()
-})
+function onReady() {
+  table.sendReady()
+}
 </script>
 
 <style scoped>
@@ -347,8 +342,8 @@ onBeforeUnmount(() => {
   font-family: 'Segoe UI', system-ui, sans-serif;
 }
 
-/* Join gate */
-.tv-join-card {
+/* Session-closed card */
+.tv-closed-card {
   max-width: 420px;
   margin: 80px auto;
   background: #fff;
@@ -358,16 +353,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
   text-align: center;
 }
-.tv-join-card h2 { margin: 0 0 8px; }
-.tv-join-session { color: #666; font-size: 14px; }
-.tv-guest-form { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
-.tv-guest-input {
-  flex: 1;
-  padding: 10px 12px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 16px;
-}
+.tv-closed-card h2 { margin: 0 0 8px; }
 
 /* Buttons */
 .tv-btn {
@@ -448,6 +434,7 @@ onBeforeUnmount(() => {
   background: #1d9e75;
 }
 .tv-seat-dot-off { background: #bbb; }
+.tv-seat-ready { color: #1d9e75; font-weight: 700; }
 .tv-seat-count { color: #888; font-size: 12px; }
 
 .tv-kibitz-note { color: #b26a00; font-size: 14px; margin: 0 0 8px; }
@@ -480,8 +467,11 @@ onBeforeUnmount(() => {
 .tv-status-line { font-size: 14px; color: #444; margin: 4px 0; }
 .tv-your-turn { color: #1d9e75; font-weight: 600; }
 .tv-bot-note { color: #999; font-size: 12px; }
+.tv-result-line { font-weight: 600; }
 
-.tv-error-text { color: #c62828; font-size: 14px; margin-top: 12px; }
+.tv-ready-btn { margin-top: 8px; width: 100%; }
+.tv-ready-line { color: #1d9e75; }
+.tv-ready-wait { color: #888; font-style: italic; }
 
 /* Toasts */
 .tv-toast {

@@ -20,9 +20,18 @@
         <div v-if="dashboard.lobbyClassrooms.value.length" class="classrooms-section">
           <div class="section-header">
             <h3 class="section-title">My Classrooms</h3>
-            <button class="action-btn create" @click="showCreateModal = true">
-              + New Classroom
-            </button>
+            <div class="section-actions">
+              <a
+                class="action-btn tables-link"
+                href="#/tables/new"
+                title="Host live multiplayer tables — students join via your permanent /play link"
+              >
+                ♠ New Table Session
+              </a>
+              <button class="action-btn create" @click="showCreateModal = true">
+                + New Classroom
+              </button>
+            </div>
           </div>
           <div class="classroom-cards">
             <ClassroomCard
@@ -168,6 +177,22 @@ onMounted(() => {
 
 .action-btn.create:hover {
   background: var(--green-dark, #2d6a4f);
+}
+
+.section-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.action-btn.tables-link {
+  background: white;
+  color: var(--green-dark, #2d6a4f);
+  border: 1px solid var(--green-mid, #40916c);
+}
+
+.action-btn.tables-link:hover {
+  background: var(--green-pale, #eef7f2);
 }
 
 /* Two-column dashboard grid */
