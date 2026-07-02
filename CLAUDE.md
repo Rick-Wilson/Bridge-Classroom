@@ -225,6 +225,17 @@ Users have one of three roles: `student`, `teacher`, `admin`. The lobby (`src/vi
 
 `SyncStatus.vue` only renders when `isOffline` or `hasError` is true. The healthy/synced/pending/syncing states are intentionally invisible — users shouldn't need to think about sync unless it's actively failing.
 
+### Cardplay Bots
+
+The frontend's pluggable bot interface lives in [src/utils/cardplayBots.js](src/utils/cardplayBots.js): every bot implements async `chooseOpeningLead(ctx)` / `chooseCard(ctx)` and must return a member of `ctx.legalCards`. Current adapters:
+
+- **RandomLegalBot** — instant, uniform over legal cards; the dev/fallback bot.
+- **BenBot** — wraps `benClient.js` HTTP calls to the BEN service (~20s cold start, ~500ms warm).
+
+The server-side twin is `bridge-table-service/src/bots.rs` (BBA bidding + BEN cardplay + RandomLegal fallback) for bot seats at multiplayer tables.
+
+**`bridge-rulebot`** (sibling Rust repo, github.com/bridge-craftwork/bridge-rulebot) is the in-between bot: deterministic rule-based cardplay — opening leads, second-hand-low/third-hand-high, and defensive signals (attitude/count, standard or upside-down) — where every decision returns a reason code + student-facing explanation, plus `legal_count` and `duration_micros`. It's stateless (full play history passed each call). The table service consumes it natively (dependency wired 2026-07-02; bots.rs integration pending); this frontend will consume it via a planned `bridge-rulebot-wasm` wrapper adapted to the `cardplayBots.js` interface. Requirements + architecture live in that repo's `docs/`.
+
 ### Convention Card
 
 Issue #8 Phase 1. A single Vue view ([src/views/ConventionCardView.vue](src/views/ConventionCardView.vue)) mounts at two places: standalone route `/convention-card` (no auth required — falls back to the public "2/1 Intermediate" system card) and inline as the Convention Card lobby tab via `<ConventionCardView embedded />`. The view is read-only in Phase 1; Phase 2 makes it editable.
