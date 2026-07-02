@@ -46,6 +46,21 @@ let reconnectTimer = null
 let keepaliveTimer = null
 let epoch = 0 // bumped on connect()/disconnect() to invalidate stale async work
 
+// Rolling log of recent frames (in + out, minus keepalive noise) for the
+// ?debug=1 diagnostics panel (TableDiagnostics.vue). Always on — ~100 small
+// objects is nothing, and recording from module load means the welcome and
+// snapshot frames are captured even though the panel mounts later.
+const FRAME_LOG_MAX = 100
+const frameLog = ref([])
+let frameId = 0
+
+function recordFrame(dir, msg) {
+  if (msg?.t === 'ping' || msg?.t === 'pong') return
+  const entry = { id: ++frameId, dir, at: new Date(), msg }
+  const next = frameLog.value.concat(entry)
+  frameLog.value = next.length > FRAME_LOG_MAX ? next.slice(-FRAME_LOG_MAX) : next
+}
+
 // ── Ticket minting ─────────────────────────────────────────────────────
 
 function cachedGuestTicket({ sessionId, guestName }) {
@@ -151,6 +166,7 @@ function openSocket(myEpoch) {
     // confirms the active mode via `bot_mode` in the welcome frame.
     if (identity?.bot) hello.bot = identity.bot
     ws.send(JSON.stringify(hello))
+    recordFrame('out', { ...hello, ticket: '<ticket>' })
     status.value = 'connected'
     backoffMs = 1000
     // Keepalive: the server treats "pong" as a no-op, but the traffic keeps
@@ -179,6 +195,7 @@ function openSocket(myEpoch) {
       try { sessionStorage.removeItem(GUEST_TICKET_CACHE_KEY) } catch { /* ignore */ }
       ticket = null
     }
+    recordFrame('in', msg)
     dispatch(msg)
   }
 
@@ -296,6 +313,7 @@ function resync() {
 function send(obj) {
   if (!socket || socket.readyState !== WebSocket.OPEN) return false
   socket.send(JSON.stringify(obj))
+  recordFrame('out', obj)
   return true
 }
 
@@ -311,6 +329,8 @@ export function useTableSocket() {
     status,
     lastError,
     ticketInfo,
+    // diagnostics (?debug=1 panel)
+    frameLog,
     // actions
     connect,
     disconnect,

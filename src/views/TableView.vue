@@ -193,6 +193,9 @@
       <transition name="tv-fade">
         <div v-if="undoBy" class="tv-toast">{{ undoBy }} undid the last action</div>
       </transition>
+
+      <!-- Diagnostics (URL-gated: any ?debug value on the route shows it) -->
+      <TableDiagnostics v-if="showDiagnostics" />
     </template>
   </div>
 </template>
@@ -205,15 +208,22 @@
 // guests, and the teacher's kibitz panel (where yourSeat is null and every
 // interaction is naturally disabled).
 import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import BridgeTable from '../components/BridgeTable.vue'
 import BiddingBox from '../components/BiddingBox.vue'
 import AuctionTable from '../components/AuctionTable.vue'
 import TrickArea from '../components/TrickArea.vue'
+import TableDiagnostics from '../components/table/TableDiagnostics.vue'
 import { useRemoteTable } from '../composables/useRemoteTable.js'
 import { SUIT_SYMBOLS } from '../utils/cardFormatting.js'
 
 const SEAT_ORDER = ['N', 'E', 'S', 'W']
 const SEAT_NAMES = { N: 'North', E: 'East', S: 'South', W: 'West' }
+
+// ?debug=1 (any value) on the route shows the diagnostics panel — state
+// dump + protocol frame log, see TableDiagnostics.vue.
+const route = useRoute()
+const showDiagnostics = computed(() => route.query.debug !== undefined)
 
 defineEmits(['exit'])
 
