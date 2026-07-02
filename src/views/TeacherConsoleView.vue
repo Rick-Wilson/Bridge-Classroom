@@ -44,48 +44,21 @@
 
       <p v-if="!lobby" class="tc-muted">Connecting to the session…</p>
 
-      <!-- Table grid -->
+      <!-- Live multi-table monitor -->
       <div v-if="lobby" class="tc-grid">
         <div
           v-for="t in lobby.tables"
           :key="t.table_id"
-          class="tc-table"
+          class="tc-panel"
           :class="{ 'tc-table-watched': t.table_id === kibitzTableId }"
         >
-          <div class="tc-table-head">
-            <span class="tc-table-name">{{ tableName(t.table_id) }}</span>
-            <span class="tc-tag">Board {{ t.board_no }}</span>
-            <span class="tc-phase" :class="'tc-phase-' + t.phase">{{ t.phase }}</span>
-          </div>
-
-          <div class="tc-table-stats">
-            <span>Tricks NS {{ t.tricks.ns }} · EW {{ t.tricks.ew }}</span>
-            <span v-if="t.next_to_act && t.phase !== 'complete'">· {{ t.next_to_act }} to act</span>
-            <span v-if="t.ready.length" class="tc-ready">· ready: {{ t.ready.join(' ') }}</span>
-          </div>
-
-          <!-- Seat chips -->
-          <div class="tc-seats">
-            <button
-              v-for="seat in SEAT_ORDER"
-              :key="seat"
-              class="tc-seat"
-              :class="{
-                'tc-seat-human': isHuman(t, seat),
-                'tc-seat-open': isMenuOpen(t.table_id, seat),
-              }"
-              @click="toggleMenu(t.table_id, seat)"
-            >
-              <span class="tc-seat-letter">{{ seat }}</span>
-              <span class="tc-seat-name">{{ seatName(t, seat) }}</span>
-              <span
-                v-if="isHuman(t, seat)"
-                class="tc-dot"
-                :class="{ 'tc-dot-off': !t.seats[seat].connected }"
-              ></span>
-              <span v-if="t.ready.includes(seat)" class="tc-check">✓</span>
-            </button>
-          </div>
+          <MiniTable
+            :t="t"
+            :name="tableName(t.table_id)"
+            @kibitz="watchTable(t.table_id)"
+            @advance="console_.forceAdvance(t.table_id)"
+            @seat-click="(seat) => toggleMenu(t.table_id, seat)"
+          />
 
           <!-- Seat action menu -->
           <div v-if="menu && menu.tableId === t.table_id" class="tc-menu">
@@ -119,18 +92,6 @@
             </template>
           </div>
 
-          <div class="tc-table-actions">
-            <button class="tc-btn tc-btn-small" @click="watchTable(t.table_id)">
-              {{ t.table_id === kibitzTableId ? 'Watching ✓' : 'Kibitz' }}
-            </button>
-            <button
-              class="tc-btn tc-btn-small"
-              title="Move this table to its next board now, skipping the ready check"
-              @click="console_.forceAdvance(t.table_id)"
-            >
-              Force advance
-            </button>
-          </div>
         </div>
 
         <!-- Kibitzers roster -->
@@ -171,6 +132,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TableView from './TableView.vue'
+import MiniTable from '../components/table/MiniTable.vue'
 import { useRemoteTable } from '../composables/useRemoteTable.js'
 import { useTeacherConsole } from '../composables/useTeacherConsole.js'
 import { useUserStore } from '../composables/useUserStore.js'
@@ -339,18 +301,21 @@ onBeforeUnmount(() => {
 
 .tc-muted { color: #888; font-size: 13px; }
 
-/* Table grid */
+/* Live monitor grid: density first — fit as many mini-tables as the
+   viewport allows (Rick: see everything happening across all tables). */
 .tc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 10px;
 }
+.tc-panel { position: relative; min-width: 0; }
 .tc-table {
   background: #fff;
   border: 1px solid #ddd;
   border-radius: 10px;
   padding: 14px;
 }
+.tc-table-watched :deep(.mt) { border-color: #1d4e89; box-shadow: 0 0 0 1px #1d4e89; }
 .tc-table-watched { border-color: #1d9e75; box-shadow: 0 0 0 1px #1d9e75; }
 .tc-table-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .tc-table-name { font-weight: 700; font-size: 15px; }
