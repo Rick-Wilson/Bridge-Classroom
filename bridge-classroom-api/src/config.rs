@@ -40,6 +40,11 @@ pub struct Config {
 
     /// owner/repo that classroom-feedback issues are filed into.
     pub github_issues_repo: String,
+
+    /// HMAC secret for minting table-service join tickets (optional).
+    /// Shared with bridge-table-service, which verifies tickets offline.
+    /// When unset, POST /api/table-tickets degrades gracefully (503).
+    pub table_ticket_secret: Option<String>,
 }
 
 impl Config {
@@ -86,6 +91,11 @@ impl Config {
         let github_issues_repo = env::var("GITHUB_ISSUES_REPO")
             .unwrap_or_else(|_| "ADavidBailey/Practice-Bidding-Scenarios".to_string());
 
+        // Treat an empty TABLE_TICKET_SECRET the same as unset.
+        let table_ticket_secret = env::var("TABLE_TICKET_SECRET")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
         Ok(Config {
             database_url,
             api_key,
@@ -99,6 +109,7 @@ impl Config {
             from_email,
             github_issues_token,
             github_issues_repo,
+            table_ticket_secret,
         })
     }
 

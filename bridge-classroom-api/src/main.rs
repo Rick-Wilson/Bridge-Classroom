@@ -94,6 +94,8 @@ async fn main() -> anyhow::Result<()> {
         )
         // Report-a-Problem route (files a classroom-feedback GitHub issue)
         .route("/api/report", post(routes::create_report))
+        // Multiplayer table join tickets (verified offline by bridge-table-service)
+        .route("/api/table-tickets", post(routes::mint_table_ticket))
         // Recovery routes
         .route("/api/recovery/request", post(routes::request_recovery))
         .route("/api/recovery/claim", post(routes::claim_recovery))
