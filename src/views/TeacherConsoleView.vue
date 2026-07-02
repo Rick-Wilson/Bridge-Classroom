@@ -216,7 +216,10 @@ async function endSession() {
 function joinSession() {
   if (!currentUser.value || !sessionId.value) return
   console_.attach()
-  table.join({ sessionId: sessionId.value, userId: currentUser.value.id })
+  // ?bot=random|rules|slow on the console URL flips every table in the
+  // session to that bot backend (testing: 'slow' = human-paced N/S).
+  const bot = typeof route.query.bot === 'string' && route.query.bot ? route.query.bot : null
+  table.join({ sessionId: sessionId.value, userId: currentUser.value.id, bot })
 }
 
 // Route changes reuse this component (old console → new console): rebuild

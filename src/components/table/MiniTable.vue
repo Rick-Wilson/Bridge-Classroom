@@ -19,23 +19,63 @@
       >⏭</button>
     </div>
 
-    <!-- Four one-line hands -->
-    <div class="mt-hands">
-      <div
-        v-for="seat in SEAT_ORDER"
-        :key="seat"
-        class="mt-hand"
-        :class="{ 'mt-hand-turn': isOnTurn(seat), 'mt-hand-declarer': isDeclarerSide(seat) }"
-      >
-        <span class="mt-seat">{{ seat }}{{ isOnTurn(seat) ? '▸' : '' }}</span>
-        <button class="mt-player" :title="playerTitle(seat)" @click="$emit('seat-click', seat)">
-          {{ playerName(seat) }}<span
-            v-if="isHuman(seat)"
-            class="mt-dot"
-            :class="{ 'mt-dot-off': !t.seats[seat].connected }"
-          ></span><span v-if="t.ready.includes(seat)" class="mt-ready">✓</span>
-        </button>
-        <span class="mt-cards" v-html="handHtml(seat)"></span>
+    <!-- Compass diagram: N top, W/E flanking the trick, S bottom -->
+    <div class="mt-compass">
+      <div class="mt-pos mt-pos-n">
+        <div class="mt-who" :class="{ 'mt-turn': isOnTurn('N') }">
+          <span class="mt-seat">N{{ isOnTurn('N') ? '▸' : '' }}</span>
+          <button class="mt-player" :title="playerTitle('N')" @click="$emit('seat-click', 'N')">
+            {{ playerName('N') }}<span v-if="isHuman('N')" class="mt-dot" :class="{ 'mt-dot-off': !t.seats.N.connected }"></span><span v-if="t.ready.includes('N')" class="mt-ready">✓</span>
+          </button>
+        </div>
+        <div class="mt-cards" v-html="handHtml('N')"></div>
+      </div>
+
+      <div class="mt-pos mt-pos-w">
+        <div class="mt-who" :class="{ 'mt-turn': isOnTurn('W') }">
+          <span class="mt-seat">W{{ isOnTurn('W') ? '▸' : '' }}</span>
+          <button class="mt-player" :title="playerTitle('W')" @click="$emit('seat-click', 'W')">
+            {{ playerName('W') }}<span v-if="isHuman('W')" class="mt-dot" :class="{ 'mt-dot-off': !t.seats.W.connected }"></span><span v-if="t.ready.includes('W')" class="mt-ready">✓</span>
+          </button>
+        </div>
+        <div class="mt-cards mt-cards-side" v-html="handHtmlSide('W')"></div>
+      </div>
+
+      <div class="mt-pos mt-pos-c">
+        <template v-if="t.phase === 'play' && t.current_trick && t.current_trick.plays.length">
+          <div v-for="p in t.current_trick.plays" :key="p.seat" class="mt-trick-card">
+            {{ p.seat }}&thinsp;<span v-html="cardHtml(p.card)"></span>
+          </div>
+        </template>
+        <div v-else-if="t.phase === 'play'" class="mt-center-note">{{ t.next_to_act }} to lead</div>
+        <div v-else-if="t.phase === 'complete'" class="mt-center-note mt-center-result">
+          <template v-if="t.result && t.result.contract">
+            {{ t.result.contract.made ? 'Made' : 'Down' }}<br />
+            {{ t.result.contract.declarer_tricks }} tricks
+          </template>
+          <template v-else>Passed<br />out</template>
+        </div>
+        <div v-else class="mt-center-note">bidding</div>
+      </div>
+
+      <div class="mt-pos mt-pos-e">
+        <div class="mt-who" :class="{ 'mt-turn': isOnTurn('E') }">
+          <span class="mt-seat">E{{ isOnTurn('E') ? '▸' : '' }}</span>
+          <button class="mt-player" :title="playerTitle('E')" @click="$emit('seat-click', 'E')">
+            {{ playerName('E') }}<span v-if="isHuman('E')" class="mt-dot" :class="{ 'mt-dot-off': !t.seats.E.connected }"></span><span v-if="t.ready.includes('E')" class="mt-ready">✓</span>
+          </button>
+        </div>
+        <div class="mt-cards mt-cards-side" v-html="handHtmlSide('E')"></div>
+      </div>
+
+      <div class="mt-pos mt-pos-s">
+        <div class="mt-who" :class="{ 'mt-turn': isOnTurn('S') }">
+          <span class="mt-seat">S{{ isOnTurn('S') ? '▸' : '' }}</span>
+          <button class="mt-player" :title="playerTitle('S')" @click="$emit('seat-click', 'S')">
+            {{ playerName('S') }}<span v-if="isHuman('S')" class="mt-dot" :class="{ 'mt-dot-off': !t.seats.S.connected }"></span><span v-if="t.ready.includes('S')" class="mt-ready">✓</span>
+          </button>
+        </div>
+        <div class="mt-cards" v-html="handHtml('S')"></div>
       </div>
     </div>
 
@@ -53,38 +93,15 @@
         ></span>
       </div>
     </div>
-
-    <!-- Trick in progress / result -->
-    <div v-if="t.phase === 'play'" class="mt-foot">
-      <template v-if="t.current_trick && t.current_trick.plays.length">
-        <span class="mt-foot-label">trick</span>
-        <span
-          v-for="p in t.current_trick.plays"
-          :key="p.seat"
-          class="mt-trick-card"
-        >{{ p.seat }}&thinsp;<span v-html="cardHtml(p.card)"></span></span>
-      </template>
-      <span v-else class="mt-foot-label">{{ t.next_to_act }} to lead</span>
-    </div>
-    <div v-else-if="t.phase === 'complete'" class="mt-foot mt-foot-result">
-      <template v-if="t.result && t.result.contract">
-        <span v-html="suitHtml(t.result.contract.text)"></span>&nbsp;by
-        {{ t.result.contract.declarer }} —
-        {{ t.result.contract.made ? 'made' : 'down' }},
-        {{ t.result.contract.declarer_tricks }} tricks
-      </template>
-      <template v-else-if="t.result && t.result.passed_out">Passed out</template>
-      <template v-else>Complete</template>
-    </div>
   </div>
 </template>
 
 <script setup>
-// MiniTable — one live table panel in the teacher's multi-table monitor.
-// Pure presentation over the enriched lobby feed (sessions::lobby_json):
-// four one-line hands (denser than Shark's card-image rows or the kibitz
-// view's stacked suits), a micro auction grid, and the trick in progress.
-// All interaction is emitted; the console owns menus and kibitz.
+// MiniTable — one live table panel in the teacher's multi-table monitor,
+// laid out as the classic compass diagram (N top, W/E flanking the trick,
+// S bottom) so a teacher can internalize each hand at a glance. N/S hands
+// are one line; W/E stack two suits per line to keep the panel narrow.
+// Pure presentation over the enriched lobby feed; all interaction emits.
 import { computed } from 'vue'
 
 const SEAT_ORDER = ['N', 'E', 'S', 'W']
@@ -117,27 +134,37 @@ function isOnTurn(seat) {
   return props.t.next_to_act === seat && props.t.phase !== 'complete'
 }
 
-function isDeclarerSide(seat) {
-  const d = props.t.contract?.declarer
-  if (!d) return false
-  return seat === d || SEAT_ORDER[(SEAT_ORDER.indexOf(d) + 2) % 4] === seat
-}
-
 function sym(suitChar) {
   const red = suitChar === 'H' || suitChar === 'D'
   return `<span class="${red ? 'mt-red' : 'mt-black'}">${SUIT_SYM[suitChar]}</span>`
 }
 
-// ["SA","ST","H4",...] → ♠A10 ♥4 …, ranks high→low, T shown as 10.
-function handHtml(seat) {
+function suitRanks(seat) {
   const cards = props.t.hands?.[seat] || []
   const bySuit = { S: [], H: [], D: [], C: [] }
   for (const c of cards) bySuit[c[0]]?.push(c[1])
-  return SUIT_ORDER.map((s) => {
-    const ranks = bySuit[s].sort((a, b) => RANK_VALUE[b] - RANK_VALUE[a])
-      .map((r) => (r === 'T' ? '10' : r)).join('')
-    return `${sym(s)}${ranks || '—'}`
-  }).join(' ')
+  for (const s of SUIT_ORDER) {
+    bySuit[s] = bySuit[s]
+      .sort((a, b) => RANK_VALUE[b] - RANK_VALUE[a])
+      .map((r) => (r === 'T' ? '10' : r))
+      .join('')
+  }
+  return bySuit
+}
+
+// One line: ♠KQ83 ♥1054 ♦J6 ♣863 (N/S).
+function handHtml(seat) {
+  const r = suitRanks(seat)
+  return SUIT_ORDER.map((s) => `${sym(s)}${r[s] || '—'}`).join(' ')
+}
+
+// Two lines of two suits (W/E side columns).
+function handHtmlSide(seat) {
+  const r = suitRanks(seat)
+  return (
+    `${sym('S')}${r.S || '—'} ${sym('H')}${r.H || '—'}<br>` +
+    `${sym('D')}${r.D || '—'} ${sym('C')}${r.C || '—'}`
+  )
 }
 
 function cardHtml(code) {
@@ -189,114 +216,86 @@ const lastCallCol = computed(() => {
   gap: 6px;
   min-width: 0;
 }
-.mt-head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+.mt-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .mt-name {
-  border: none;
-  background: none;
-  font-weight: 700;
-  font-size: 13.5px;
-  color: #1d4e89;
-  cursor: pointer;
-  padding: 0;
+  border: none; background: none; font-weight: 700; font-size: 13.5px;
+  color: #1d4e89; cursor: pointer; padding: 0;
 }
 .mt-name:hover { text-decoration: underline; }
 .mt-chip {
-  background: #f0f3f6;
-  border-radius: 4px;
-  padding: 1px 6px;
-  font-size: 11px;
-  color: #445;
-  white-space: nowrap;
+  background: #f0f3f6; border-radius: 4px; padding: 1px 6px;
+  font-size: 11px; color: #445; white-space: nowrap;
 }
 .mt-chip-contract { background: #e8f1fb; font-weight: 600; }
 .mt-phase-bidding { background: #fdf3d8; }
 .mt-phase-play { background: #e3f2ec; }
 .mt-phase-complete { background: #ece8f6; }
 .mt-head-spacer { flex: 1; }
-.mt-icon {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 0 2px;
-  opacity: 0.55;
-}
+.mt-icon { border: none; background: none; cursor: pointer; font-size: 13px; padding: 0 2px; opacity: 0.55; }
 .mt-icon:hover { opacity: 1; }
-.mt-hands { display: flex; flex-direction: column; gap: 1px; }
-.mt-hand {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 1px 4px;
-  border-radius: 4px;
-  white-space: nowrap;
-  overflow: hidden;
+
+/* Compass: N / W-center-E / S */
+.mt-compass {
+  display: grid;
+  grid-template-columns: 1fr minmax(64px, auto) 1fr;
+  grid-template-areas:
+    "n n n"
+    "w c e"
+    "s s s";
+  gap: 2px 8px;
+  align-items: center;
 }
-.mt-hand-turn { background: #fff7dd; }
-.mt-seat { font-weight: 700; width: 20px; flex: none; color: #333; }
-.mt-hand-declarer .mt-seat { color: #1d4e89; }
+.mt-pos-n { grid-area: n; text-align: center; }
+.mt-pos-s { grid-area: s; text-align: center; }
+.mt-pos-w { grid-area: w; }
+.mt-pos-e { grid-area: e; text-align: right; }
+.mt-pos-c {
+  grid-area: c;
+  text-align: center;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: #f7f9f7;
+  border-radius: 6px;
+  padding: 3px 6px;
+  min-height: 48px;
+}
+.mt-who {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: 4px; padding: 0 4px;
+}
+.mt-pos-n .mt-who, .mt-pos-s .mt-who { justify-content: center; }
+.mt-turn { background: #fff3c8; }
+.mt-seat { font-weight: 700; color: #333; }
 .mt-player {
-  border: none;
-  background: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 11px;
-  color: #667;
-  width: 74px;
-  flex: none;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  border: none; background: none; padding: 0; cursor: pointer;
+  font-size: 11px; color: #667; max-width: 110px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .mt-player:hover { color: #1d4e89; text-decoration: underline; }
 .mt-dot {
-  display: inline-block;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: #2fa572;
-  margin-left: 3px;
-  vertical-align: middle;
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: #2fa572; margin-left: 3px; vertical-align: middle;
 }
 .mt-dot-off { background: #d33; }
 .mt-ready { color: #2fa572; font-weight: 700; margin-left: 2px; }
 .mt-cards {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-size: 12px; letter-spacing: 0.02em; white-space: nowrap;
 }
-.mt-cards :deep(.mt-red), .mt-foot :deep(.mt-red), .mt-chip :deep(.mt-red), .mt-auction :deep(.mt-red) { color: #c62828; }
-.mt-cards :deep(.mt-black), .mt-foot :deep(.mt-black), .mt-chip :deep(.mt-black), .mt-auction :deep(.mt-black) { color: #111; }
-.mt-auction {
-  border-top: 1px dashed #e3e8ec;
-  padding-top: 4px;
-  font-size: 11.5px;
-}
-.mt-auction-row {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  text-align: center;
-}
+.mt-cards-side { line-height: 1.35; }
+.mt-cards :deep(.mt-red), .mt-pos-c :deep(.mt-red), .mt-chip :deep(.mt-red), .mt-auction :deep(.mt-red) { color: #c62828; }
+.mt-cards :deep(.mt-black), .mt-pos-c :deep(.mt-black), .mt-chip :deep(.mt-black), .mt-auction :deep(.mt-black) { color: #111; }
+.mt-trick-card { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+.mt-center-note { font-size: 10.5px; color: #8a97a3; text-transform: uppercase; letter-spacing: 0.05em; }
+.mt-center-result { color: #333; font-weight: 600; text-transform: none; font-size: 12px; }
+
+.mt-auction { border-top: 1px dashed #e3e8ec; padding-top: 4px; font-size: 11.5px; }
+.mt-auction-row { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; }
 .mt-auction-header { color: #99a; font-size: 10px; }
 .mt-auction :deep(.mt-pass) { color: #9aa; }
 .mt-call-last { background: #eef6ff; border-radius: 3px; font-weight: 600; }
-.mt-foot {
-  border-top: 1px dashed #e3e8ec;
-  padding-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11.5px;
-  color: #445;
-}
-.mt-foot-label { color: #99a; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; }
-.mt-trick-card { font-family: ui-monospace, Menlo, monospace; }
-.mt-foot-result { font-weight: 600; color: #333; }
 </style>
