@@ -70,6 +70,13 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Pages processing normally takes ~40s, but GitHub's queue sometimes
+          # stalls for 10+ minutes (2026-07-02: three deploys of 7ba8f61 died at
+          # the default 10-min timeout while .org sailed through, leaving .com
+          # stale). 30 min rides out slow-queue days; a hung deploy just holds
+          # its runner, and cancel-in-progress still supersedes it on push.
+          timeout: 1800000
 
   # ── .org — Cloudflare Worker ───────────────────────────────────────────
   # Independent job (NOT a step in build) so a Cloudflare failure never blocks
